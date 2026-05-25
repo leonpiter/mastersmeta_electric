@@ -15,7 +15,7 @@ body {
   inset: 0;
   width: 100vw;
   height: 100vh;
-  background: #f7f9fc;
+  background: #e9edf2;
   cursor: crosshair;
   touch-action: none;
 }
