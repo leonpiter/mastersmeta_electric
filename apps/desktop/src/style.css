@@ -1,23 +1,28 @@
 /*
- * Строгое инженерное оформление (CAD-стиль, без скруглений):
- * пристыкованные доки — toolbar сверху, библиотека слева, статус-бар снизу,
- * плоские панели, тонкие границы, прямые углы. Палитра — нейтральный серый + акцент.
+ * Оформление в духе See Electrical: строго, плоско, без скруглений.
+ * Раскладка: тулбар сверху, два боковых дока (структура проекта / база УГО,
+ * меняются местами, ширина тянется сплиттерами), статус-бар снизу.
  */
 :root {
-  --toolbar-h: 38px;
-  --status-h: 24px;
-  --panel-w: 158px;
+  --toolbar-h: 36px;
+  --status-h: 22px;
+  --left-w: 200px;
+  --right-w: 212px;
 
-  --bg: #e7e9ec; /* «стол» вокруг листа */
-  --panel: #eef0f2; /* доки */
-  --panel-2: #f7f8f9; /* поля ввода / элементы */
-  --border: #b6bbc4; /* основная граница доков */
-  --border-2: #ccd1d8; /* мягкая граница элементов */
+  --bg: #e7e9ec;
+  --panel: #eef0f2;
+  --panel-2: #f6f7f8;
+  --header-1: #eaf0f6;
+  --header-2: #d6e1ee;
+  --header-text: #1f3350;
+  --border: #b6bbc4;
+  --border-2: #ccd1d8;
   --text: #2a2e35;
   --text-dim: #6a7280;
   --accent: #1668b8;
   --accent-soft: #dbe8f5;
-  --hover: #e0e4ea;
+  --hover: #e2e7ee;
+  --star: #f1b211;
 }
 
 * {
@@ -36,17 +41,79 @@ body {
 
 body {
   display: grid;
-  grid-template-columns: var(--panel-w) 1fr;
+  grid-template-columns: var(--left-w) 5px 1fr 5px var(--right-w);
   grid-template-rows: var(--toolbar-h) 1fr var(--status-h);
   grid-template-areas:
-    "toolbar toolbar"
-    "library canvas"
-    "status  status";
+    "toolbar toolbar toolbar toolbar toolbar"
+    "left    splitL  canvas  splitR right"
+    "status  status  status  status status";
   height: 100vh;
   background: var(--bg);
 }
 
-/* ---- toolbar (верхний док) ---- */
+/* ---- доки, сплиттеры, обмен местами ---- */
+#project {
+  grid-area: left;
+  border-right: 1px solid var(--border);
+}
+#library {
+  grid-area: right;
+  border-left: 1px solid var(--border);
+}
+body.swapped #project {
+  grid-area: right;
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+body.swapped #library {
+  grid-area: left;
+  border-left: none;
+  border-right: 1px solid var(--border);
+}
+
+#split-left {
+  grid-area: splitL;
+}
+#split-right {
+  grid-area: splitR;
+}
+.splitter {
+  background: var(--bg);
+  cursor: col-resize;
+}
+.splitter:hover,
+body.resizing .splitter {
+  background: var(--accent);
+}
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.resizing #canvas {
+  pointer-events: none;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.panel-header {
+  flex: 0 0 auto;
+  height: 23px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  background: linear-gradient(var(--header-1), var(--header-2));
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--header-text);
+}
+
+/* ---- toolbar ---- */
 #toolbar {
   grid-area: toolbar;
   display: flex;
@@ -59,7 +126,7 @@ body {
 
 #toolbar button {
   font: inherit;
-  height: 28px;
+  height: 26px;
   padding: 0 10px;
   border: 1px solid transparent;
   background: transparent;
@@ -85,10 +152,17 @@ body {
   border-color: transparent;
 }
 
+.tb-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 6px 5px;
+  background: var(--border-2);
+}
+
 #hint {
   flex: 1 1 auto;
   min-width: 0;
-  margin-left: 10px;
+  margin-left: 8px;
   padding-left: 10px;
   border-left: 1px solid var(--border-2);
   color: var(--text-dim);
@@ -98,72 +172,257 @@ body {
   text-overflow: ellipsis;
 }
 
-/* ---- библиотека (левый док) ---- */
-#library {
-  grid-area: library;
-  overflow-y: auto;
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-}
-
-.lib-title {
-  padding: 7px 8px;
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--border);
+/* ---- структура проекта (дерево) ---- */
+.tree {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 2px 0;
   font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text);
 }
 
-.lib-cat {
-  padding: 8px 8px 3px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
-}
-
-.lib-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 0 6px 6px;
-}
-
-.lib-item {
+.tree-node {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 5px 2px;
-  border: 1px solid var(--border-2);
-  background: #fff;
+  gap: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.tree-node.folder,
+.tree-node.sheet {
   cursor: pointer;
 }
 
-.lib-item:hover {
-  border-color: var(--accent);
+.tree-node.folder:hover,
+.tree-node.sheet:hover {
+  background: var(--hover);
+}
+
+.tree-node.active {
   background: var(--accent-soft);
 }
 
-.lib-item.active {
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
-  background: var(--accent-soft);
-}
-
-.lib-item svg {
-  display: block;
-}
-
-.lib-label {
-  font-size: 10px;
+.tree-node.dim {
   color: var(--text-dim);
 }
 
-/* ---- канвас (рабочая область) ---- */
+.tree-exp {
+  flex: 0 0 11px;
+  width: 11px;
+  height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--text-dim);
+  background: #fff;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.tree-ico {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.tree-ico svg {
+  display: block;
+}
+
+.tree-children[hidden] {
+  display: none;
+}
+
+.ws-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.ws-tab {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  border-right: 1px solid var(--border-2);
+  cursor: default;
+}
+
+.ws-tab.active {
+  background: #fff;
+  color: var(--text);
+  font-weight: 600;
+  border-top: 2px solid var(--accent);
+  margin-top: -1px;
+}
+
+.ws-tab.dim {
+  color: #aab0ba;
+}
+
+/* ---- база УГО (дерево-список) ---- */
+.lib-filter {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.lib-filter-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.lib-filter input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.lib-filter input:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.lib-filter-clear {
+  font: inherit;
+  width: 22px;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #c0392b;
+  cursor: pointer;
+}
+
+.lib-filter-clear:hover {
+  background: var(--hover);
+}
+
+.lib-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.lib-folder {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.lib-folder:hover {
+  background: var(--hover);
+}
+
+.lib-exp {
+  flex: 0 0 11px;
+  width: 11px;
+  height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--text-dim);
+  background: #fff;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.lib-fav-ico {
+  width: 15px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--star);
+}
+
+.lib-fname {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lib-rows[hidden] {
+  display: none;
+}
+
+.lib-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 28px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.lib-row:hover {
+  background: var(--accent-soft);
+}
+
+.lib-row.active {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.lib-row .ico {
+  flex: 0 0 30px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lib-row .ico svg {
+  display: block;
+}
+
+.lib-row .nm {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lib-row .star {
+  flex: 0 0 auto;
+  color: #c9ccd2;
+  font-size: 12px;
+  opacity: 0;
+}
+
+.lib-row:hover .star {
+  opacity: 1;
+}
+
+.lib-row .star.on {
+  opacity: 1;
+  color: var(--star);
+}
+
+.lib-row .star:hover {
+  color: var(--star);
+}
+
+.lib-empty {
+  padding: 12px 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ---- канвас ---- */
 #canvas {
   grid-area: canvas;
   width: 100%;
@@ -174,19 +433,39 @@ body {
   touch-action: none;
 }
 
-/* ---- статус-бар (нижний док) ---- */
+/* ---- статус-бар ---- */
 #hud {
   grid-area: status;
   display: flex;
-  align-items: center;
-  padding: 0 10px;
+  align-items: stretch;
   background: var(--panel);
   border-top: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+}
+
+#hud-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#hud-cells {
+  display: flex;
+}
+
+#hud-cells .cell {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-left: 1px solid var(--border);
+  letter-spacing: 0.03em;
 }
 
 /* ---- диалог свойств ---- */

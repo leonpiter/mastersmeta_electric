@@ -75,17 +75,18 @@ export function symbolToSvg(sym: SymbolDef, opts: SymbolRenderOpts = {}): SVGGEl
   return g;
 }
 
-/** Самостоятельный `<svg>`-превью символа, вписанный в квадрат `sizePx`. */
-export function symbolPreview(sym: SymbolDef, sizePx = 46): SVGSVGElement {
+/** Маленькая монохромная иконка символа для строки списка (вписана в w×h px). */
+export function symbolIcon(sym: SymbolDef, w = 30, h = 22): SVGSVGElement {
   const b = symbolBounds(sym);
-  const pad = 2;
+  const pad = 1.5;
   const vw = Math.max(b.w + pad * 2, 1);
   const vh = Math.max(b.h + pad * 2, 1);
   const svg = el("svg", {
     viewBox: `${b.x - pad} ${b.y - pad} ${vw} ${vh}`,
-    width: sizePx,
-    height: sizePx,
+    width: w,
+    height: h,
+    preserveAspectRatio: "xMidYMid meet",
   });
-  svg.append(symbolToSvg(sym, { strokeWidth: 0.45, pins: true }));
+  svg.append(symbolToSvg(sym, { strokeWidth: 0.5 }));
   return svg;
 }

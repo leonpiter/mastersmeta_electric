@@ -9,10 +9,12 @@ import {
 } from "@see/core";
 import { CanvasView } from "./canvas";
 import { LibraryPanel } from "./library-panel";
+import { ProjectPanel } from "./project-panel";
 
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
-const hud = document.getElementById("hud") as HTMLElement;
+const hud = document.getElementById("hud-info") as HTMLElement;
 const libraryEl = document.getElementById("library") as HTMLElement;
+const projectEl = document.getElementById("project") as HTMLElement;
 
 const page = createPage(); // A3, шаг сетки 5 мм
 const stack = new CommandStack();
@@ -24,6 +26,65 @@ const view = new CanvasView(svg, page, stack, hud, library, {
   onRequestEdit: (inst) => openProps(inst),
 });
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
+new ProjectPanel(projectEl, page);
+
+// обмен боковых панелей местами (с запоминанием)
+const SWAP_KEY = "see.swapped";
+const swapBtn = document.getElementById("swap") as HTMLButtonElement;
+if (localStorage.getItem(SWAP_KEY) === "1") document.body.classList.add("swapped");
+swapBtn.addEventListener("click", () => {
+  const on = document.body.classList.toggle("swapped");
+  try {
+    localStorage.setItem(SWAP_KEY, on ? "1" : "0");
+  } catch {
+    /* недоступно — игнор */
+  }
+});
+
+// ----- ресайз боковых доков (перетаскивание границы) -----
+const MIN_W = 150;
+const MAX_W = 460;
+const rootStyle = document.documentElement.style;
+
+function restoreWidth(side: "left" | "right"): void {
+  const v = localStorage.getItem(side === "left" ? "see.leftW" : "see.rightW");
+  if (v) rootStyle.setProperty(side === "left" ? "--left-w" : "--right-w", v);
+}
+restoreWidth("left");
+restoreWidth("right");
+
+function setupSplitter(el: HTMLElement, side: "left" | "right"): void {
+  el.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    document.body.classList.add("resizing");
+
+    const onMove = (ev: PointerEvent): void => {
+      const raw = side === "left" ? ev.clientX : window.innerWidth - ev.clientX;
+      const w = Math.max(MIN_W, Math.min(MAX_W, raw));
+      rootStyle.setProperty(side === "left" ? "--left-w" : "--right-w", `${w}px`);
+    };
+    const onUp = (): void => {
+      el.releasePointerCapture(e.pointerId);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      document.body.classList.remove("resizing");
+      const prop = side === "left" ? "--left-w" : "--right-w";
+      const v = getComputedStyle(document.documentElement).getPropertyValue(prop).trim();
+      try {
+        localStorage.setItem(side === "left" ? "see.leftW" : "see.rightW", v);
+      } catch {
+        /* недоступно — игнор */
+      }
+      window.dispatchEvent(new Event("resize")); // канвас пересчитает вид
+    };
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+  });
+}
+
+setupSplitter(document.getElementById("split-left") as HTMLElement, "left");
+setupSplitter(document.getElementById("split-right") as HTMLElement, "right");
 
 // ----- диалог свойств элемента (двойной клик) -----
 const dialog = document.getElementById("props") as HTMLDialogElement;

@@ -7,17 +7,30 @@
   </head>
   <body>
     <div id="toolbar">
-      <button id="undo" type="button">↶ Отменить</button>
-      <button id="redo" type="button">↷ Вернуть</button>
+      <button id="undo" type="button" title="Отменить (Ctrl+Z)">Отменить</button>
+      <button id="redo" type="button" title="Вернуть (Ctrl+Y)">Вернуть</button>
+      <span class="tb-sep"></span>
       <button id="rotate" type="button" title="Повернуть выбранный / ориентацию вставки (R)">Поворот</button>
       <button id="mirror" type="button" title="Отразить (M)">Зеркало</button>
       <button id="delete" type="button" title="Удалить выбранный (Del)">Удалить</button>
+      <span class="tb-sep"></span>
       <button id="reset" type="button" title="Вписать лист в окно">Сброс вида</button>
       <button id="pdf" type="button" title="Экспорт листа в PDF">PDF</button>
-      <span id="hint">Выбери УГО слева → ЛКМ ставит на лист · R поворот · M зеркало · Del удалить · Esc отмена · перетаскивание — панорама · колесо — зум</span>
+      <span class="tb-sep"></span>
+      <button id="swap" type="button" title="Поменять боковые панели местами">Поменять панели</button>
+      <span id="hint">Выбери УГО справа → ЛКМ ставит на лист · R поворот · M зеркало · Del удалить · Esc отмена · перетаскивание — панорама · колесо — зум</span>
     </div>
-    <div id="library"></div>
-    <div id="hud"></div>
+    <div id="project" class="panel"></div>
+    <div id="library" class="panel"></div>
+    <div id="split-left" class="splitter" title="Потяните, чтобы изменить ширину"></div>
+    <div id="split-right" class="splitter" title="Потяните, чтобы изменить ширину"></div>
+    <div id="hud">
+      <span id="hud-info"></span>
+      <span id="hud-cells">
+        <span class="cell">ПРИВЯЗКА 5 ММ</span>
+        <span class="cell">ЕСКД · ГОСТ</span>
+      </span>
+    </div>
     <svg id="canvas"></svg>
 
     <dialog id="props">
