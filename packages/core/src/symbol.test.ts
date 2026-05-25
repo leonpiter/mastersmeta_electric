@@ -105,7 +105,7 @@ describe("SymbolLibrary", () => {
     expect(lib.all().length).toBe(GOST_SYMBOLS.length);
     expect(lib.get("gost.qf")?.componentCode).toBe("QF");
     const cats = lib.byCategory();
-    expect(cats.get("Коммутация")?.length).toBe(2); // QF, QS
+    expect(cats.get("Коммутация")?.length).toBe(3); // QF, QFD, QS
   });
 });
 

@@ -151,5 +151,83 @@ const M: SymbolDef = {
   ],
 };
 
+/** Дифференциальный автомат / УЗО (АВДТ): модуль с контактом и датчиком тока. */
+const QFD: SymbolDef = {
+  id: "gost.qfd",
+  name: "Дифавтомат (АВДТ)",
+  category: "Коммутация",
+  componentCode: "QF",
+  kind: "component-aux",
+  pins: [
+    { name: "1", x: 0, y: TOP },
+    { name: "2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 3),
+    lead(12, BOT),
+    { type: "rect", x: -4, y: 3, w: 8, h: 9 },
+    { type: "line", x1: 0, y1: 3, x2: 3, y2: 8 }, // контакт
+    { type: "circle", cx: 0, cy: 10, r: 1.2 }, // датчик дифф. тока
+  ],
+};
+
+/** Катушка реле (ГОСТ 2.756): прямоугольник, выводы A1/A2. */
+const K: SymbolDef = {
+  id: "gost.k",
+  name: "Катушка реле",
+  category: "Контакторы и реле",
+  componentCode: "K",
+  kind: "coil",
+  pins: [
+    { name: "A1", x: 0, y: TOP },
+    { name: "A2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 4),
+    lead(11, BOT),
+    { type: "rect", x: -3, y: 4, w: 6, h: 7 },
+  ],
+};
+
+/** Трансформатор однофазный (ГОСТ 2.723): две обмотки — два круга. */
+const T: SymbolDef = {
+  id: "gost.t",
+  name: "Трансформатор",
+  category: "Питание",
+  componentCode: "T",
+  kind: "component",
+  pins: [
+    { name: "1", x: -5, y: 0 }, // первичная
+    { name: "2", x: 5, y: 0 },
+    { name: "3", x: -5, y: 20 }, // вторичная
+    { name: "4", x: 5, y: 20 },
+  ],
+  graphics: [
+    { type: "circle", cx: 0, cy: 7, r: 4 },
+    { type: "circle", cx: 0, cy: 13, r: 4 },
+    { type: "line", x1: -5, y1: 0, x2: -2.8, y2: 4.2 },
+    { type: "line", x1: 5, y1: 0, x2: 2.8, y2: 4.2 },
+    { type: "line", x1: -5, y1: 20, x2: -2.8, y2: 15.8 },
+    { type: "line", x1: 5, y1: 20, x2: 2.8, y2: 15.8 },
+  ],
+};
+
+/** Клемма (ГОСТ: XT): проходное соединение, точка-маркер. */
+const XT: SymbolDef = {
+  id: "gost.xt",
+  name: "Клемма",
+  category: "Соединения",
+  componentCode: "XT",
+  kind: "terminal",
+  pins: [
+    { name: "1", x: 0, y: 0 },
+    { name: "2", x: 0, y: 10 },
+  ],
+  graphics: [
+    { type: "line", x1: 0, y1: 0, x2: 0, y2: 10 },
+    { type: "circle", cx: 0, cy: 5, r: 1.5 },
+  ],
+};
+
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
-export const GOST_SYMBOLS: SymbolDef[] = [QF, QS, FU, KM, SB, HL, M];
+export const GOST_SYMBOLS: SymbolDef[] = [QF, QFD, QS, FU, KM, K, SB, HL, M, T, XT];
