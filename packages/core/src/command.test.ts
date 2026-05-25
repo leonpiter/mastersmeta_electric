@@ -5,7 +5,7 @@ import { AddNodeCommand } from "./commands";
 
 describe("CommandStack undo/redo", () => {
   it("execute → undo → redo", () => {
-    const page = createPage(5);
+    const page = createPage();
     const stack = new CommandStack();
 
     stack.execute(new AddNodeCommand(page, 10, 15));
@@ -23,7 +23,7 @@ describe("CommandStack undo/redo", () => {
   });
 
   it("новая команда очищает redo-историю", () => {
-    const page = createPage(5);
+    const page = createPage();
     const stack = new CommandStack();
 
     stack.execute(new AddNodeCommand(page, 0, 0));
@@ -35,7 +35,7 @@ describe("CommandStack undo/redo", () => {
   });
 
   it("уведомляет подписчиков", () => {
-    const page = createPage(5);
+    const page = createPage();
     const stack = new CommandStack();
     let calls = 0;
     const unsub = stack.subscribe(() => calls++);

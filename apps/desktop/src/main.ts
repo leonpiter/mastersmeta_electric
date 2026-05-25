@@ -5,7 +5,7 @@ import { CanvasView } from "./canvas";
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
 const hud = document.getElementById("hud") as HTMLElement;
 
-const page = createPage(5); // шаг сетки 5 мм
+const page = createPage(); // A3, шаг сетки 5 мм
 const stack = new CommandStack();
 const view = new CanvasView(svg, page, stack, hud);
 
