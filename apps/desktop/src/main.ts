@@ -12,10 +12,12 @@ const view = new CanvasView(svg, page, stack, hud);
 const undoBtn = document.getElementById("undo") as HTMLButtonElement;
 const redoBtn = document.getElementById("redo") as HTMLButtonElement;
 const resetBtn = document.getElementById("reset") as HTMLButtonElement;
+const pdfBtn = document.getElementById("pdf") as HTMLButtonElement;
 
 undoBtn.addEventListener("click", () => stack.undo());
 redoBtn.addEventListener("click", () => stack.redo());
 resetBtn.addEventListener("click", () => view.resetView());
+pdfBtn.addEventListener("click", () => view.exportPdf());
 
 const refresh = (): void => {
   undoBtn.disabled = !stack.canUndo();

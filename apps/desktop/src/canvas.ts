@@ -136,6 +136,31 @@ export class CanvasView {
     this.updateView();
   }
 
+  /** Экспорт листа в PDF через печать браузера (Save as PDF), масштаб 1:1 в мм. */
+  exportPdf(): void {
+    const f = this.page.format;
+    const ser = new XMLSerializer();
+    const body =
+      ser.serializeToString(this.sheetG) + ser.serializeToString(this.nodesG);
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${f.width} ${f.height}" ` +
+      `width="${f.width}mm" height="${f.height}mm">${body}</svg>`;
+    const tb = this.page.titleBlock;
+    const title = tb.designation || tb.title || "Лист";
+    const printJs = "window.onload=function(){window.focus();window.print();};";
+    const html =
+      `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${title} · ${f.name}</title>` +
+      `<style>@page{size:${f.width}mm ${f.height}mm;margin:0}html,body{margin:0}svg{display:block}</style>` +
+      `</head><body>${svg}<script>${printJs}</` +
+      `script></body></html>`;
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    const win = window.open(url, "_blank");
+    if (!win) {
+      window.alert("Разрешите всплывающие окна, чтобы экспортировать лист в PDF.");
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
   private updateView(): void {
     const s = this.scalePx;
     const f = this.page.format;
