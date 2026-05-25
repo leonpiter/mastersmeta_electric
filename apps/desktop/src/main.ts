@@ -131,6 +131,25 @@ rotateBtn.addEventListener("click", () => view.rotateSelectedOrPending());
 mirrorBtn.addEventListener("click", () => view.mirrorSelectedOrPending());
 deleteBtn.addEventListener("click", () => view.deleteSelected());
 
+const gridBtn = document.getElementById("grid") as HTMLButtonElement;
+gridBtn.classList.add("on"); // клетка видна по умолчанию
+gridBtn.addEventListener("click", () => {
+  gridBtn.classList.toggle("on", view.toggleGrid());
+});
+
+// переключение вкладок ленты
+const ribbonTabs = document.querySelectorAll<HTMLButtonElement>(".rtab");
+const ribbonPages = document.querySelectorAll<HTMLElement>(".rpage");
+ribbonTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const name = tab.dataset["tab"];
+    ribbonTabs.forEach((t) => t.classList.toggle("active", t === tab));
+    ribbonPages.forEach((p) => {
+      p.hidden = p.dataset["tab"] !== name;
+    });
+  });
+});
+
 const refresh = (): void => {
   undoBtn.disabled = !stack.canUndo();
   redoBtn.disabled = !stack.canRedo();

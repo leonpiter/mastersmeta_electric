@@ -6,19 +6,61 @@
     <title>See Electrical lite — Фаза 1</title>
   </head>
   <body>
-    <div id="toolbar">
-      <button id="undo" type="button" title="Отменить (Ctrl+Z)">Отменить</button>
-      <button id="redo" type="button" title="Вернуть (Ctrl+Y)">Вернуть</button>
-      <span class="tb-sep"></span>
-      <button id="rotate" type="button" title="Повернуть выбранный / ориентацию вставки (R)">Поворот</button>
-      <button id="mirror" type="button" title="Отразить (M)">Зеркало</button>
-      <button id="delete" type="button" title="Удалить выбранный (Del)">Удалить</button>
-      <span class="tb-sep"></span>
-      <button id="reset" type="button" title="Вписать лист в окно">Сброс вида</button>
-      <button id="pdf" type="button" title="Экспорт листа в PDF">PDF</button>
-      <span class="tb-sep"></span>
-      <button id="swap" type="button" title="Поменять боковые панели местами">Поменять панели</button>
-      <span id="hint">Выбери УГО справа → ЛКМ ставит на лист · R поворот · M зеркало · Del удалить · Esc отмена · перетаскивание — панорама · колесо — зум</span>
+    <div id="ribbon">
+      <div id="ribbon-tabs">
+        <button class="rtab active" type="button" data-tab="home">Главная</button>
+        <button class="rtab" type="button" data-tab="view">Вид</button>
+        <button class="rtab" type="button" data-tab="file">Файл</button>
+      </div>
+      <div id="ribbon-body">
+        <div class="rpage" data-tab="home">
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button id="undo" type="button" title="Отменить (Ctrl+Z)">Отменить</button>
+              <button id="redo" type="button" title="Вернуть (Ctrl+Y)">Вернуть</button>
+            </div>
+            <div class="rgroup-cap">Правка</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button id="rotate" type="button" title="Повернуть выбранный / ориентацию вставки (R)">Поворот</button>
+              <button id="mirror" type="button" title="Отразить (M)">Зеркало</button>
+              <button id="delete" type="button" title="Удалить выбранный (Del)">Удалить</button>
+            </div>
+            <div class="rgroup-cap">Элемент</div>
+          </div>
+        </div>
+
+        <div class="rpage" data-tab="view" hidden>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button id="reset" type="button" title="Вписать лист в окно">Вписать лист</button>
+            </div>
+            <div class="rgroup-cap">Масштаб</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button id="grid" type="button" title="Показать/скрыть клетку">Сетка</button>
+            </div>
+            <div class="rgroup-cap">Отображение</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button id="swap" type="button" title="Поменять боковые панели местами">Поменять панели</button>
+            </div>
+            <div class="rgroup-cap">Панели</div>
+          </div>
+        </div>
+
+        <div class="rpage" data-tab="file" hidden>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button id="pdf" type="button" title="Экспорт листа в PDF">Экспорт PDF</button>
+            </div>
+            <div class="rgroup-cap">Печать / экспорт</div>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="project" class="panel"></div>
     <div id="library" class="panel"></div>

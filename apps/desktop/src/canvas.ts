@@ -177,6 +177,13 @@ export class CanvasView {
     };
   }
 
+  /** Переключить видимость клетки. Возвращает новое состояние. */
+  toggleGrid(): boolean {
+    this.gridVisible = !this.gridVisible;
+    this.updateView();
+    return this.gridVisible;
+  }
+
   /** Вписать лист в окно. */
   resetView(): void {
     const r = this.svg.getBoundingClientRect();

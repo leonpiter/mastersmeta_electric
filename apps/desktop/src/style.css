@@ -4,7 +4,7 @@
  * меняются местами, ширина тянется сплиттерами), статус-бар снизу.
  */
 :root {
-  --toolbar-h: 36px;
+  --toolbar-h: 74px;
   --status-h: 22px;
   --left-w: 200px;
   --right-w: 212px;
@@ -113,21 +113,88 @@ body.resizing #canvas {
   color: var(--header-text);
 }
 
-/* ---- toolbar ---- */
-#toolbar {
+/* ---- лента (ribbon) ---- */
+#ribbon {
   grid-area: toolbar;
   display: flex;
-  align-items: center;
-  gap: 1px;
-  padding: 0 6px;
+  flex-direction: column;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
 
-#toolbar button {
+#ribbon-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 1px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(var(--header-1), var(--header-2));
+}
+
+.rtab {
   font: inherit;
-  height: 26px;
-  padding: 0 10px;
+  font-size: 12px;
+  padding: 3px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.rtab:hover {
+  background: var(--hover);
+}
+
+.rtab.active {
+  background: var(--panel-2);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+#ribbon-body {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  padding: 3px 4px;
+  background: var(--panel-2);
+}
+
+.rpage {
+  display: flex;
+  align-items: stretch;
+}
+
+.rpage[hidden] {
+  display: none;
+}
+
+.rgroup {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 8px;
+  border-right: 1px solid var(--border-2);
+}
+
+.rgroup-tools {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.rgroup-cap {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-dim);
+  padding-top: 3px;
+}
+
+.rgroup button {
+  font: inherit;
+  height: 30px;
+  padding: 0 12px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text);
@@ -135,41 +202,26 @@ body.resizing #canvas {
   white-space: nowrap;
 }
 
-#toolbar button:hover {
+.rgroup button:hover {
   background: var(--hover);
   border-color: var(--border-2);
 }
 
-#toolbar button:active {
+.rgroup button:active {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
 
-#toolbar button:disabled {
+.rgroup button:disabled {
   opacity: 0.4;
   cursor: default;
   background: transparent;
   border-color: transparent;
 }
 
-.tb-sep {
-  width: 1px;
-  align-self: stretch;
-  margin: 6px 5px;
-  background: var(--border-2);
-}
-
-#hint {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin-left: 8px;
-  padding-left: 10px;
-  border-left: 1px solid var(--border-2);
-  color: var(--text-dim);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.rgroup button.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 /* ---- структура проекта (дерево) ---- */
