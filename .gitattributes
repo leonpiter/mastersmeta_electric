@@ -1,0 +1,19 @@
+# Нормализация концов строк: в репозитории и рабочей копии — всегда LF.
+# Гасит предупреждения "LF will be replaced by CRLF" на Windows (core.autocrlf=true).
+* text=auto eol=lf
+
+# Бинарные ассеты — не нормализовать.
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.webp     binary
+*.pdf      binary
+*.zip      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+
+# Форматы проекта (zip-контейнеры и бинарные паки) — бинарные.
+*.seeproj  binary
