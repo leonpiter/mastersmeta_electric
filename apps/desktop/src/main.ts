@@ -78,6 +78,15 @@ stack.subscribe(refresh);
 refresh();
 
 window.addEventListener("keydown", (e) => {
+  // не перехватывать клавиши при вводе текста или в открытом диалоге
+  const target = e.target as HTMLElement | null;
+  const typing =
+    !!target &&
+    (target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable);
+  if (typing || dialog.open) return;
+
   const k = e.key.toLowerCase();
   const mod = e.ctrlKey || e.metaKey;
   if (mod && k === "z" && !e.shiftKey) {
