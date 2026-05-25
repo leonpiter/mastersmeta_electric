@@ -67,17 +67,6 @@ export class ProjectPanel {
     for (const t of ["Шкафы", "Распределительные схемы", "Отчёты", "Прочие документы"]) {
       this.folder(root, t, 1, false, groupIcon(), true);
     }
-
-    // вкладки снизу (как в See Electrical: Workspace | Components | Commands)
-    const tabs = document.createElement("div");
-    tabs.className = "ws-tabs";
-    ["Структура", "Компоненты", "Команды"].forEach((t, i) => {
-      const tab = document.createElement("div");
-      tab.className = "ws-tab" + (i === 0 ? " active" : " dim");
-      tab.textContent = t;
-      tabs.append(tab);
-    });
-    container.append(tabs);
   }
 
   /** Папка с твисти + иконкой; возвращает контейнер дочерних узлов. */

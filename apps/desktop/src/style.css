@@ -235,33 +235,6 @@ body.resizing #canvas {
   display: none;
 }
 
-.ws-tabs {
-  flex: 0 0 auto;
-  display: flex;
-  border-top: 1px solid var(--border);
-  background: var(--panel-2);
-}
-
-.ws-tab {
-  padding: 4px 8px;
-  font-size: 11px;
-  color: var(--text-dim);
-  border-right: 1px solid var(--border-2);
-  cursor: default;
-}
-
-.ws-tab.active {
-  background: #fff;
-  color: var(--text);
-  font-weight: 600;
-  border-top: 2px solid var(--accent);
-  margin-top: -1px;
-}
-
-.ws-tab.dim {
-  color: #aab0ba;
-}
-
 /* ---- база УГО (дерево-список) ---- */
 .lib-filter {
   flex: 0 0 auto;
