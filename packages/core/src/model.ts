@@ -5,14 +5,40 @@
  */
 import { type Id, newId } from "./ids";
 import type { Point } from "./geometry";
+import type { Rotation } from "./symbol";
 import { type SheetFormat, FORMATS, type TitleBlock, defaultTitleBlock } from "./sheet";
 
 /**
  * Узел на листе. Пока это просто точка, привязанная к сетке —
- * задел под будущие `SymbolInstance` / `Junction`.
+ * задел под будущие `Junction`.
  */
 export interface SchematicNode extends Point {
   id: Id;
+}
+
+/**
+ * Графическое размещение символа на листе (CLAUDE принцип 3).
+ * В S2 один инстанс = одно логическое устройство (1:1); поле `deviceId`
+ * зарезервировано под master/slave и привязку к каталогу (S5/S6),
+ * где одно `Device` получает N инстансов.
+ */
+export interface SymbolInstance {
+  id: Id;
+  /** Ссылка в библиотеку (`SymbolDef.id`). */
+  symbolId: string;
+  /** Позобозначение, напр. «QF1» (ГОСТ 2.710). */
+  designation: string;
+  /** Префикс кода (кэш из `SymbolDef.componentCode`) — для автонумерации. */
+  componentCode: string;
+  /** Координаты опорной точки символа на листе, мм (привязаны к сетке). */
+  x: number;
+  y: number;
+  rotation: Rotation;
+  mirror: boolean;
+  /** Показывать ли подпись позобозначения. */
+  showLabels: boolean;
+  /** Задел под S5/S6 (master/slave, каталог). */
+  deviceId?: Id;
 }
 
 export interface Page {
@@ -24,6 +50,8 @@ export interface Page {
   /** Основная надпись (ГОСТ 2.104). */
   titleBlock: TitleBlock;
   nodes: SchematicNode[];
+  /** Размещённые символы. */
+  instances: SymbolInstance[];
 }
 
 export interface CreatePageOptions {
@@ -38,5 +66,6 @@ export function createPage(opts: CreatePageOptions = {}): Page {
     format: opts.format ?? FORMATS.A3,
     titleBlock: defaultTitleBlock(),
     nodes: [],
+    instances: [],
   };
 }

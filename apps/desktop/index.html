@@ -3,16 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>See Electrical lite — Фаза 0</title>
+    <title>See Electrical lite — Фаза 1</title>
   </head>
   <body>
     <div id="toolbar">
       <button id="undo" type="button">↶ Отменить</button>
       <button id="redo" type="button">↷ Вернуть</button>
+      <button id="rotate" type="button" title="Повернуть выбранный / ориентацию вставки (R)">⟲ Поворот</button>
+      <button id="mirror" type="button" title="Отразить (M)">⇋ Зеркало</button>
+      <button id="delete" type="button" title="Удалить выбранный (Del)">🗑 Удалить</button>
       <button id="reset" type="button">⟳ Сброс вида</button>
       <button id="pdf" type="button">⎙ PDF</button>
-      <span id="hint">ЛКМ — поставить узел · перетаскивание ЛКМ/СКМ — панорама · колесо — зум · Ctrl+Z / Ctrl+Y</span>
+      <span id="hint">Выбери УГО слева → ЛКМ ставит на лист · R поворот · M зеркало · Del удалить · Esc отмена · перетаскивание — панорама · колесо — зум</span>
     </div>
+    <div id="library"></div>
     <div id="hud"></div>
     <svg id="canvas"></svg>
     <script type="module" src="/src/main.ts"></script>

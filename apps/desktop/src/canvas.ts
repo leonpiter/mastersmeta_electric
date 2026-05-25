@@ -6,18 +6,34 @@
 import {
   PX_PER_MM,
   snapPoint,
-  AddNodeCommand,
   frameRect,
   zoneGrid,
   TITLE_BLOCK_SIZE,
+  symbolBounds,
+  transformLocalPoint,
+  AddSymbolInstanceCommand,
+  RotateInstanceCommand,
+  MirrorInstanceCommand,
+  RemoveInstanceCommand,
   type Page,
   type Point,
   type Rect,
   type TitleBlock,
   type CommandStack,
+  type SymbolDef,
+  type SymbolInstance,
+  type SymbolLibrary,
+  type Rotation,
 } from "@see/core";
+import { symbolToSvg } from "./symbol-render";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+/** Колбэки канваса наружу (для синхронизации панели библиотеки). */
+export interface CanvasHooks {
+  /** Сменился взведённый для вставки символ (или снят — `null`). */
+  onArmedChange?: (symbolId: string | null) => void;
+}
 
 function el<K extends keyof SVGElementTagNameMap>(
   tag: K,
@@ -53,17 +69,31 @@ export class CanvasView {
   private readonly gridPath: SVGPathElement;
   private readonly content: SVGGElement;
   private readonly sheetG: SVGGElement;
+  private readonly instancesG: SVGGElement;
+  private readonly overlayG: SVGGElement;
   private readonly nodesG: SVGGElement;
+  private readonly ghostG: SVGGElement;
   private readonly cursorMarker: SVGCircleElement;
 
   private last: Point = { x: 0, y: 0 };
   private down: PointerDown | null = null;
+
+  // --- расстановка символов (S2) ---
+  /** Взведённый для вставки символ (режим вставки). */
+  private armed: SymbolDef | null = null;
+  /** Выбранный инстанс на листе (для поворота/зеркала/удаления). */
+  private selected: SymbolInstance | null = null;
+  /** Ориентация для следующей вставки. */
+  private pendingRotation: Rotation = 0;
+  private pendingMirror = false;
 
   constructor(
     private readonly svg: SVGSVGElement,
     private readonly page: Page,
     private readonly stack: CommandStack,
     private readonly hud: HTMLElement,
+    private readonly library: SymbolLibrary,
+    private readonly hooks: CanvasHooks = {},
   ) {
     const defs = el("defs");
     this.gridPattern = el("pattern", {
@@ -90,7 +120,10 @@ export class CanvasView {
 
     this.content = el("g");
     this.sheetG = el("g");
+    this.instancesG = el("g");
+    this.overlayG = el("g");
     this.nodesG = el("g");
+    this.ghostG = el("g");
     this.cursorMarker = el("circle", {
       r: 1.6,
       fill: "none",
@@ -98,15 +131,25 @@ export class CanvasView {
       "stroke-width": 0.4,
       visibility: "hidden",
     });
-    this.content.append(this.sheetG, this.nodesG, this.cursorMarker);
+    // снизу вверх: лист → символы → выделение/подписи → узлы → курсор → «призрак»
+    this.content.append(
+      this.sheetG,
+      this.instancesG,
+      this.overlayG,
+      this.nodesG,
+      this.cursorMarker,
+      this.ghostG,
+    );
 
     svg.append(defs, this.paperShadow, this.paper, this.grid, this.content);
 
     this.installEvents();
     this.renderSheet();
     this.resetView();
+    this.renderInstances();
     this.renderNodes();
     this.stack.subscribe(() => {
+      this.renderInstances();
       this.renderNodes();
       this.updateHud();
     });
@@ -321,6 +364,151 @@ export class CanvasView {
     }
   }
 
+  // ----- расстановка символов (S2) -----
+
+  /** SVG-трансформ инстанса: совпадает с `transformLocalPoint` (зеркало→поворот→сдвиг). */
+  private instanceTransform(inst: SymbolInstance): string {
+    return `translate(${inst.x} ${inst.y}) rotate(${inst.rotation}) scale(${inst.mirror ? -1 : 1} 1)`;
+  }
+
+  /** Габариты инстанса в координатах листа (AABB после поворота/зеркала). */
+  private worldBounds(inst: SymbolInstance, sym: SymbolDef): Rect {
+    const b = symbolBounds(sym);
+    const corners: Point[] = [
+      { x: b.x, y: b.y },
+      { x: b.x + b.w, y: b.y },
+      { x: b.x, y: b.y + b.h },
+      { x: b.x + b.w, y: b.y + b.h },
+    ];
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of corners) {
+      const t = transformLocalPoint(c, inst.rotation, inst.mirror);
+      const wx = inst.x + t.x;
+      const wy = inst.y + t.y;
+      if (wx < minX) minX = wx;
+      if (wy < minY) minY = wy;
+      if (wx > maxX) maxX = wx;
+      if (wy > maxY) maxY = wy;
+    }
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+
+  private renderInstances(): void {
+    this.instancesG.replaceChildren();
+    this.overlayG.replaceChildren();
+    for (const inst of this.page.instances) {
+      const sym = this.library.get(inst.symbolId);
+      if (!sym) continue;
+
+      const g = symbolToSvg(sym, { pins: true });
+      g.setAttribute("transform", this.instanceTransform(inst));
+      this.instancesG.append(g);
+
+      const wb = this.worldBounds(inst, sym);
+      if (this.selected?.id === inst.id) {
+        this.overlayG.append(el("rect", {
+          x: wb.x - 1.5, y: wb.y - 1.5, width: wb.w + 3, height: wb.h + 3,
+          fill: "#1b6fc418", stroke: "#1b6fc4", "stroke-width": 0.3,
+          "stroke-dasharray": "1.5 1",
+        }));
+      }
+      if (inst.showLabels && inst.designation) {
+        this.overlayG.append(
+          this.text(inst.designation, wb.x + wb.w + 1.5, wb.y + 1.8, 3, "start", true),
+        );
+      }
+    }
+  }
+
+  private renderGhost(): void {
+    this.ghostG.replaceChildren();
+    if (!this.armed) return;
+    const p = snapPoint(this.last, this.page.gridStep);
+    const g = symbolToSvg(this.armed, { stroke: "#1b6fc4", pins: true, opacity: 0.5 });
+    g.setAttribute(
+      "transform",
+      `translate(${p.x} ${p.y}) rotate(${this.pendingRotation}) scale(${this.pendingMirror ? -1 : 1} 1)`,
+    );
+    this.ghostG.append(g);
+  }
+
+  /** Найти верхний инстанс под точкой (мм). */
+  private hitTest(p: Point): SymbolInstance | null {
+    for (let i = this.page.instances.length - 1; i >= 0; i--) {
+      const inst = this.page.instances[i]!;
+      const sym = this.library.get(inst.symbolId);
+      if (!sym) continue;
+      const b = this.worldBounds(inst, sym);
+      if (p.x >= b.x - 1 && p.x <= b.x + b.w + 1 && p.y >= b.y - 1 && p.y <= b.y + b.h + 1)
+        return inst;
+    }
+    return null;
+  }
+
+  private select(inst: SymbolInstance | null): void {
+    this.selected = inst;
+    this.renderInstances();
+    this.updateHud();
+  }
+
+  /** Взвести символ для вставки (режим вставки). */
+  arm(sym: SymbolDef): void {
+    this.armed = sym;
+    this.selected = null;
+    this.pendingRotation = 0;
+    this.pendingMirror = false;
+    this.svg.style.cursor = "copy";
+    this.hooks.onArmedChange?.(sym.id);
+    this.renderInstances();
+    this.renderGhost();
+    this.updateHud();
+  }
+
+  /** Выйти из режима вставки. */
+  private disarm(): void {
+    this.armed = null;
+    this.svg.style.cursor = "";
+    this.ghostG.replaceChildren();
+    this.hooks.onArmedChange?.(null);
+    this.updateHud();
+  }
+
+  /** R — повернуть выбранный (или ориентацию вставки) на +90°. */
+  rotateSelectedOrPending(): void {
+    if (this.selected) {
+      this.stack.execute(new RotateInstanceCommand(this.selected));
+    } else if (this.armed) {
+      this.pendingRotation = ((this.pendingRotation + 90) % 360) as Rotation;
+      this.renderGhost();
+      this.updateHud();
+    }
+  }
+
+  /** M — отразить выбранный (или ориентацию вставки) по горизонтали. */
+  mirrorSelectedOrPending(): void {
+    if (this.selected) {
+      this.stack.execute(new MirrorInstanceCommand(this.selected));
+    } else if (this.armed) {
+      this.pendingMirror = !this.pendingMirror;
+      this.renderGhost();
+      this.updateHud();
+    }
+  }
+
+  /** Delete — удалить выбранный инстанс. */
+  deleteSelected(): void {
+    if (!this.selected) return;
+    const inst = this.selected;
+    this.selected = null;
+    this.stack.execute(new RemoveInstanceCommand(this.page, inst));
+  }
+
+  /** Esc — выйти из вставки, иначе снять выделение. */
+  cancelPlacement(): void {
+    if (this.armed) this.disarm();
+    else this.select(null);
+  }
+
   private updateCursor(): void {
     const p = snapPoint(this.last, this.page.gridStep);
     this.cursorMarker.setAttribute("cx", String(p.x));
@@ -331,10 +519,15 @@ export class CanvasView {
 
   private updateHud(): void {
     const fmt = (v: number): string => v.toFixed(1);
+    const mode = this.armed
+      ? `Вставка: ${this.armed.componentCode}${this.pendingMirror ? " ↔" : ""}${this.pendingRotation ? ` ${this.pendingRotation}°` : ""}`
+      : this.selected
+        ? `Выбран: ${this.selected.designation}`
+        : "Выбор";
     this.hud.textContent =
       `${this.page.format.name}  ·  Zoom ${Math.round(this.zoom * 100)}%  ·  ` +
       `Курсор ${fmt(this.last.x)}, ${fmt(this.last.y)} мм  ·  ` +
-      `Узлов: ${this.page.nodes.length}`;
+      `Элементов: ${this.page.instances.length}  ·  ${mode}`;
   }
 
   private installEvents(): void {
@@ -349,6 +542,7 @@ export class CanvasView {
       const r = svg.getBoundingClientRect();
       this.last = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
       this.updateCursor();
+      this.renderGhost();
 
       if (this.down) {
         if (
@@ -367,14 +561,24 @@ export class CanvasView {
 
     svg.addEventListener("pointerup", () => {
       if (this.down && this.down.button === 0 && !this.down.moved) {
-        const p = snapPoint(this.last, this.page.gridStep);
-        this.stack.execute(new AddNodeCommand(this.page, p.x, p.y));
+        if (this.armed) {
+          const p = snapPoint(this.last, this.page.gridStep);
+          const cmd = new AddSymbolInstanceCommand(this.page, this.armed, p.x, p.y, {
+            rotation: this.pendingRotation,
+            mirror: this.pendingMirror,
+          });
+          this.stack.execute(cmd); // подписка перерисует слой символов
+          this.select(cmd.instance); // выбрать новый, режим вставки сохраняется
+        } else {
+          this.select(this.hitTest(this.last));
+        }
       }
       this.down = null;
     });
 
     svg.addEventListener("pointerleave", () => {
       this.cursorMarker.setAttribute("visibility", "hidden");
+      this.ghostG.replaceChildren();
     });
 
     svg.addEventListener(
