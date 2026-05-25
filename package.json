@@ -1,0 +1,17 @@
+{
+  "name": "see-electrical-lite",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Офлайн ГОСТ-редактор электрических схем щитов (агентная разработка)",
+  "packageManager": "pnpm@9.15.9",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @see/desktop dev",
+    "build": "pnpm --filter @see/desktop build",
+    "test": "pnpm --filter @see/core test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
