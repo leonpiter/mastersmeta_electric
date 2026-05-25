@@ -133,3 +133,82 @@ body {
   font-size: 10px;
   color: #475569;
 }
+
+#props {
+  border: none;
+  border-radius: 10px;
+  padding: 0;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 25%);
+  min-width: 280px;
+}
+
+#props::backdrop {
+  background: rgb(15 23 42 / 35%);
+}
+
+#props-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+}
+
+#props h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.prop-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prop-row label {
+  font-size: 12px;
+  color: #475569;
+}
+
+.prop-row input[type="text"] {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid #c8d0da;
+  border-radius: 6px;
+}
+
+.prop-type {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.prop-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.prop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.prop-actions button {
+  font: inherit;
+  padding: 6px 14px;
+  border: 1px solid #1b6fc4;
+  border-radius: 6px;
+  background: #1b6fc4;
+  color: #fff;
+  cursor: pointer;
+}
+
+.prop-actions .btn-secondary {
+  background: #fff;
+  color: #475569;
+  border-color: #c8d0da;
+}

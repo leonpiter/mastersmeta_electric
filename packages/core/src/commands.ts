@@ -82,6 +82,54 @@ export class AddSymbolInstanceCommand implements Command {
   }
 }
 
+/** Переместить инстанс (координаты уже привязаны к сетке вызывающим кодом). */
+export class MoveInstanceCommand implements Command {
+  readonly type = "move-instance";
+
+  constructor(
+    private readonly inst: SymbolInstance,
+    private readonly fromX: number,
+    private readonly fromY: number,
+    private readonly toX: number,
+    private readonly toY: number,
+  ) {}
+
+  do(): void {
+    this.inst.x = this.toX;
+    this.inst.y = this.toY;
+  }
+
+  undo(): void {
+    this.inst.x = this.fromX;
+    this.inst.y = this.fromY;
+  }
+}
+
+/** Изменить свойства инстанса (позобозначение, видимость подписи). */
+export class EditInstanceCommand implements Command {
+  readonly type = "edit-instance";
+  private readonly before: { designation: string; showLabels: boolean };
+
+  constructor(
+    private readonly inst: SymbolInstance,
+    private readonly after: { designation?: string; showLabels?: boolean },
+  ) {
+    this.before = { designation: inst.designation, showLabels: inst.showLabels };
+  }
+
+  do(): void {
+    if (this.after.designation !== undefined)
+      this.inst.designation = this.after.designation;
+    if (this.after.showLabels !== undefined)
+      this.inst.showLabels = this.after.showLabels;
+  }
+
+  undo(): void {
+    this.inst.designation = this.before.designation;
+    this.inst.showLabels = this.before.showLabels;
+  }
+}
+
 /** Повернуть инстанс на +90° (по часовой). */
 export class RotateInstanceCommand implements Command {
   readonly type = "rotate-instance";

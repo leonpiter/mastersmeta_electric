@@ -16,6 +16,8 @@ import {
   RotateInstanceCommand,
   MirrorInstanceCommand,
   RemoveInstanceCommand,
+  MoveInstanceCommand,
+  EditInstanceCommand,
 } from "./commands";
 
 const sample: SymbolDef = {
@@ -153,5 +155,36 @@ describe("команды инстансов (обратимость)", () => {
     stack.undo();
     expect(page.instances).toHaveLength(1);
     expect(page.instances[0]).toBe(inst);
+  });
+
+  it("перемещение обратимо", () => {
+    const page = createPage();
+    const stack = new CommandStack();
+    const c = new AddSymbolInstanceCommand(page, qf, 10, 10);
+    stack.execute(c);
+    const inst = c.instance;
+
+    stack.execute(new MoveInstanceCommand(inst, 10, 10, 40, 25));
+    expect({ x: inst.x, y: inst.y }).toEqual({ x: 40, y: 25 });
+    stack.undo();
+    expect({ x: inst.x, y: inst.y }).toEqual({ x: 10, y: 10 });
+    stack.redo();
+    expect({ x: inst.x, y: inst.y }).toEqual({ x: 40, y: 25 });
+  });
+
+  it("редактирование (переименование) обратимо", () => {
+    const page = createPage();
+    const stack = new CommandStack();
+    const c = new AddSymbolInstanceCommand(page, qf, 0, 0);
+    stack.execute(c);
+    const inst = c.instance;
+    expect(inst.designation).toBe("QF1");
+
+    stack.execute(new EditInstanceCommand(inst, { designation: "QF5", showLabels: false }));
+    expect(inst.designation).toBe("QF5");
+    expect(inst.showLabels).toBe(false);
+    stack.undo();
+    expect(inst.designation).toBe("QF1");
+    expect(inst.showLabels).toBe(true);
   });
 });

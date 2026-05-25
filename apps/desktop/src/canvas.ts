@@ -15,6 +15,7 @@ import {
   RotateInstanceCommand,
   MirrorInstanceCommand,
   RemoveInstanceCommand,
+  MoveInstanceCommand,
   type Page,
   type Point,
   type Rect,
@@ -29,10 +30,12 @@ import { symbolToSvg } from "./symbol-render";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-/** Колбэки канваса наружу (для синхронизации панели библиотеки). */
+/** Колбэки канваса наружу (для синхронизации панели библиотеки и диалога свойств). */
 export interface CanvasHooks {
   /** Сменился взведённый для вставки символ (или снят — `null`). */
   onArmedChange?: (symbolId: string | null) => void;
+  /** Запрос на редактирование свойств инстанса (двойной клик). */
+  onRequestEdit?: (inst: SymbolInstance) => void;
 }
 
 function el<K extends keyof SVGElementTagNameMap>(
@@ -86,6 +89,14 @@ export class CanvasView {
   /** Ориентация для следующей вставки. */
   private pendingRotation: Rotation = 0;
   private pendingMirror = false;
+  /** Текущее перетаскивание инстанса. */
+  private dragging: {
+    inst: SymbolInstance;
+    originX: number;
+    originY: number;
+    grabDX: number;
+    grabDY: number;
+  } | null = null;
 
   constructor(
     private readonly svg: SVGSVGElement,
@@ -413,8 +424,9 @@ export class CanvasView {
         }));
       }
       if (inst.showLabels && inst.designation) {
+        // подпись позобозначения — шрифт 4 мм (читаемо на А3; ГОСТ 2.304)
         this.overlayG.append(
-          this.text(inst.designation, wb.x + wb.w + 1.5, wb.y + 1.8, 3, "start", true),
+          this.text(inst.designation, wb.x + wb.w + 1.5, wb.y + 2.2, 4, "start", true),
         );
       }
     }
@@ -536,6 +548,23 @@ export class CanvasView {
     svg.addEventListener("pointerdown", (e) => {
       svg.setPointerCapture(e.pointerId);
       this.down = { x: e.clientX, y: e.clientY, button: e.button, moved: false };
+
+      // ЛКМ по существующему символу (вне режима вставки) — выбрать и готовить перетаскивание
+      if (!this.armed && e.button === 0) {
+        const r = svg.getBoundingClientRect();
+        this.last = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
+        const hit = this.hitTest(this.last);
+        if (hit) {
+          this.select(hit);
+          this.dragging = {
+            inst: hit,
+            originX: hit.x,
+            originY: hit.y,
+            grabDX: this.last.x - hit.x,
+            grabDY: this.last.y - hit.y,
+          };
+        }
+      }
     });
 
     svg.addEventListener("pointermove", (e) => {
@@ -551,7 +580,22 @@ export class CanvasView {
         ) {
           this.down.moved = true;
         }
-        if (this.down.moved && (this.down.button === 0 || this.down.button === 1)) {
+        if (this.down.moved && this.dragging) {
+          // перетаскивание выбранного символа (с привязкой к сетке)
+          const target = snapPoint(
+            {
+              x: this.last.x - this.dragging.grabDX,
+              y: this.last.y - this.dragging.grabDY,
+            },
+            this.page.gridStep,
+          );
+          this.dragging.inst.x = target.x;
+          this.dragging.inst.y = target.y;
+          this.renderInstances();
+        } else if (
+          this.down.moved &&
+          (this.down.button === 0 || this.down.button === 1)
+        ) {
           this.panX += e.movementX;
           this.panY += e.movementY;
           this.updateView();
@@ -560,6 +604,21 @@ export class CanvasView {
     });
 
     svg.addEventListener("pointerup", () => {
+      // завершить перетаскивание → одна обратимая команда (от исходной точки к текущей)
+      if (this.dragging) {
+        const d = this.dragging;
+        this.dragging = null;
+        if (this.down?.moved && (d.inst.x !== d.originX || d.inst.y !== d.originY)) {
+          const toX = d.inst.x;
+          const toY = d.inst.y;
+          d.inst.x = d.originX; // откат: do() команды — единственный источник истины
+          d.inst.y = d.originY;
+          this.stack.execute(new MoveInstanceCommand(d.inst, d.originX, d.originY, toX, toY));
+        }
+        this.down = null;
+        return;
+      }
+
       if (this.down && this.down.button === 0 && !this.down.moved) {
         if (this.armed) {
           const p = snapPoint(this.last, this.page.gridStep);
@@ -600,6 +659,17 @@ export class CanvasView {
     );
 
     svg.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    svg.addEventListener("dblclick", (e) => {
+      if (this.armed) return;
+      const r = svg.getBoundingClientRect();
+      const p = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
+      const hit = this.hitTest(p);
+      if (hit) {
+        this.select(hit);
+        this.hooks.onRequestEdit?.(hit);
+      }
+    });
 
     window.addEventListener("resize", () => this.updateView());
   }

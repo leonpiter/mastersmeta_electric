@@ -1,5 +1,12 @@
 import "./style.css";
-import { createPage, CommandStack, SymbolLibrary, GOST_SYMBOLS } from "@see/core";
+import {
+  createPage,
+  CommandStack,
+  SymbolLibrary,
+  GOST_SYMBOLS,
+  EditInstanceCommand,
+  type SymbolInstance,
+} from "@see/core";
 import { CanvasView } from "./canvas";
 import { LibraryPanel } from "./library-panel";
 
@@ -14,8 +21,38 @@ const library = new SymbolLibrary(GOST_SYMBOLS);
 let panel: LibraryPanel | undefined;
 const view = new CanvasView(svg, page, stack, hud, library, {
   onArmedChange: (id) => panel?.setActive(id),
+  onRequestEdit: (inst) => openProps(inst),
 });
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
+
+// ----- диалог свойств элемента (двойной клик) -----
+const dialog = document.getElementById("props") as HTMLDialogElement;
+const desigInput = document.getElementById("prop-desig") as HTMLInputElement;
+const typeEl = document.getElementById("prop-type") as HTMLElement;
+const showLabelsInput = document.getElementById("prop-showlabels") as HTMLInputElement;
+let editing: SymbolInstance | null = null;
+
+function openProps(inst: SymbolInstance): void {
+  editing = inst;
+  desigInput.value = inst.designation;
+  showLabelsInput.checked = inst.showLabels;
+  const sym = library.get(inst.symbolId);
+  typeEl.textContent = sym ? `${sym.name} · ${sym.componentCode}` : inst.symbolId;
+  dialog.showModal();
+  desigInput.focus();
+  desigInput.select();
+}
+
+dialog.addEventListener("close", () => {
+  if (dialog.returnValue === "ok" && editing) {
+    const designation = desigInput.value.trim() || editing.designation;
+    const showLabels = showLabelsInput.checked;
+    if (designation !== editing.designation || showLabels !== editing.showLabels) {
+      stack.execute(new EditInstanceCommand(editing, { designation, showLabels }));
+    }
+  }
+  editing = null;
+});
 
 const undoBtn = document.getElementById("undo") as HTMLButtonElement;
 const redoBtn = document.getElementById("redo") as HTMLButtonElement;

@@ -19,6 +19,25 @@
     <div id="library"></div>
     <div id="hud"></div>
     <svg id="canvas"></svg>
+
+    <dialog id="props">
+      <form id="props-form" method="dialog">
+        <h3>Свойства элемента</h3>
+        <div class="prop-row">
+          <label for="prop-desig">Позобозначение</label>
+          <input id="prop-desig" type="text" autocomplete="off" />
+        </div>
+        <div id="prop-type" class="prop-type"></div>
+        <label class="prop-check">
+          <input id="prop-showlabels" type="checkbox" /> Показывать подпись
+        </label>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit" id="prop-ok">OK</button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
