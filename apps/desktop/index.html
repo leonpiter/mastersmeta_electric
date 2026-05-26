@@ -11,6 +11,7 @@
         <button class="rtab rtab-file" type="button" data-menu="file">Файл</button>
         <button class="rtab active" type="button" data-tab="edit">Правка</button>
         <button class="rtab" type="button" data-tab="wire">Соединения</button>
+        <button class="rtab" type="button" data-tab="schema">Схема</button>
         <button class="rtab" type="button" data-tab="view">Вид</button>
       </div>
       <div id="ribbon-body">
@@ -111,6 +112,26 @@
               </button>
             </div>
             <div class="rgroup-cap">Нумерация</div>
+          </div>
+        </div>
+
+        <div class="rpage" data-tab="schema" hidden>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button
+                id="devices"
+                type="button"
+                title="Список устройств и контактов (master/slave, кросс-референсы, несвязанные)"
+              >
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <rect x="2.5" y="2.8" width="11" height="3.4" />
+                  <rect x="2.5" y="9.8" width="11" height="3.4" />
+                  <path d="M8 6.2v3.6" />
+                </svg>
+                <span>Контакты</span>
+              </button>
+            </div>
+            <div class="rgroup-cap">Устройства</div>
           </div>
         </div>
 
@@ -333,6 +354,16 @@
         <div class="prop-actions">
           <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
           <button value="ok" type="submit">Сгенерировать</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="device-list">
+      <form method="dialog" class="modal-form modal-wide">
+        <h3>Устройства и контакты</h3>
+        <div id="dl-body" class="dl-body"></div>
+        <div class="prop-actions">
+          <button value="ok" type="submit">Закрыть</button>
         </div>
       </form>
     </dialog>

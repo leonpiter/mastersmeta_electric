@@ -29,6 +29,8 @@ import {
   instancePins,
   pointOnSegment,
   type AutoNumberOptions,
+  type DeviceInfo,
+  type DeviceMember,
   DEFAULT_WIRE_WIDTH_POWER,
   DEFAULT_WIRE_WIDTH_CONTROL,
   type Command,
@@ -57,6 +59,8 @@ export interface CanvasHooks {
   onWireModeChange?: (active: boolean, poles: 1 | 3) => void;
   /** Запрос на редактирование свойств провода (двойной клик). */
   onRequestEditWire?: (wire: Wire) => void;
+  /** Поставщик устройств проекта (master/slave) для кросс-референсов (S5). */
+  getDevices?: () => DeviceInfo[];
 }
 
 /** Шаг между полюсами 3-полюсного провода (мм). */
@@ -709,6 +713,13 @@ export class CanvasView {
   private renderInstances(): void {
     this.instancesG.replaceChildren();
     this.overlayG.replaceChildren();
+
+    // карта инстанс → {устройство, представление} для кросс-референсов master/slave (S5)
+    const devices = this.hooks.getDevices?.() ?? [];
+    const memberOf = new Map<string, { device: DeviceInfo; member: DeviceMember }>();
+    for (const d of devices)
+      for (const m of d.members) memberOf.set(m.instance.id, { device: d, member: m });
+
     for (const inst of this.page.instances) {
       const sym = this.library.get(inst.symbolId);
       if (!sym) continue;
@@ -737,7 +748,41 @@ export class CanvasView {
         this.overlayG.append(
           this.text(inst.designation, wb.x + wb.w + 1.5, wb.y + 2.2, 4, "start", true),
         );
+        this.renderDeviceCrossRef(wb, memberOf.get(inst.id));
       }
+    }
+  }
+
+  /** Кросс-референсы устройства (S5): зеркало контактов у катушки, адрес катушки у контакта. */
+  private renderDeviceCrossRef(
+    wb: Rect,
+    entry: { device: DeviceInfo; member: DeviceMember } | undefined,
+  ): void {
+    if (!entry) return;
+    const { device, member } = entry;
+    const muted = (t: SVGTextElement): SVGTextElement => {
+      t.setAttribute("fill", "#5a7088");
+      return t;
+    };
+
+    // у катушки — «зеркало контактов»: список контактов (тип, выводы, адрес лист.зона)
+    if (member.kind === "coil" && device.contacts.length > 0) {
+      let y = wb.y + wb.h + 2.6;
+      for (const c of device.contacts) {
+        const t = c.kind === "contact-nc" ? "НЗ" : "НО";
+        const label = `${t} ${c.pins.join("·")} → ${c.address}`;
+        this.overlayG.append(muted(this.text(label, wb.x - 1, y, 2.4, "start")));
+        y += 2.9;
+      }
+    }
+
+    // у контакта — адрес катушки (откуда управляется)
+    if ((member.kind === "contact-no" || member.kind === "contact-nc") && device.master) {
+      this.overlayG.append(
+        muted(
+          this.text(`кат. ${device.master.address}`, wb.x + wb.w + 1.5, wb.y + 5.2, 2.4, "start"),
+        ),
+      );
     }
   }
 

@@ -11,6 +11,8 @@ import {
   RemovePageCommand,
   serializeProject,
   deserializeProject,
+  computeDevices,
+  findUnlinked,
   type SymbolInstance,
   type Wire,
   type Project,
@@ -37,6 +39,7 @@ const view = new CanvasView(svg, activePage(project), stack, hud, library, {
     wireBtn.classList.toggle("on", active && poles === 1);
     wire3Btn.classList.toggle("on", active && poles === 3);
   },
+  getDevices: () => computeDevices(project, library),
 });
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
 
@@ -397,6 +400,57 @@ nsDialog.addEventListener("close", () => {
     step: Number(nsStep.value) || 1,
     renumberLocked: nsRelock.checked,
   });
+});
+
+// ----- список устройств/контактов (вкладка «Схема», master/slave + несвязанные) -----
+const devicesBtn = document.getElementById("devices") as HTMLButtonElement;
+const dlDialog = document.getElementById("device-list") as HTMLDialogElement;
+const dlBody = document.getElementById("dl-body")!;
+
+function dlLine(cls: string, text: string): HTMLDivElement {
+  const el = document.createElement("div");
+  el.className = cls;
+  el.textContent = text;
+  return el;
+}
+
+function renderDeviceList(): void {
+  const devices = computeDevices(project, library);
+  const { coilsWithoutContacts, orphanContacts } = findUnlinked(project, library);
+  dlBody.replaceChildren();
+
+  if (devices.length === 0) {
+    dlBody.append(dlLine("dl-empty", "На листах нет устройств."));
+    return;
+  }
+
+  for (const d of devices) {
+    const issue = coilsWithoutContacts.includes(d) || orphanContacts.includes(d);
+    const row = document.createElement("div");
+    row.className = issue ? "dl-device dl-issue" : "dl-device";
+
+    const detail = document.createElement("div");
+    detail.className = "dl-detail";
+    if (d.master) {
+      const kindRu = d.master.kind === "coil" ? "катушка" : "аппарат";
+      detail.append(dlLine("dl-master", `${kindRu} · лист ${d.master.address}`));
+    }
+    for (const c of d.contacts) {
+      const t = c.kind === "contact-nc" ? "НЗ" : "НО";
+      detail.append(dlLine("dl-contact", `контакт ${t} ${c.pins.join("·")} → лист ${c.address}`));
+    }
+    if (coilsWithoutContacts.includes(d))
+      detail.append(dlLine("dl-warn", "⚠ катушка без контактов"));
+    if (orphanContacts.includes(d)) detail.append(dlLine("dl-warn", "⚠ контакт без катушки"));
+
+    row.append(dlLine("dl-desig", d.designation), detail);
+    dlBody.append(row);
+  }
+}
+
+devicesBtn.addEventListener("click", () => {
+  renderDeviceList();
+  dlDialog.showModal();
 });
 
 // ----- меню сетки (показать/скрыть + шаг) -----

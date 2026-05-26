@@ -167,6 +167,45 @@ const QFD: SymbolDef = {
   ],
 };
 
+/** Контакт контактора, НО (13/14) — slave катушки KM (общая сигла). */
+const KM_NO: SymbolDef = {
+  id: "gost.km.no",
+  name: "Контакт КМ (НО)",
+  category: "Контакторы и реле",
+  componentCode: "KM",
+  kind: "contact-no",
+  pins: [
+    { name: "13", x: 0, y: TOP },
+    { name: "14", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 },
+  ],
+};
+
+/** Контакт контактора, НЗ (21/22) — slave катушки KM; перемычка = нормально замкнут. */
+const KM_NC: SymbolDef = {
+  id: "gost.km.nc",
+  name: "Контакт КМ (НЗ)",
+  category: "Контакторы и реле",
+  componentCode: "KM",
+  kind: "contact-nc",
+  pins: [
+    { name: "21", x: 0, y: TOP },
+    { name: "22", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 },
+    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 },
+  ],
+};
+
 /** Катушка реле (ГОСТ 2.756): прямоугольник, выводы A1/A2. */
 const K: SymbolDef = {
   id: "gost.k",
@@ -179,6 +218,45 @@ const K: SymbolDef = {
     { name: "A2", x: 0, y: BOT },
   ],
   graphics: [lead(TOP, 4), lead(11, BOT), { type: "rect", x: -3, y: 4, w: 6, h: 7 }],
+};
+
+/** Контакт реле, НО (13/14) — slave катушки K (общая сигла). */
+const K_NO: SymbolDef = {
+  id: "gost.k.no",
+  name: "Контакт реле (НО)",
+  category: "Контакторы и реле",
+  componentCode: "K",
+  kind: "contact-no",
+  pins: [
+    { name: "13", x: 0, y: TOP },
+    { name: "14", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 },
+  ],
+};
+
+/** Контакт реле, НЗ (21/22) — slave катушки K; перемычка = нормально замкнут. */
+const K_NC: SymbolDef = {
+  id: "gost.k.nc",
+  name: "Контакт реле (НЗ)",
+  category: "Контакторы и реле",
+  componentCode: "K",
+  kind: "contact-nc",
+  pins: [
+    { name: "21", x: 0, y: TOP },
+    { name: "22", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 },
+    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 },
+  ],
 };
 
 /** Трансформатор однофазный (ГОСТ 2.723): две обмотки — два круга. */
@@ -222,4 +300,20 @@ const XT: SymbolDef = {
 };
 
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
-export const GOST_SYMBOLS: SymbolDef[] = [QF, QFD, QS, FU, KM, K, SB, HL, M, T, XT];
+export const GOST_SYMBOLS: SymbolDef[] = [
+  QF,
+  QFD,
+  QS,
+  FU,
+  KM,
+  KM_NO,
+  KM_NC,
+  K,
+  K_NO,
+  K_NC,
+  SB,
+  HL,
+  M,
+  T,
+  XT,
+];
