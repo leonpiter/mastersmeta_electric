@@ -4,6 +4,7 @@
  * меняются местами, ширина тянется сплиттерами), статус-бар снизу.
  */
 :root {
+  --title-h: 30px;
   --toolbar-h: 96px;
   --status-h: 22px;
   --left-w: 200px;
@@ -42,13 +43,82 @@ body {
 body {
   display: grid;
   grid-template-columns: var(--left-w) 5px 1fr 5px var(--right-w);
-  grid-template-rows: var(--toolbar-h) 1fr var(--status-h);
+  grid-template-rows: var(--title-h) var(--toolbar-h) 1fr var(--status-h);
   grid-template-areas:
-    "toolbar toolbar toolbar toolbar toolbar"
-    "left    splitL  canvas  splitR right"
-    "status  status  status  status status";
+    "titlebar titlebar titlebar titlebar titlebar"
+    "toolbar  toolbar  toolbar  toolbar  toolbar"
+    "left     splitL   canvas   splitR   right"
+    "status   status   status   status  status";
   height: 100vh;
   background: var(--bg);
+}
+
+/* ---- верхняя полоса заголовка (S21) ---- */
+#titlebar {
+  grid-area: titlebar;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  background: linear-gradient(var(--header-1), var(--header-2));
+  border-bottom: 1px solid var(--border);
+}
+
+#titlebar .tb-left {
+  display: flex;
+  gap: 2px;
+}
+
+#titlebar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--header-text);
+  cursor: pointer;
+}
+
+#titlebar button:hover {
+  background: var(--hover);
+  border-color: var(--border-2);
+}
+
+#titlebar .tb-title {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 12px;
+  color: var(--header-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#titlebar .tb-title .tb-name {
+  font-weight: 600;
+}
+
+#titlebar .tb-app {
+  color: var(--text-dim);
+}
+
+#titlebar .tb-win {
+  display: flex;
+  gap: 2px;
+}
+
+/* кнопки окна — оформление; действия только в нативной оболочке (S11) */
+#titlebar .tb-win button {
+  opacity: 0.45;
+}
+
+#titlebar .tb-win button.tb-close:hover {
+  background: #d64b4b;
+  border-color: #d64b4b;
+  color: #fff;
+  opacity: 1;
 }
 
 /* ---- доки, сплиттеры, обмен местами ---- */

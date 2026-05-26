@@ -157,6 +157,7 @@ psDialog.addEventListener("close", () => {
     project.wireWidthControl = Number(psWControl.value);
     view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
     projectPanel.refresh();
+    syncTitle();
   }
 });
 
@@ -398,6 +399,13 @@ function applyProject(loaded: Project): void {
   view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
   view.setPage(activePage(project));
   projectPanel.refresh();
+  syncTitle();
+}
+
+/** Обновить название проекта в верхней полосе заголовка (S21). */
+const tbName = document.getElementById("tb-name")!;
+function syncTitle(): void {
+  tbName.textContent = project.name || "Без имени";
 }
 
 function saveProject(): void {
@@ -445,6 +453,18 @@ const saveHandler = (): void => {
   "click",
   saveHandler,
 );
+
+// верхняя полоса заголовка (S21): быстрый доступ к файловым действиям
+(document.getElementById("tb-new") as HTMLButtonElement).addEventListener("click", () =>
+  applyProject(createProject()),
+);
+(document.getElementById("tb-open") as HTMLButtonElement).addEventListener("click", () =>
+  fileInput.click(),
+);
+(document.getElementById("tb-save") as HTMLButtonElement).addEventListener("click", () =>
+  saveProject(),
+);
+syncTitle();
 
 undoBtn.addEventListener("click", () => stack.undo());
 redoBtn.addEventListener("click", () => stack.redo());

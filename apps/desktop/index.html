@@ -6,6 +6,44 @@
     <title>See Electrical lite — Фаза 1</title>
   </head>
   <body>
+    <div id="titlebar">
+      <div class="tb-left">
+        <button id="tb-new" type="button" title="Создать проект">
+          <svg class="ic" viewBox="0 0 16 16" fill="none">
+            <path d="M4 2h5l3 3v9H4z" />
+            <path d="M9 2v3h3" />
+          </svg>
+        </button>
+        <button id="tb-open" type="button" title="Открыть проект…">
+          <svg class="ic" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4.5h4l1.5 1.5H14V12H2z" />
+          </svg>
+        </button>
+        <button id="tb-save" type="button" title="Сохранить (.esch)">
+          <svg class="ic" viewBox="0 0 16 16" fill="none">
+            <path d="M3 2h8l2 2v10H3z" />
+            <path d="M5 2v4h5V2M6 10h4" />
+          </svg>
+        </button>
+      </div>
+      <div class="tb-title">
+        <span class="tb-name" id="tb-name">Без имени</span>
+        <span class="tb-app"> — Мастермета Электро</span>
+      </div>
+      <div class="tb-win" title="Кнопки окна доступны в десктоп-версии">
+        <button type="button" tabindex="-1" aria-hidden="true">
+          <svg class="ic" viewBox="0 0 16 16" fill="none"><path d="M4 8h8" /></svg>
+        </button>
+        <button type="button" tabindex="-1" aria-hidden="true">
+          <svg class="ic" viewBox="0 0 16 16" fill="none">
+            <rect x="4" y="4" width="8" height="8" />
+          </svg>
+        </button>
+        <button type="button" class="tb-close" tabindex="-1" aria-hidden="true">
+          <svg class="ic" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+        </button>
+      </div>
+    </div>
     <div id="ribbon">
       <div id="ribbon-tabs">
         <button class="rtab rtab-file" type="button" data-menu="file">Файл</button>
