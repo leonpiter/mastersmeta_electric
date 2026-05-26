@@ -14,12 +14,15 @@ export interface LibraryHandlers {
   onCreate?: () => void;
   onEdit?: (sym: SymbolDef) => void;
   onDuplicate?: (sym: SymbolDef) => void;
+  onRename?: (sym: SymbolDef) => void;
   onReset?: (id: string) => void;
   onDelete?: (id: string) => void;
   /** системный УГО с override → доступен «сброс к системному». */
   canReset?: (id: string) => boolean;
-  /** пользовательский УГО → доступно удаление. */
+  /** пользовательский УГО → доступно удаление/переименование. */
   canDelete?: (id: string) => boolean;
+  /** пользовательский УГО (не системный) → группируется в подпапку «Мои символы». */
+  isUser?: (id: string) => boolean;
 }
 
 function loadFavorites(): Set<string> {
@@ -140,13 +143,18 @@ export class LibraryPanel {
 
   private renderList(): void {
     this.listEl.replaceChildren();
+    const isUser = this.handlers.isUser ?? (() => false);
 
     const favs = this.library.all().filter((s) => this.favorites.has(s.id) && this.matches(s));
-    if (favs.length) this.renderFolder("Избранное", favs, true);
+    if (favs.length) this.renderFolder("Избранное", favs, { fav: true });
 
+    // строгие категории (S27): системные УГО прямо в категории, свои — в подпапке «Мои символы»
     for (const [category, syms] of this.library.byCategory()) {
       const visible = syms.filter((s) => this.matches(s));
-      if (visible.length) this.renderFolder(category, visible, false);
+      if (!visible.length) continue;
+      const system = visible.filter((s) => !isUser(s.id));
+      const mine = visible.filter((s) => isUser(s.id));
+      this.renderFolder(category, system, { mine });
     }
 
     if (this.listEl.childElementCount === 0) {
@@ -159,7 +167,11 @@ export class LibraryPanel {
     if (this.active) this.markActive(this.active);
   }
 
-  private renderFolder(title: string, syms: SymbolDef[], isFav: boolean): void {
+  private renderFolder(
+    title: string,
+    syms: SymbolDef[],
+    opts: { fav?: boolean; mine?: SymbolDef[] } = {},
+  ): void {
     const folder = document.createElement("div");
     folder.className = "lib-folder";
 
@@ -168,7 +180,7 @@ export class LibraryPanel {
     exp.textContent = "−";
 
     let icon: HTMLElement | SVGSVGElement;
-    if (isFav) {
+    if (opts.fav) {
       const star = document.createElement("span");
       star.className = "lib-fav-ico";
       star.textContent = "★";
@@ -185,6 +197,7 @@ export class LibraryPanel {
     const rows = document.createElement("div");
     rows.className = "lib-rows";
     for (const sym of syms) rows.append(this.row(sym));
+    if (opts.mine?.length) rows.append(this.subFolder("Мои символы", opts.mine));
 
     folder.addEventListener("click", () => {
       rows.hidden = !rows.hidden;
@@ -192,6 +205,35 @@ export class LibraryPanel {
     });
 
     this.listEl.append(folder, rows);
+  }
+
+  /** Подпапка «Мои символы» внутри категории (свои УГО этого класса). */
+  private subFolder(title: string, syms: SymbolDef[]): HTMLElement {
+    const wrap = document.createElement("div");
+    wrap.className = "lib-subfolder";
+
+    const head = document.createElement("div");
+    head.className = "lib-folder lib-subhead";
+    const exp = document.createElement("span");
+    exp.className = "lib-exp";
+    exp.textContent = "−";
+    const name = document.createElement("span");
+    name.className = "lib-fname";
+    name.textContent = title;
+    head.append(exp, folderIcon(), name);
+
+    const subrows = document.createElement("div");
+    subrows.className = "lib-rows lib-subrows";
+    for (const sym of syms) subrows.append(this.row(sym));
+
+    head.addEventListener("click", (e) => {
+      e.stopPropagation();
+      subrows.hidden = !subrows.hidden;
+      exp.textContent = subrows.hidden ? "+" : "−";
+    });
+
+    wrap.append(head, subrows);
+    return wrap;
   }
 
   private row(sym: SymbolDef): HTMLElement {
@@ -246,7 +288,8 @@ export class LibraryPanel {
       this.ctxMenu.append(b);
     };
     if (h.onEdit) item("Редактировать…", () => h.onEdit?.(sym));
-    if (h.onDuplicate) item("Дублировать…", () => h.onDuplicate?.(sym));
+    if (h.onDuplicate) item("Копировать…", () => h.onDuplicate?.(sym));
+    if (h.canDelete?.(sym.id) && h.onRename) item("Переименовать…", () => h.onRename?.(sym));
     if (h.canReset?.(sym.id) && h.onReset) item("Сбросить к системному", () => h.onReset?.(sym.id));
     if (h.canDelete?.(sym.id) && h.onDelete) item("Удалить", () => h.onDelete?.(sym.id));
     this.ctxMenu.style.left = `${x}px`;

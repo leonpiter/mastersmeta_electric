@@ -106,6 +106,8 @@ panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
   onCreate: () => symbolEditor.open(),
   onEdit: (sym) => symbolEditor.open(sym),
   onDuplicate: (sym) => symbolEditor.open(sym, { asCopy: true }),
+  onRename: (sym) => openRename(sym),
+  isUser: (id) => userIds.has(id) && !GOST_IDS.has(id),
   onReset: (id) => {
     removeUserSymbol(id);
     const orig = GOST_SYMBOLS.find((s) => s.id === id);
@@ -124,6 +126,25 @@ panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
   },
   canReset: (id) => GOST_IDS.has(id) && userIds.has(id),
   canDelete: (id) => userIds.has(id) && !GOST_IDS.has(id),
+});
+
+// быстрое переименование пользовательского УГО (S27) — без полного редактора
+const renameDialog = document.getElementById("rename-dialog") as HTMLDialogElement;
+const rnInput = document.getElementById("rn-input") as HTMLInputElement;
+let renaming: SymbolDef | null = null;
+function openRename(sym: SymbolDef): void {
+  renaming = sym;
+  rnInput.value = sym.name;
+  renameDialog.showModal();
+  rnInput.focus();
+  rnInput.select();
+}
+renameDialog.addEventListener("close", () => {
+  if (renameDialog.returnValue === "ok" && renaming) {
+    const name = rnInput.value.trim();
+    if (name && name !== renaming.name) applyUserSymbol({ ...renaming, name });
+  }
+  renaming = null;
 });
 
 // ----- рабочее пространство: вкладки открытых страниц (S26) -----

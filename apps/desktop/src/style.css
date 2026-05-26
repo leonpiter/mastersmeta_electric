@@ -668,6 +668,16 @@ body.resizing #canvas {
   display: none;
 }
 
+/* подпапка «Мои символы» внутри категории (S27) */
+.lib-subhead {
+  padding-left: 22px;
+  color: var(--text-dim);
+}
+
+.lib-subrows .lib-row {
+  padding-left: 42px;
+}
+
 .lib-row {
   display: flex;
   align-items: center;
