@@ -177,11 +177,26 @@ export class CanvasView {
     };
   }
 
-  /** Переключить видимость клетки. Возвращает новое состояние. */
-  toggleGrid(): boolean {
-    this.gridVisible = !this.gridVisible;
+  /** Показать/скрыть клетку. */
+  setGridVisible(v: boolean): void {
+    this.gridVisible = v;
     this.updateView();
+  }
+
+  /** Задать шаг сетки (мм) — он же шаг привязки. */
+  setGridStep(step: number): void {
+    if (step > 0) {
+      this.page.gridStep = step;
+      this.updateView();
+    }
+  }
+
+  get gridShown(): boolean {
     return this.gridVisible;
+  }
+
+  get gridStepMm(): number {
+    return this.page.gridStep;
   }
 
   /** Вписать лист в окно. */

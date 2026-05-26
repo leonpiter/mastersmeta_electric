@@ -123,26 +123,107 @@ const rotateBtn = document.getElementById("rotate") as HTMLButtonElement;
 const mirrorBtn = document.getElementById("mirror") as HTMLButtonElement;
 const deleteBtn = document.getElementById("delete") as HTMLButtonElement;
 
+// ----- меню «Файл» (классическое выпадающее) -----
+const fileMenu = document.getElementById("file-menu") as HTMLElement;
+const closeFileMenu = (): void => {
+  fileMenu.hidden = true;
+};
+fileMenu.addEventListener("click", (e) => e.stopPropagation());
+
 undoBtn.addEventListener("click", () => stack.undo());
 redoBtn.addEventListener("click", () => stack.redo());
 resetBtn.addEventListener("click", () => view.resetView());
-pdfBtn.addEventListener("click", () => view.exportPdf());
+pdfBtn.addEventListener("click", () => {
+  view.exportPdf();
+  closeFileMenu();
+});
 rotateBtn.addEventListener("click", () => view.rotateSelectedOrPending());
 mirrorBtn.addEventListener("click", () => view.mirrorSelectedOrPending());
 deleteBtn.addEventListener("click", () => view.deleteSelected());
 
+// ----- меню сетки (показать/скрыть + шаг) -----
 const gridBtn = document.getElementById("grid") as HTMLButtonElement;
-gridBtn.classList.add("on"); // клетка видна по умолчанию
-gridBtn.addEventListener("click", () => {
-  gridBtn.classList.toggle("on", view.toggleGrid());
+const gridMenu = document.getElementById("grid-menu") as HTMLElement;
+const gridShow = document.getElementById("grid-show") as HTMLInputElement;
+const stepItems = gridMenu.querySelectorAll<HTMLButtonElement>(".dd-item");
+
+const savedStep = Number(localStorage.getItem("see.gridStep"));
+if (savedStep > 0) view.setGridStep(savedStep);
+if (localStorage.getItem("see.gridShow") === "0") view.setGridVisible(false);
+
+function syncGridUi(): void {
+  gridBtn.classList.toggle("on", view.gridShown);
+  gridShow.checked = view.gridShown;
+  stepItems.forEach((b) =>
+    b.classList.toggle("active", Number(b.dataset["step"]) === view.gridStepMm),
+  );
+}
+syncGridUi();
+
+const closeGridMenu = (): void => {
+  gridMenu.hidden = true;
+};
+
+gridBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  closeFileMenu();
+  if (gridMenu.hidden) {
+    const r = gridBtn.getBoundingClientRect();
+    gridMenu.style.left = `${r.left}px`;
+    gridMenu.style.top = `${r.bottom + 2}px`;
+    gridMenu.hidden = false;
+  } else {
+    closeGridMenu();
+  }
+});
+gridMenu.addEventListener("click", (e) => e.stopPropagation());
+gridShow.addEventListener("change", () => {
+  view.setGridVisible(gridShow.checked);
+  try {
+    localStorage.setItem("see.gridShow", gridShow.checked ? "1" : "0");
+  } catch {
+    /* недоступно — игнор */
+  }
+  syncGridUi();
+});
+stepItems.forEach((b) =>
+  b.addEventListener("click", () => {
+    const step = Number(b.dataset["step"]);
+    view.setGridStep(step);
+    try {
+      localStorage.setItem("see.gridStep", String(step));
+    } catch {
+      /* недоступно — игнор */
+    }
+    syncGridUi();
+    closeGridMenu();
+  }),
+);
+document.addEventListener("click", () => {
+  closeGridMenu();
+  closeFileMenu();
 });
 
-// переключение вкладок ленты
+// лента: вкладки-страницы + вкладка-меню «Файл»
 const ribbonTabs = document.querySelectorAll<HTMLButtonElement>(".rtab");
 const ribbonPages = document.querySelectorAll<HTMLElement>(".rpage");
 ribbonTabs.forEach((tab) => {
-  tab.addEventListener("click", () => {
+  tab.addEventListener("click", (e) => {
+    if (tab.dataset["menu"] === "file") {
+      e.stopPropagation();
+      closeGridMenu();
+      if (fileMenu.hidden) {
+        const r = tab.getBoundingClientRect();
+        fileMenu.style.left = `${r.left}px`;
+        fileMenu.style.top = `${r.bottom}px`;
+        fileMenu.hidden = false;
+      } else {
+        closeFileMenu();
+      }
+      return;
+    }
     const name = tab.dataset["tab"];
+    closeFileMenu();
     ribbonTabs.forEach((t) => t.classList.toggle("active", t === tab));
     ribbonPages.forEach((p) => {
       p.hidden = p.dataset["tab"] !== name;

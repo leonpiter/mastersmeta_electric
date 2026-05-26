@@ -4,7 +4,7 @@
  * меняются местами, ширина тянется сплиттерами), статус-бар снизу.
  */
 :root {
-  --toolbar-h: 74px;
+  --toolbar-h: 96px;
   --status-h: 22px;
   --left-w: 200px;
   --right-w: 212px;
@@ -153,6 +153,11 @@ body.resizing #canvas {
   font-weight: 600;
 }
 
+.rtab-file {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 #ribbon-body {
   flex: 1 1 auto;
   display: flex;
@@ -192,14 +197,34 @@ body.resizing #canvas {
 }
 
 .rgroup button {
-  font: inherit;
-  height: 30px;
-  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 46px;
+  height: 44px;
+  padding: 3px 6px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
   cursor: pointer;
+}
+
+.rgroup button span {
   white-space: nowrap;
+}
+
+.ic {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .rgroup button:hover {
@@ -222,6 +247,78 @@ body.resizing #canvas {
 .rgroup button.on {
   background: var(--accent-soft);
   border-color: var(--accent);
+}
+
+/* ---- выпадающее меню (сетка и т.п.) ---- */
+.dropdown {
+  position: fixed;
+  z-index: 50;
+  min-width: 158px;
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 22%);
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.dropdown[hidden] {
+  display: none;
+}
+
+.dd-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.dd-sep {
+  height: 1px;
+  background: var(--border-2);
+  margin: 4px 0;
+}
+
+.dd-title {
+  padding: 2px 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.dd-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.dd-item:hover {
+  background: var(--accent-soft);
+}
+
+.dd-item:disabled {
+  color: #aab0ba;
+  cursor: default;
+}
+
+.dd-item:disabled:hover {
+  background: transparent;
+}
+
+.dd-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.dd-item.active::after {
+  content: " ✓";
 }
 
 /* ---- структура проекта (дерево) ---- */
