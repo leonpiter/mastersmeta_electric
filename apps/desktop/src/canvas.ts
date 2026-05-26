@@ -20,6 +20,7 @@ import {
   AddWiresCommand,
   RemoveWireCommand,
   computeJunctions,
+  computeNets,
   DEFAULT_WIRE_WIDTH_POWER,
   DEFAULT_WIRE_WIDTH_CONTROL,
   type Page,
@@ -566,18 +567,25 @@ export class CanvasView {
 
   private renderWires(): void {
     this.wiresG.replaceChildren();
+
+    // подсветка цепи выбранного провода (вся электрически связанная группа)
+    const sel = this.selectedWire;
+    const nets = computeNets(this.page, this.library);
+    const hiliteNet = sel ? nets.find((n) => n.wireIds.includes(sel.id)) : undefined;
+    const hiliteWireIds = new Set(hiliteNet?.wireIds ?? []);
+
     for (const w of this.page.wires) {
       if (w.points.length < 2) continue;
       const d = w.points.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" ");
       const width = w.type === "power" ? this.wireWidthPower : this.wireWidthControl;
-      // подсветка выбранного провода (ореол под линией)
-      if (this.selectedWire?.id === w.id) {
+      // ореол под всей цепью выбранного провода
+      if (hiliteWireIds.has(w.id)) {
         this.wiresG.append(
           el("path", {
             d,
             fill: "none",
             stroke: "#1b6fc4",
-            "stroke-width": width + 1,
+            "stroke-width": width + 1.2,
             opacity: 0.35,
             "stroke-linecap": "round",
             "stroke-linejoin": "round",
@@ -595,10 +603,27 @@ export class CanvasView {
         }),
       );
     }
+
     // узлы соединения (жирные точки на Т-ответвлениях) — заметнее толщины провода
     const dotR = Math.max(1.2, this.wireWidthPower * 4);
     for (const j of computeJunctions(this.page)) {
       this.wiresG.append(el("circle", { cx: j.x, cy: j.y, r: dotR, fill: "#1a1a1a" }));
+    }
+
+    // выводы символов на подсвеченной цепи — кольца акцента
+    if (hiliteNet) {
+      for (const p of hiliteNet.pins) {
+        this.wiresG.append(
+          el("circle", {
+            cx: p.x,
+            cy: p.y,
+            r: dotR + 0.4,
+            fill: "none",
+            stroke: "#1b6fc4",
+            "stroke-width": 0.3,
+          }),
+        );
+      }
     }
   }
 
