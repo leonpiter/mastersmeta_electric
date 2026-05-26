@@ -6,7 +6,7 @@ import { serializeProject, deserializeProject, PROJECT_SCHEMA_VERSION } from "./
 
 const qf = GOST_SYMBOLS.find((s) => s.id === "gost.qf")!;
 
-describe("сериализация проекта (.seeproj)", () => {
+describe("сериализация проекта (.esch)", () => {
   it("round-trip сохраняет листы, символы, провода и настройки", () => {
     const proj = createProject();
     proj.name = "Щит ЩР1";

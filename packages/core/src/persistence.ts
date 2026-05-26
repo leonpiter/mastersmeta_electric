@@ -1,5 +1,5 @@
 /**
- * Сериализация проекта в файл `.seeproj` (принцип 7: детерминированно, с версией схемы).
+ * Сериализация проекта в файл `.esch` (принцип 7: детерминированно, с версией схемы).
  * Сейчас формат — JSON `{ schemaVersion, project }`. Символы хранятся ссылкой по `id`
  * (резолвятся из встроенной библиотеки). Zip-упаковка со встроенными кастомными УГО — позже (S11/S12).
  */
@@ -14,13 +14,13 @@ interface ProjectFile {
   project: Project;
 }
 
-/** Сериализовать проект в текст `.seeproj` (JSON). */
+/** Сериализовать проект в текст `.esch` (JSON). */
 export function serializeProject(project: Project): string {
   const file: ProjectFile = { schemaVersion: PROJECT_SCHEMA_VERSION, project };
   return JSON.stringify(file, null, 2);
 }
 
-/** Разобрать текст `.seeproj` в проект (с проверкой версии и нормализацией полей). */
+/** Разобрать текст `.esch` в проект (с проверкой версии и нормализацией полей). */
 export function deserializeProject(text: string): Project {
   let data: unknown;
   try {

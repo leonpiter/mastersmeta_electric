@@ -95,7 +95,7 @@ Page Properties · Page Information.
 ### Форматы файлов
 | See Electrical | Содержимое | Наш аналог |
 |---|---|---|
-| `.SEP` | Workspace (проект) + шаблоны | `.seeproj` / `project.json` |
+| `.SEP` | Workspace (проект) + шаблоны | `.esch` / `project.json` |
 | `.SES` | База символов (УГО) | `*.symbol.json` |
 | `TYPES.SES` | База типов/изделий | `*.part.json` (каталог) |
 | `.TDW` | Шаблон листа | Шаблон листа (формат+штамп+зоны) |

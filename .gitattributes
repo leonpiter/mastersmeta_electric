@@ -16,4 +16,4 @@
 *.ttf      binary
 
 # Форматы проекта (zip-контейнеры и бинарные паки) — бинарные.
-*.seeproj  binary
+*.esch  binary

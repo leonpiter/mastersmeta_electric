@@ -241,7 +241,7 @@ const closeFileMenu = (): void => {
 };
 fileMenu.addEventListener("click", (e) => e.stopPropagation());
 
-// ----- сохранение/открытие проекта (.seeproj) -----
+// ----- сохранение/открытие проекта (.esch) -----
 function applyProject(loaded: Project): void {
   project.id = loaded.id;
   project.name = loaded.name;
@@ -260,14 +260,14 @@ function saveProject(): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${project.name || "project"}.seeproj`;
+  a.download = `${project.name || "project"}.esch`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 const fileInput = document.createElement("input");
 fileInput.type = "file";
-fileInput.accept = ".seeproj,application/json";
+fileInput.accept = ".esch,application/json";
 fileInput.style.display = "none";
 document.body.append(fileInput);
 fileInput.addEventListener("change", () => {
