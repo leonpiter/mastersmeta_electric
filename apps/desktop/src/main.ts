@@ -13,9 +13,12 @@ import {
   deserializeProject,
   computeDevices,
   findUnlinked,
+  computeBom,
+  bomToCsv,
   Catalog,
   BUILTIN_PARTS,
   partLabel,
+  type BomRow,
   type SymbolInstance,
   type Wire,
   type Project,
@@ -493,6 +496,91 @@ function renderDeviceList(): void {
 devicesBtn.addEventListener("click", () => {
   renderDeviceList();
   dlDialog.showModal();
+});
+
+// ----- перечень элементов (вкладка «Схема» → «Перечень», ГОСТ 2.701) -----
+const reportBomBtn = document.getElementById("report-bom") as HTMLButtonElement;
+const bomDialog = document.getElementById("bom-dialog") as HTMLDialogElement;
+const bomBody = document.getElementById("bom-body")!;
+const BOM_HEADERS = ["Поз. обозначение", "Наименование", "Кол.", "Примечание"];
+
+const currentBom = (): BomRow[] => computeBom(project, library, catalog);
+
+function renderBom(rows: BomRow[]): void {
+  bomBody.replaceChildren();
+  if (rows.length === 0) {
+    bomBody.append(dlLine("dl-empty", "На листах нет устройств."));
+    return;
+  }
+  const table = document.createElement("table");
+  table.className = "bom-table";
+  const thead = document.createElement("thead");
+  const htr = document.createElement("tr");
+  for (const h of BOM_HEADERS) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    htr.append(th);
+  }
+  thead.append(htr);
+  const tbody = document.createElement("tbody");
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    for (const v of [r.designation, r.name, String(r.quantity), r.note]) {
+      const td = document.createElement("td");
+      td.textContent = v;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+  table.append(thead, tbody);
+  bomBody.append(table);
+}
+
+reportBomBtn.addEventListener("click", () => {
+  renderBom(currentBom());
+  bomDialog.showModal();
+});
+
+(document.getElementById("bom-csv") as HTMLButtonElement).addEventListener("click", () => {
+  // BOM (U+FEFF) в начале — чтобы Excel открыл кириллицу как UTF-8
+  const blob = new Blob(["﻿" + bomToCsv(currentBom())], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${project.name || "project"}-перечень.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+(document.getElementById("bom-print") as HTMLButtonElement).addEventListener("click", () => {
+  const rows = currentBom();
+  const esc = (s: string): string =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const title = `Перечень элементов — ${esc(project.name || "Проект")}`;
+  const head = `<tr>${BOM_HEADERS.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>`;
+  const body = rows
+    .map(
+      (r) =>
+        `<tr><td>${esc(r.designation)}</td><td class="nm">${esc(r.name)}</td>` +
+        `<td>${r.quantity}</td><td>${esc(r.note)}</td></tr>`,
+    )
+    .join("");
+  const css =
+    "@page{size:A4;margin:15mm}body{font-family:sans-serif;font-size:11pt;color:#000}" +
+    "h1{font-size:13pt}table{border-collapse:collapse;width:100%}" +
+    "th,td{border:1px solid #000;padding:3px 6px;text-align:left}" +
+    "th:nth-child(3),td:nth-child(3){text-align:center;width:14mm}" +
+    "th:first-child,td:first-child{width:34mm}";
+  const printJs = "window.onload=function(){window.focus();window.print();};";
+  const html =
+    `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${title}</title>` +
+    `<style>${css}</style></head><body><h1>${title}</h1>` +
+    `<table>${head}${body}</table><script>${printJs}</` +
+    `script></body></html>`;
+  const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+  const win = window.open(url, "_blank");
+  if (!win) window.alert("Разрешите всплывающие окна, чтобы напечатать перечень.");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 });
 
 // ----- меню сетки (показать/скрыть + шаг) -----

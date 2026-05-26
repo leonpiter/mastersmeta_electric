@@ -12,4 +12,5 @@ export * from "./connectivity";
 export * from "./devices";
 export * from "./catalog";
 export * from "./catalog-builtin";
+export * from "./reports";
 export * from "./persistence";

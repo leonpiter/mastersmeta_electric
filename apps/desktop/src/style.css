@@ -836,3 +836,41 @@ body.resizing #canvas {
   color: var(--text-dim);
   padding: 8px;
 }
+
+/* ---- перечень элементов (ГОСТ 2.701) ---- */
+.bom-body {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.bom-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bom-table th,
+.bom-table td {
+  border: 1px solid var(--border-2);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.bom-table th {
+  background: var(--panel-2);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.bom-table th:nth-child(3),
+.bom-table td:nth-child(3) {
+  text-align: center;
+  width: 44px;
+}
+
+.bom-table th:first-child,
+.bom-table td:first-child {
+  width: 110px;
+  font-weight: 600;
+}
