@@ -12,7 +12,7 @@ describe("сериализация проекта (.seeproj)", () => {
     proj.name = "Щит ЩР1";
     proj.wireWidthPower = 0.35;
     new AddPageCommand(proj).do();
-    const page = proj.pages[0]!;
+    const page = proj.pages[0];
     new AddSymbolInstanceCommand(page, qf, 50, 50).do();
     new AddWireCommand(page, [
       { x: 50, y: 65 },
@@ -24,9 +24,9 @@ describe("сериализация проекта (.seeproj)", () => {
     expect(restored.wireWidthPower).toBe(0.35);
     expect(restored.pages).toHaveLength(2);
     expect(restored.activePageId).toBe(proj.activePageId);
-    expect(restored.pages[0]!.instances).toHaveLength(1);
-    expect(restored.pages[0]!.wires).toHaveLength(1);
-    expect(restored.pages[0]!.instances[0]!.designation).toBe("QF1");
+    expect(restored.pages[0].instances).toHaveLength(1);
+    expect(restored.pages[0].wires).toHaveLength(1);
+    expect(restored.pages[0].instances[0].designation).toBe("QF1");
   });
 
   it("отклоняет файл с более новой схемой", () => {
