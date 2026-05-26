@@ -8,7 +8,7 @@
  * (тот же тип) со своими характеристиками; они мёржатся в `CategoryRegistry` и
  * выгружаются/шарятся вместе с символами (пак — позже, S12).
  */
-import type { SymbolKind } from "./symbol";
+import { SYMBOL_KINDS, type SymbolKind } from "./symbol";
 
 /** Характеристика категории (поле, используемое в подписях/свойствах). */
 export interface AttrDef {
@@ -140,6 +140,48 @@ export const GOST_CATEGORIES: EquipmentCategory[] = [
     attributes: [],
   },
 ];
+
+/** Результат валидации категории (формат пользовательского пака — позже, S12). */
+export type CategoryValidation =
+  | { ok: true; category: EquipmentCategory }
+  | { ok: false; errors: string[] };
+
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+const isStr = (v: unknown): v is string => typeof v === "string";
+
+/**
+ * Структурная валидация `EquipmentCategory` (при загрузке пользовательских категорий).
+ * `componentCode` может быть пустым (категория «Прочее»); `kinds` — непустой список
+ * допустимых поведений; `attributes` — массив пар {key,label}.
+ */
+export function validateCategory(input: unknown): CategoryValidation {
+  const errors: string[] = [];
+  if (!isObj(input)) return { ok: false, errors: ["category must be an object"] };
+
+  for (const f of ["id", "name"] as const) {
+    if (!isStr(input[f]) || input[f].length === 0) errors.push(`"${f}" must be a non-empty string`);
+  }
+  if (!isStr(input.componentCode)) errors.push(`"componentCode" must be a string`);
+
+  if (!Array.isArray(input.kinds) || input.kinds.length === 0) {
+    errors.push(`"kinds" must be a non-empty array`);
+  } else if (!input.kinds.every((k) => SYMBOL_KINDS.includes(k as SymbolKind))) {
+    errors.push(`"kinds" must contain only valid symbol kinds`);
+  }
+
+  if (!Array.isArray(input.attributes)) {
+    errors.push(`"attributes" must be an array`);
+  } else {
+    input.attributes.forEach((a, i) => {
+      if (!isObj(a) || !isStr(a.key) || !isStr(a.label))
+        errors.push(`attributes[${i}]: requires { key: string, label: string }`);
+    });
+  }
+
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, category: input as unknown as EquipmentCategory };
+}
 
 /** Реестр категорий: доступ по имени/id; мёрж базового комплекта и пользовательских. */
 export class CategoryRegistry {

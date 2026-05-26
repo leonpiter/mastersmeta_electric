@@ -1076,6 +1076,32 @@ body.resizing #canvas {
   padding: 4px;
 }
 
+/* read-only код задаётся категорией — приглушаем */
+#se-code[readonly] {
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+/* чекбоксы поведений в диалоге «Новая категория» */
+.cat-kinds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 12px;
+}
+
+.cat-kind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.cat-kind input {
+  margin: 0;
+}
+
 .panel-header-btn {
   font: inherit;
   font-size: 14px;

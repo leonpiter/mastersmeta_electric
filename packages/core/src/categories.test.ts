@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { CategoryRegistry, GOST_CATEGORIES, type EquipmentCategory } from "./categories";
+import {
+  CategoryRegistry,
+  GOST_CATEGORIES,
+  validateCategory,
+  type EquipmentCategory,
+} from "./categories";
 import { GOST_SYMBOLS } from "./symbols-gost";
 
 describe("категории оборудования", () => {
@@ -41,5 +46,43 @@ describe("категории оборудования", () => {
       expect(sym.componentCode, `код ${sym.id}`).toBe(cat.componentCode);
       expect(cat.kinds, `kind ${sym.id}`).toContain(sym.kind);
     }
+  });
+});
+
+describe("validateCategory", () => {
+  const good: EquipmentCategory = {
+    id: "user.sensor",
+    name: "Датчики",
+    componentCode: "BK",
+    kinds: ["component"],
+    attributes: [{ key: "range", label: "Диапазон" }],
+    user: true,
+  };
+
+  it("корректная категория проходит", () => {
+    expect(validateCategory(good).ok).toBe(true);
+  });
+
+  it("пустой componentCode допустим (категория «Прочее»)", () => {
+    expect(validateCategory({ ...good, componentCode: "" }).ok).toBe(true);
+  });
+
+  it("все встроенные категории валидны", () => {
+    for (const c of GOST_CATEGORIES) expect(validateCategory(c).ok).toBe(true);
+  });
+
+  it("ловит пустое имя, пустой/битый kinds и битый attribute", () => {
+    const r = validateCategory({ id: "x", name: "", componentCode: "Q", kinds: [], attributes: 1 });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.some((e) => e.includes("name"))).toBe(true);
+      expect(r.errors.some((e) => e.includes("kinds"))).toBe(true);
+      expect(r.errors.some((e) => e.includes("attributes"))).toBe(true);
+    }
+  });
+
+  it("ловит недопустимое поведение в kinds", () => {
+    const r = validateCategory({ ...good, kinds: ["bogus"] });
+    expect(r.ok).toBe(false);
   });
 });

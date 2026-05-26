@@ -8,13 +8,39 @@ import {
   validateSymbol,
   symbolBounds,
   PX_PER_MM,
+  SYMBOL_KINDS,
+  CategoryRegistry,
+  GOST_CATEGORIES,
   type GraphicPrimitive,
   type Pin,
   type SymbolDef,
   type SymbolKind,
+  type EquipmentCategory,
 } from "@see/core";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+/** Подписи поведений (kind) для UI. */
+const KIND_LABELS: Record<SymbolKind, string> = {
+  coil: "Катушка (master)",
+  component: "Компонент (уникальная сигла)",
+  "component-aux": "Компонент + контакты",
+  "contact-no": "Контакт НО",
+  "contact-nc": "Контакт НЗ",
+  terminal: "Клемма",
+  connector: "Разъём",
+  "black-box": "Прочее",
+};
+
+/** Спец-значение пункта «создать категорию» в выпадающем списке. */
+const NEW_CAT = "__new__";
+
+/** slug для id из названия (кириллица/латиница/цифры → дефисы). */
+const slugify = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-zа-я0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "x";
 
 function el<K extends keyof SVGElementTagNameMap>(
   tag: K,
@@ -78,17 +104,25 @@ export class SymbolEditor {
   private readonly svg = document.getElementById("se-canvas") as unknown as SVGSVGElement;
   private readonly nameEl = document.getElementById("se-name") as HTMLInputElement;
   private readonly codeEl = document.getElementById("se-code") as HTMLInputElement;
-  private readonly catEl = document.getElementById("se-cat") as HTMLInputElement;
+  private readonly catEl = document.getElementById("se-cat") as HTMLSelectElement;
   private readonly kindEl = document.getElementById("se-kind") as HTMLSelectElement;
   private readonly pinNameEl = document.getElementById("se-pinname") as HTMLInputElement;
   private readonly textEl = document.getElementById("se-text") as HTMLInputElement | null;
   private readonly textSizeEl = document.getElementById("se-textsize") as HTMLInputElement | null;
   private readonly zoomEl = document.getElementById("se-zoom");
   private readonly hintEl = document.getElementById("se-hint")!;
-  private readonly catList = document.getElementById("se-cat-list") as HTMLDataListElement;
   private readonly toolBtns = document.querySelectorAll<HTMLButtonElement>(
     "#symbol-editor [data-tool]",
   );
+
+  // диалог «Новая категория»
+  private readonly catDialog = document.getElementById("category-dialog") as HTMLDialogElement;
+  private readonly catNameEl = document.getElementById("cat-name") as HTMLInputElement;
+  private readonly catCodeEl = document.getElementById("cat-code") as HTMLInputElement;
+  private readonly catKindsEl = document.getElementById("cat-kinds")!;
+  private readonly catHintEl = document.getElementById("cat-hint")!;
+  /** Предыдущее значение списка категорий (для отката при «+ Новая категория…»). */
+  private prevCat = "";
 
   // слои (как в canvas.ts): сетка-pattern (экранные px) → оси → контент (local mm, трансформ)
   private readonly gridPattern: SVGPatternElement;
@@ -119,8 +153,13 @@ export class SymbolEditor {
 
   constructor(
     private readonly onSave: (sym: SymbolDef) => void,
-    /** Существующие категории (папки) — для подсказок при выборе папки. */
-    private readonly getCategories: () => string[] = () => [],
+    /** Реестр категорий (классов оборудования) — задаёт код + допустимые поведения. */
+    private readonly getRegistry: () => CategoryRegistry = () =>
+      new CategoryRegistry(GOST_CATEGORIES),
+    /** Сохранить новую пользовательскую категорию (мёрж в реестр). */
+    private readonly onCreateCategory: (cat: EquipmentCategory) => void = () => {
+      /* по умолчанию не сохраняем */
+    },
   ) {
     this.svg.removeAttribute("viewBox"); // координаты = экранные px, контент трансформируется
 
@@ -167,19 +206,26 @@ export class SymbolEditor {
     (document.getElementById("se-save") as HTMLButtonElement).addEventListener("click", () =>
       this.save(),
     );
+
+    // строгие категории: выбор задаёт код + ограничивает поведение; «+ Новая категория…»
+    this.catEl.addEventListener("change", () => {
+      if (this.catEl.value === NEW_CAT) {
+        this.catEl.value = this.prevCat; // вернуть прежнюю, пока новая не создана
+        this.openNewCategory();
+        return;
+      }
+      this.prevCat = this.catEl.value;
+      this.applyCategory();
+    });
+    (document.getElementById("cat-create") as HTMLButtonElement).addEventListener("click", () =>
+      this.createCategory(),
+    );
+
     this.installCanvas();
   }
 
   /** Открыть редактор: новый символ (seed=undefined) или правка существующего. */
   open(seed?: SymbolDef, opts: { asCopy?: boolean } = {}): void {
-    const cats = [...new Set(["Мои символы", ...this.getCategories()])];
-    this.catList.replaceChildren(
-      ...cats.map((c) => {
-        const o = document.createElement("option");
-        o.value = c;
-        return o;
-      }),
-    );
     this.graphics = seed ? seed.graphics.map((g) => ({ ...g })) : [];
     this.pins = seed ? seed.pins.map((p) => ({ ...p })) : [];
     this.selected = null;
@@ -187,8 +233,8 @@ export class SymbolEditor {
     this.editId = seed && !opts.asCopy ? seed.id : null;
     this.nameEl.value = seed ? (opts.asCopy ? `${seed.name} (копия)` : seed.name) : "";
     this.codeEl.value = seed?.componentCode ?? "";
-    this.catEl.value = seed?.category ?? "Мои символы";
-    this.kindEl.value = seed?.kind ?? "component";
+    this.populateCategories(seed?.category ?? "");
+    this.applyCategory(seed?.kind ?? "component");
     this.pinNameEl.value = "1";
     this.hintEl.textContent = this.editId
       ? "Правка системного УГО сохранится как пользовательский override."
@@ -202,6 +248,116 @@ export class SymbolEditor {
     this.nameEl.focus();
     // у svg нет размера до showModal — вписать после открытия
     requestAnimationFrame(() => this.fit());
+  }
+
+  // ----- категории (строгая типизация) -----
+
+  /** Заполнить выпадающий список категориями реестра (+ пункт «Новая…»). */
+  private populateCategories(selected: string): void {
+    const names = this.getRegistry()
+      .all()
+      .map((c) => c.name);
+    // легаси-категория сохранённого символа (нет в реестре) — показать, чтобы не терять
+    if (selected && !names.includes(selected)) names.unshift(selected);
+    const options = names.map((n) => {
+      const o = document.createElement("option");
+      o.value = n;
+      o.textContent = n;
+      return o;
+    });
+    const add = document.createElement("option");
+    add.value = NEW_CAT;
+    add.textContent = "➕ Новая категория…";
+    this.catEl.replaceChildren(...options, add);
+    this.catEl.value = selected !== "" ? selected : (names[0] ?? "");
+    this.prevCat = this.catEl.value;
+  }
+
+  /** Применить выбранную категорию: код (read-only, если задан) + допустимые поведения. */
+  private applyCategory(preferredKind?: string): void {
+    const cat = this.getRegistry().byName(this.catEl.value);
+    if (cat) {
+      this.populateKinds(cat.kinds, preferredKind);
+      if (cat.componentCode) {
+        this.codeEl.value = cat.componentCode;
+        this.codeEl.readOnly = true;
+      } else {
+        this.codeEl.readOnly = false; // «Прочее» — код вводится вручную
+      }
+    } else {
+      this.populateKinds(SYMBOL_KINDS, preferredKind); // легаси/неизвестная — без ограничений
+      this.codeEl.readOnly = false;
+    }
+  }
+
+  /** Перестроить список поведений допустимыми для категории; сохранить выбор, если возможен. */
+  private populateKinds(kinds: readonly SymbolKind[], preferred?: string): void {
+    const want = preferred ?? this.kindEl.value;
+    this.kindEl.replaceChildren(
+      ...kinds.map((k) => {
+        const o = document.createElement("option");
+        o.value = k;
+        o.textContent = KIND_LABELS[k];
+        return o;
+      }),
+    );
+    this.kindEl.value = kinds.includes(want as SymbolKind) ? want : (kinds[0] ?? "");
+  }
+
+  /** Открыть диалог создания пользовательской категории. */
+  private openNewCategory(): void {
+    this.catNameEl.value = "";
+    this.catCodeEl.value = "";
+    this.catHintEl.textContent = "";
+    this.catKindsEl.replaceChildren(
+      ...SYMBOL_KINDS.map((k) => {
+        const label = document.createElement("label");
+        label.className = "cat-kind";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = k;
+        if (k === "component") cb.checked = true;
+        const span = document.createElement("span");
+        span.textContent = KIND_LABELS[k];
+        label.append(cb, span);
+        return label;
+      }),
+    );
+    this.catDialog.showModal();
+    this.catNameEl.focus();
+  }
+
+  /** Создать пользовательскую категорию из диалога и выбрать её. */
+  private createCategory(): void {
+    const name = this.catNameEl.value.trim();
+    const code = this.catCodeEl.value.trim();
+    const kinds = [...this.catKindsEl.querySelectorAll<HTMLInputElement>("input:checked")].map(
+      (cb) => cb.value as SymbolKind,
+    );
+    if (!name) {
+      this.catHintEl.textContent = "Укажите название категории.";
+      return;
+    }
+    if (this.getRegistry().byName(name)) {
+      this.catHintEl.textContent = "Категория с таким именем уже есть.";
+      return;
+    }
+    if (kinds.length === 0) {
+      this.catHintEl.textContent = "Выберите хотя бы одно поведение.";
+      return;
+    }
+    const cat: EquipmentCategory = {
+      id: `user.cat.${slugify(name)}.${Date.now().toString(36)}`,
+      name,
+      componentCode: code,
+      kinds,
+      attributes: [],
+      user: true,
+    };
+    this.onCreateCategory(cat);
+    this.catDialog.close();
+    this.populateCategories(name);
+    this.applyCategory();
   }
 
   // ----- вид (pan/zoom) -----
@@ -559,15 +715,10 @@ export class SymbolEditor {
   private save(): void {
     const name = this.nameEl.value.trim();
     const code = this.codeEl.value.trim();
-    const slug =
-      name
-        .toLowerCase()
-        .replace(/[^a-zа-я0-9]+/gi, "-")
-        .replace(/^-+|-+$/g, "") || "symbol";
     const sym: SymbolDef = {
-      id: this.editId ?? `user.${slug}.${Date.now().toString(36)}`,
+      id: this.editId ?? `user.${slugify(name)}.${Date.now().toString(36)}`,
       name,
-      category: this.catEl.value.trim() || "Мои символы",
+      category: this.catEl.value,
       componentCode: code,
       kind: this.kindEl.value as SymbolKind,
       graphics: this.graphics,

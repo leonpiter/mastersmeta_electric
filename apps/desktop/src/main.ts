@@ -24,6 +24,8 @@ import {
   BUILTIN_PARTS,
   partLabel,
   validateSymbol,
+  CategoryRegistry,
+  GOST_CATEGORIES,
   type SymbolDef,
   type SymbolInstance,
   type Wire,
@@ -36,6 +38,7 @@ import { ProjectPanel } from "./project-panel";
 import { PageTabs, type OpenTab } from "./page-tabs";
 import { SymbolEditor } from "./symbol-editor";
 import { loadUserSymbols, upsertUserSymbol, removeUserSymbol, userSymbolIds } from "./user-symbols";
+import { loadUserCategories, upsertUserCategory } from "./user-categories";
 
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
 const hud = document.getElementById("hud-info")!;
@@ -88,7 +91,16 @@ function applyUserSymbol(sym: SymbolDef): void {
   panel?.refresh();
   view.rerender();
 }
-const symbolEditor = new SymbolEditor(applyUserSymbol, () => [...library.byCategory().keys()]);
+// реестр категорий (S27): базовый комплект ГОСТ + пользовательские (localStorage)
+let registry = new CategoryRegistry([...GOST_CATEGORIES, ...loadUserCategories()]);
+const symbolEditor = new SymbolEditor(
+  applyUserSymbol,
+  () => registry,
+  (cat) => {
+    upsertUserCategory(cat);
+    registry = new CategoryRegistry([...GOST_CATEGORIES, ...loadUserCategories()]);
+  },
+);
 
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
   onCreate: () => symbolEditor.open(),

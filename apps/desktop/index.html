@@ -542,19 +542,18 @@
               <input id="se-name" type="text" autocomplete="off" />
             </div>
             <div class="prop-row">
-              <label for="se-code">Код ГОСТ (префикс сиглы)</label>
-              <input id="se-code" type="text" autocomplete="off" placeholder="QF / KM / …" />
+              <label for="se-cat">Категория (класс оборудования)</label>
+              <select id="se-cat"></select>
             </div>
             <div class="prop-row">
-              <label for="se-cat">Категория (папка)</label>
+              <label for="se-code">Код ГОСТ (префикс сиглы)</label>
               <input
-                id="se-cat"
+                id="se-code"
                 type="text"
                 autocomplete="off"
-                list="se-cat-list"
-                placeholder="Коммутация / Мои символы"
+                placeholder="QF / KM / …"
+                title="Задаётся категорией; вводится вручную только для «Прочее»"
               />
-              <datalist id="se-cat-list"></datalist>
             </div>
             <div class="prop-row">
               <label for="se-kind">Поведение</label>
@@ -613,6 +612,34 @@
         <div class="prop-actions">
           <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
           <button type="button" id="se-save">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="category-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>Новая категория оборудования</h3>
+        <div class="prop-row">
+          <label for="cat-name">Название</label>
+          <input id="cat-name" type="text" autocomplete="off" placeholder="напр. Датчики" />
+        </div>
+        <div class="prop-row">
+          <label for="cat-code">Код ГОСТ (префикс сиглы)</label>
+          <input
+            id="cat-code"
+            type="text"
+            autocomplete="off"
+            placeholder="BK / SQ / … (можно пусто)"
+          />
+        </div>
+        <div class="prop-row">
+          <label>Допустимые поведения</label>
+          <div id="cat-kinds" class="cat-kinds"></div>
+        </div>
+        <div id="cat-hint" class="prop-type"></div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button type="button" id="cat-create">Создать</button>
         </div>
       </form>
     </dialog>
