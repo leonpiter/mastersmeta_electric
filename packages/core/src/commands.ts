@@ -4,6 +4,9 @@ import { type Id, newId } from "./ids";
 import { pointOnSegment, type Point } from "./geometry";
 import {
   createPage,
+  translateAnnotation,
+  type Annotation,
+  type AnnotationStyle,
   type Page,
   type Project,
   type SchematicNode,
@@ -620,5 +623,91 @@ export class SetWireNumberCommand implements Command {
   undo(): void {
     this.wire.number = this.before.number;
     this.wire.locked = this.before.locked;
+  }
+}
+
+// ----- графические аннотации (оформление, S25) -----
+
+/** Добавить графическую аннотацию (линия/фигура/стрелка/текст). Обратима. */
+export class AddAnnotationCommand implements Command {
+  readonly type = "add-annotation";
+
+  constructor(
+    private readonly page: Page,
+    private readonly anno: Annotation,
+  ) {}
+
+  /** Созданная аннотация (для выделения в UI сразу после рисования). */
+  get annotation(): Annotation {
+    return this.anno;
+  }
+
+  do(): void {
+    this.page.annotations.push(this.anno);
+  }
+
+  undo(): void {
+    const i = this.page.annotations.findIndex((a) => a.id === this.anno.id);
+    if (i >= 0) this.page.annotations.splice(i, 1);
+  }
+}
+
+/** Удалить аннотацию (восстанавливается на прежней позиции в списке). */
+export class RemoveAnnotationCommand implements Command {
+  readonly type = "remove-annotation";
+  private index = -1;
+
+  constructor(
+    private readonly page: Page,
+    private readonly anno: Annotation,
+  ) {}
+
+  do(): void {
+    this.index = this.page.annotations.indexOf(this.anno);
+    if (this.index >= 0) this.page.annotations.splice(this.index, 1);
+  }
+
+  undo(): void {
+    if (this.index >= 0) this.page.annotations.splice(this.index, 0, this.anno);
+  }
+}
+
+/** Переместить аннотацию на (dx, dy). Обратима. */
+export class MoveAnnotationCommand implements Command {
+  readonly type = "move-annotation";
+
+  constructor(
+    private readonly anno: Annotation,
+    private readonly dx: number,
+    private readonly dy: number,
+  ) {}
+
+  do(): void {
+    translateAnnotation(this.anno, this.dx, this.dy);
+  }
+
+  undo(): void {
+    translateAnnotation(this.anno, -this.dx, -this.dy);
+  }
+}
+
+/** Изменить стиль аннотации (цвет/толщина/тип линии). Обратима. */
+export class RestyleAnnotationCommand implements Command {
+  readonly type = "restyle-annotation";
+  private readonly before: AnnotationStyle;
+
+  constructor(
+    private readonly anno: Annotation,
+    private readonly after: Partial<AnnotationStyle>,
+  ) {
+    this.before = { ...anno.style };
+  }
+
+  do(): void {
+    this.anno.style = { ...this.anno.style, ...this.after };
+  }
+
+  undo(): void {
+    this.anno.style = { ...this.before };
   }
 }

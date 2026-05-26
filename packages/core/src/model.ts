@@ -65,6 +65,81 @@ export interface Wire {
   locked?: boolean;
 }
 
+/** Тип линии аннотации (оформление чертежа). */
+export type AnnotationDash = "solid" | "dashed" | "dotted";
+
+/** Стиль графической аннотации: цвет/толщина/тип линии (для текста — цвет = заливка). */
+export interface AnnotationStyle {
+  color: string;
+  /** Толщина линии, мм. */
+  width: number;
+  dash: AnnotationDash;
+}
+
+/** Стиль аннотаций по умолчанию. */
+export const DEFAULT_ANNOTATION_STYLE: AnnotationStyle = {
+  color: "#1a1a1a",
+  width: 0.35,
+  dash: "solid",
+};
+
+/**
+ * Графическая аннотация (CLAUDE принцип 2: это НЕ `Wire`, не участвует в связности).
+ * Оформительский слой: линии/фигуры/стрелки/текст поверх схемы.
+ */
+export type Annotation =
+  | {
+      id: Id;
+      kind: "line";
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      /** Стрелка на конце (x2,y2). */
+      arrowEnd?: boolean;
+      style: AnnotationStyle;
+    }
+  | { id: Id; kind: "rect"; x: number; y: number; w: number; h: number; style: AnnotationStyle }
+  | {
+      id: Id;
+      kind: "ellipse";
+      cx: number;
+      cy: number;
+      rx: number;
+      ry: number;
+      style: AnnotationStyle;
+    }
+  | {
+      id: Id;
+      kind: "text";
+      x: number;
+      y: number;
+      text: string;
+      size: number;
+      style: AnnotationStyle;
+    };
+
+/** Сдвинуть аннотацию на (dx, dy) — единообразно по всем видам геометрии. */
+export function translateAnnotation(a: Annotation, dx: number, dy: number): void {
+  switch (a.kind) {
+    case "line":
+      a.x1 += dx;
+      a.y1 += dy;
+      a.x2 += dx;
+      a.y2 += dy;
+      break;
+    case "rect":
+    case "text":
+      a.x += dx;
+      a.y += dy;
+      break;
+    case "ellipse":
+      a.cx += dx;
+      a.cy += dy;
+      break;
+  }
+}
+
 export interface Page {
   id: Id;
   /** Шаг сетки в мм (выводы символов кратны ему; по умолчанию 5 мм). */
@@ -78,6 +153,8 @@ export interface Page {
   instances: SymbolInstance[];
   /** Провода (электрические соединения). */
   wires: Wire[];
+  /** Графические аннотации (оформление: линии/фигуры/текст). */
+  annotations: Annotation[];
 }
 
 export interface CreatePageOptions {
@@ -94,6 +171,7 @@ export function createPage(opts: CreatePageOptions = {}): Page {
     nodes: [],
     instances: [],
     wires: [],
+    annotations: [],
   };
 }
 

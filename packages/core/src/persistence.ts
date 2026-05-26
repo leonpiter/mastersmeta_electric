@@ -47,6 +47,7 @@ export function deserializeProject(text: string): Project {
     page.nodes ??= [];
     page.instances ??= [];
     page.wires ??= [];
+    page.annotations ??= [];
   }
 
   return {
