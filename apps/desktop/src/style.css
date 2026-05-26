@@ -362,19 +362,9 @@ body.resizing #canvas {
   text-overflow: ellipsis;
 }
 
-.sheet-del {
-  margin-left: auto;
-  padding: 0 4px;
-  color: var(--text-dim);
-  opacity: 0;
-}
-
-.tree-node.sheet:hover .sheet-del {
-  opacity: 1;
-}
-
-.sheet-del:hover {
-  color: #c0392b;
+.tree-node.sheet:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .tree-node.add {

@@ -84,6 +84,9 @@ function pageIcon(): SVGSVGElement {
 
 export class ProjectPanel {
   private readonly treeEl: HTMLElement;
+  private readonly ctxMenu: HTMLElement;
+  private readonly ctxDel: HTMLButtonElement;
+  private ctxTarget: string | null = null;
 
   constructor(
     container: HTMLElement,
@@ -101,7 +104,47 @@ export class ProjectPanel {
     this.treeEl.className = "tree";
     container.append(this.treeEl);
 
+    // контекстное меню листа (ПКМ)
+    this.ctxMenu = document.createElement("div");
+    this.ctxMenu.className = "dropdown";
+    this.ctxMenu.hidden = true;
+    const ctxAdd = document.createElement("button");
+    ctxAdd.type = "button";
+    ctxAdd.className = "dd-item";
+    ctxAdd.textContent = "Добавить лист";
+    ctxAdd.addEventListener("click", () => {
+      this.handlers.onAdd();
+      this.closeCtx();
+    });
+    const sep = document.createElement("div");
+    sep.className = "dd-sep";
+    this.ctxDel = document.createElement("button");
+    this.ctxDel.type = "button";
+    this.ctxDel.className = "dd-item";
+    this.ctxDel.textContent = "Удалить лист";
+    this.ctxDel.addEventListener("click", () => {
+      if (this.ctxTarget) this.handlers.onRemove(this.ctxTarget);
+      this.closeCtx();
+    });
+    this.ctxMenu.append(ctxAdd, sep, this.ctxDel);
+    this.ctxMenu.addEventListener("click", (e) => e.stopPropagation());
+    document.body.append(this.ctxMenu);
+    document.addEventListener("click", () => this.closeCtx());
+
     this.render();
+  }
+
+  private showCtx(x: number, y: number, pageId: string): void {
+    this.ctxTarget = pageId;
+    this.ctxDel.disabled = this.project.pages.length <= 1;
+    this.ctxMenu.style.left = `${x}px`;
+    this.ctxMenu.style.top = `${y}px`;
+    this.ctxMenu.hidden = false;
+  }
+
+  private closeCtx(): void {
+    this.ctxMenu.hidden = true;
+    this.ctxTarget = null;
   }
 
   /** Перерисовать дерево (после добавления/удаления/переключения листа). */
@@ -161,10 +204,15 @@ export class ProjectPanel {
     return children;
   }
 
-  /** Строка листа: иконка + название + кнопка удаления; клик — переключить. */
+  /**
+   * Строка листа: иконка + название. Клик — выбрать (и сфокусировать).
+   * Удаление: ПКМ → контекстное меню, либо Del на выбранном (сфокусированном) листе.
+   */
   private pageRow(parent: HTMLElement, pageId: string, title: string, depth: number): HTMLElement {
     const node = document.createElement("div");
     node.className = "tree-node sheet";
+    node.tabIndex = 0;
+    node.title = "ПКМ или Del — удалить лист";
     node.style.paddingLeft = `${4 + depth * 12 + 12}px`;
 
     const ico = document.createElement("span");
@@ -175,19 +223,24 @@ export class ProjectPanel {
     label.textContent = title;
     node.append(ico, label);
 
-    if (this.project.pages.length > 1) {
-      const del = document.createElement("span");
-      del.className = "sheet-del";
-      del.textContent = "✕";
-      del.title = "Удалить лист";
-      del.addEventListener("click", (e) => {
-        e.stopPropagation();
+    node.addEventListener("click", () => {
+      this.handlers.onSelect(pageId);
+      node.focus();
+    });
+    node.addEventListener("keydown", (e) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        e.stopPropagation(); // не пускать Del в глобальный обработчик (удаление символа)
         this.handlers.onRemove(pageId);
-      });
-      node.append(del);
-    }
+      }
+    });
+    node.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.handlers.onSelect(pageId);
+      node.focus();
+      this.showCtx(e.clientX, e.clientY, pageId);
+    });
 
-    node.addEventListener("click", () => this.handlers.onSelect(pageId));
     parent.append(node);
     return node;
   }
