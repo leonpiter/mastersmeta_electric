@@ -38,6 +38,8 @@ export interface DeviceInfo {
   contacts: DeviceMember[];
   /** Все представления в порядке листов/появления. */
   members: DeviceMember[];
+  /** Артикул(ы) каталога устройства (S6): код master-инстанса, иначе первый заданный. */
+  catalogCode?: string;
 }
 
 const isMasterKind = (k: SymbolKind): boolean => k === "coil" || k === "component-aux";
@@ -79,6 +81,13 @@ export function computeDevices(project: Project, library: SymbolLibrary): Device
       if (isContactKind(kind)) dev.contacts.push(member);
     }
   });
+
+  // артикул устройства: код master-инстанса, иначе первый заданный среди представлений
+  for (const dev of byDesig.values()) {
+    dev.catalogCode =
+      dev.master?.instance.catalogCode ??
+      dev.members.find((m) => m.instance.catalogCode)?.instance.catalogCode;
+  }
 
   return order.map((d) => byDesig.get(d)!);
 }

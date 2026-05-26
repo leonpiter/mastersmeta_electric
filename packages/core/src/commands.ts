@@ -110,26 +110,32 @@ export class MoveInstanceCommand implements Command {
   }
 }
 
-/** Изменить свойства инстанса (позобозначение, видимость подписи). */
+/** Изменить свойства инстанса (позобозначение, видимость подписи, артикул каталога). */
 export class EditInstanceCommand implements Command {
   readonly type = "edit-instance";
-  private readonly before: { designation: string; showLabels: boolean };
+  private readonly before: { designation: string; showLabels: boolean; catalogCode?: string };
 
   constructor(
     private readonly inst: SymbolInstance,
-    private readonly after: { designation?: string; showLabels?: boolean },
+    private readonly after: { designation?: string; showLabels?: boolean; catalogCode?: string },
   ) {
-    this.before = { designation: inst.designation, showLabels: inst.showLabels };
+    this.before = {
+      designation: inst.designation,
+      showLabels: inst.showLabels,
+      catalogCode: inst.catalogCode,
+    };
   }
 
   do(): void {
     if (this.after.designation !== undefined) this.inst.designation = this.after.designation;
     if (this.after.showLabels !== undefined) this.inst.showLabels = this.after.showLabels;
+    if ("catalogCode" in this.after) this.inst.catalogCode = this.after.catalogCode;
   }
 
   undo(): void {
     this.inst.designation = this.before.designation;
     this.inst.showLabels = this.before.showLabels;
+    this.inst.catalogCode = this.before.catalogCode;
   }
 }
 

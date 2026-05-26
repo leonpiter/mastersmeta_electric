@@ -13,6 +13,9 @@ import {
   deserializeProject,
   computeDevices,
   findUnlinked,
+  Catalog,
+  BUILTIN_PARTS,
+  partLabel,
   type SymbolInstance,
   type Wire,
   type Project,
@@ -29,6 +32,7 @@ const projectEl = document.getElementById("project")!;
 const project = createProject(); // 1 лист A3
 const stack = new CommandStack();
 const library = new SymbolLibrary(GOST_SYMBOLS);
+const catalog = new Catalog(BUILTIN_PARTS);
 
 let panel: LibraryPanel | undefined;
 const view = new CanvasView(svg, activePage(project), stack, hud, library, {
@@ -234,7 +238,34 @@ const dialog = document.getElementById("props") as HTMLDialogElement;
 const desigInput = document.getElementById("prop-desig") as HTMLInputElement;
 const typeEl = document.getElementById("prop-type")!;
 const showLabelsInput = document.getElementById("prop-showlabels") as HTMLInputElement;
+const partSelect = document.getElementById("prop-part") as HTMLSelectElement;
 let editing: SymbolInstance | null = null;
+
+/** Наполнить выпадающий список изделий по ГОСТ-коду; current — текущая привязка. */
+function fillParts(componentCode: string, current?: string): void {
+  partSelect.replaceChildren();
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "— без привязки —";
+  partSelect.append(none);
+
+  const applicable = catalog.byComponentCode(componentCode);
+  for (const p of applicable) {
+    const o = document.createElement("option");
+    o.value = p.code;
+    o.textContent = `${p.code} · ${partLabel(p)}`;
+    partSelect.append(o);
+  }
+  // текущий код из другой группы — добавить, чтобы не потерять привязку
+  if (current && !applicable.some((p) => p.code === current)) {
+    const part = catalog.get(current);
+    const o = document.createElement("option");
+    o.value = current;
+    o.textContent = part ? `${current} · ${partLabel(part)}` : current;
+    partSelect.append(o);
+  }
+  partSelect.value = current ?? "";
+}
 
 function openProps(inst: SymbolInstance): void {
   editing = inst;
@@ -242,6 +273,7 @@ function openProps(inst: SymbolInstance): void {
   showLabelsInput.checked = inst.showLabels;
   const sym = library.get(inst.symbolId);
   typeEl.textContent = sym ? `${sym.name} · ${sym.componentCode}` : inst.symbolId;
+  fillParts(inst.componentCode, inst.catalogCode);
   dialog.showModal();
   desigInput.focus();
   desigInput.select();
@@ -251,8 +283,13 @@ dialog.addEventListener("close", () => {
   if (dialog.returnValue === "ok" && editing) {
     const designation = desigInput.value.trim() || editing.designation;
     const showLabels = showLabelsInput.checked;
-    if (designation !== editing.designation || showLabels !== editing.showLabels) {
-      stack.execute(new EditInstanceCommand(editing, { designation, showLabels }));
+    const catalogCode = partSelect.value || undefined;
+    if (
+      designation !== editing.designation ||
+      showLabels !== editing.showLabels ||
+      catalogCode !== editing.catalogCode
+    ) {
+      stack.execute(new EditInstanceCommand(editing, { designation, showLabels, catalogCode }));
     }
   }
   editing = null;
@@ -434,6 +471,11 @@ function renderDeviceList(): void {
     if (d.master) {
       const kindRu = d.master.kind === "coil" ? "катушка" : "аппарат";
       detail.append(dlLine("dl-master", `${kindRu} · лист ${d.master.address}`));
+    }
+    if (d.catalogCode) {
+      const part = catalog.get(d.catalogCode);
+      const text = part ? `${d.catalogCode} · ${partLabel(part)}` : d.catalogCode;
+      detail.append(dlLine("dl-part", `артикул: ${text}`));
     }
     for (const c of d.contacts) {
       const t = c.kind === "contact-nc" ? "НЗ" : "НО";

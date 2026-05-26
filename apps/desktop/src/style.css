@@ -817,6 +817,10 @@ body.resizing #canvas {
   color: var(--accent);
 }
 
+.dl-detail .dl-part {
+  color: #2e7d4f;
+}
+
 .dl-device.dl-issue {
   border-color: #c98a16;
   background: #fbf4e3;

@@ -10,4 +10,6 @@ export * from "./model";
 export * from "./commands";
 export * from "./connectivity";
 export * from "./devices";
+export * from "./catalog";
+export * from "./catalog-builtin";
 export * from "./persistence";
