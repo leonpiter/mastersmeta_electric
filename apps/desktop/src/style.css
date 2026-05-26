@@ -356,6 +356,36 @@ body.resizing #canvas {
   color: var(--text-dim);
 }
 
+.tree-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-del {
+  margin-left: auto;
+  padding: 0 4px;
+  color: var(--text-dim);
+  opacity: 0;
+}
+
+.tree-node.sheet:hover .sheet-del {
+  opacity: 1;
+}
+
+.sheet-del:hover {
+  color: #c0392b;
+}
+
+.tree-node.add {
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.tree-node.add:hover {
+  background: var(--hover);
+}
+
 .tree-exp {
   flex: 0 0 11px;
   width: 11px;

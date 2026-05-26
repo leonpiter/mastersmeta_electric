@@ -99,7 +99,7 @@ export class CanvasView {
 
   constructor(
     private readonly svg: SVGSVGElement,
-    private readonly page: Page,
+    private page: Page,
     private readonly stack: CommandStack,
     private readonly hud: HTMLElement,
     private readonly library: SymbolLibrary,
@@ -196,6 +196,23 @@ export class CanvasView {
 
   get gridStepMm(): number {
     return this.page.gridStep;
+  }
+
+  /** id текущего показываемого листа. */
+  get currentPageId(): string {
+    return this.page.id;
+  }
+
+  /** Переключить показываемый лист: перерисовать и вписать в окно. */
+  setPage(page: Page): void {
+    this.page = page;
+    this.selected = null;
+    this.armed = null;
+    this.hooks.onArmedChange?.(null);
+    this.renderSheet();
+    this.renderInstances();
+    this.renderNodes();
+    this.resetView();
   }
 
   /** Вписать лист в окно. */

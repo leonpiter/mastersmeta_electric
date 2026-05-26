@@ -1,7 +1,13 @@
 /** Конкретные команды над моделью (обратимые). */
 import type { Command } from "./command";
 import { type Id, newId } from "./ids";
-import type { Page, SchematicNode, SymbolInstance } from "./model";
+import {
+  createPage,
+  type Page,
+  type Project,
+  type SchematicNode,
+  type SymbolInstance,
+} from "./model";
 import { type Rotation, type SymbolDef, nextDesignation } from "./symbol";
 
 /** Поставить узел на листе (координаты уже привязаны к сетке вызывающим кодом). */
@@ -176,5 +182,66 @@ export class RemoveInstanceCommand implements Command {
 
   undo(): void {
     if (this.index >= 0) this.page.instances.splice(this.index, 0, this.inst);
+  }
+}
+
+/** Добавить лист в проект (в формате активного) и сделать его активным. */
+export class AddPageCommand implements Command {
+  readonly type = "add-page";
+  private readonly page: Page;
+  private prevActive: Id = "";
+
+  constructor(private readonly project: Project) {
+    const active = project.pages.find((p) => p.id === project.activePageId);
+    this.page = createPage({ format: active?.format, gridStep: active?.gridStep });
+  }
+
+  /** Созданный лист (для переключения вида сразу после добавления). */
+  get newPage(): Page {
+    return this.page;
+  }
+
+  do(): void {
+    this.prevActive = this.project.activePageId;
+    this.project.pages.push(this.page);
+    this.project.activePageId = this.page.id;
+  }
+
+  undo(): void {
+    const i = this.project.pages.findIndex((p) => p.id === this.page.id);
+    if (i >= 0) this.project.pages.splice(i, 1);
+    this.project.activePageId = this.prevActive;
+  }
+}
+
+/** Удалить лист (нельзя удалить последний). Активным становится соседний. */
+export class RemovePageCommand implements Command {
+  readonly type = "remove-page";
+  private index = -1;
+  private removed: Page | null = null;
+  private prevActive: Id = "";
+
+  constructor(
+    private readonly project: Project,
+    private readonly pageId: Id,
+  ) {}
+
+  do(): void {
+    if (this.project.pages.length <= 1) return; // минимум один лист
+    this.index = this.project.pages.findIndex((p) => p.id === this.pageId);
+    if (this.index < 0) return;
+    this.removed = this.project.pages[this.index]!;
+    this.prevActive = this.project.activePageId;
+    this.project.pages.splice(this.index, 1);
+    if (this.project.activePageId === this.pageId) {
+      const neighbor = this.project.pages[Math.min(this.index, this.project.pages.length - 1)];
+      this.project.activePageId = neighbor.id;
+    }
+  }
+
+  undo(): void {
+    if (!this.removed) return;
+    this.project.pages.splice(this.index, 0, this.removed);
+    this.project.activePageId = this.prevActive;
   }
 }

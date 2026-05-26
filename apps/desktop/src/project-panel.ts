@@ -1,11 +1,17 @@
 /**
  * Левый док — структура проекта (аналог «Workspace» в See Electrical):
- * заголовок, дерево-аккордеон Проект → документы → листы (иконки групп/листов),
- * вкладки снизу. Сейчас один лист (S2); прочие разделы — заглушки под будущие спринты.
+ * дерево Проект → документ → листы. Листы можно добавлять (+), удалять (×, кроме
+ * последнего) и переключать кликом. Разделы «Шкафы»/«Отчёты» — заглушки под будущие спринты.
  */
-import type { Page } from "@see/core";
+import type { Project } from "@see/core";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+export interface ProjectPanelHandlers {
+  onSelect: (pageId: string) => void;
+  onAdd: () => void;
+  onRemove: (pageId: string) => void;
+}
 
 function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
   const e = document.createElementNS(SVG_NS, tag);
@@ -13,7 +19,6 @@ function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
   return e;
 }
 
-/** Голубая иконка группы документов (стопка листов). */
 function groupIcon(): SVGSVGElement {
   const svg = svgEl("svg", { viewBox: "0 0 16 13", width: "15", height: "13" }) as SVGSVGElement;
   svg.append(
@@ -39,7 +44,6 @@ function groupIcon(): SVGSVGElement {
   return svg;
 }
 
-/** Иконка листа (страница). */
 function pageIcon(): SVGSVGElement {
   const svg = svgEl("svg", { viewBox: "0 0 12 14", width: "12", height: "14" }) as SVGSVGElement;
   svg.append(
@@ -79,7 +83,13 @@ function pageIcon(): SVGSVGElement {
 }
 
 export class ProjectPanel {
-  constructor(container: HTMLElement, page: Page) {
+  private readonly treeEl: HTMLElement;
+
+  constructor(
+    container: HTMLElement,
+    private readonly project: Project,
+    private readonly handlers: ProjectPanelHandlers,
+  ) {
     container.replaceChildren();
 
     const header = document.createElement("div");
@@ -87,26 +97,35 @@ export class ProjectPanel {
     header.textContent = "Структура";
     container.append(header);
 
-    const tree = document.createElement("div");
-    tree.className = "tree";
-    container.append(tree);
+    this.treeEl = document.createElement("div");
+    this.treeEl.className = "tree";
+    container.append(this.treeEl);
 
-    const root = this.folder(tree, "Проект «Без имени»", 0, true, groupIcon());
+    this.render();
+  }
+
+  /** Перерисовать дерево (после добавления/удаления/переключения листа). */
+  refresh(): void {
+    this.render();
+  }
+
+  private render(): void {
+    this.treeEl.replaceChildren();
+
+    const root = this.folder(this.treeEl, `Проект «${this.project.name}»`, 0, true, groupIcon());
     const doc = this.folder(root, "Схема электрическая", 1, true, groupIcon());
-    const sheet = this.leaf(doc, `Лист 1 · ${page.format.name}`, 2, pageIcon());
-    sheet.classList.add("active");
-    sheet.addEventListener("click", () => {
-      tree.querySelectorAll(".tree-node.active").forEach((n) => n.classList.remove("active"));
-      sheet.classList.add("active");
-    });
 
-    // заглушки будущих разделов (S6/S7/S10)
+    this.project.pages.forEach((page, i) => {
+      const row = this.pageRow(doc, page.id, `Лист ${i + 1} · ${page.format.name}`, 2);
+      if (page.id === this.project.activePageId) row.classList.add("active");
+    });
+    this.addRow(doc, "+ Лист", 2);
+
     for (const t of ["Шкафы", "Распределительные схемы", "Отчёты", "Прочие документы"]) {
       this.folder(root, t, 1, false, groupIcon(), true);
     }
   }
 
-  /** Папка с твисти + иконкой; возвращает контейнер дочерних узлов. */
   private folder(
     parent: HTMLElement,
     title: string,
@@ -142,23 +161,44 @@ export class ProjectPanel {
     return children;
   }
 
-  /** Лист дерева (без твисти, с иконкой). */
-  private leaf(
-    parent: HTMLElement,
-    title: string,
-    depth: number,
-    icon: SVGSVGElement,
-  ): HTMLElement {
+  /** Строка листа: иконка + название + кнопка удаления; клик — переключить. */
+  private pageRow(parent: HTMLElement, pageId: string, title: string, depth: number): HTMLElement {
     const node = document.createElement("div");
     node.className = "tree-node sheet";
     node.style.paddingLeft = `${4 + depth * 12 + 12}px`;
+
     const ico = document.createElement("span");
     ico.className = "tree-ico";
-    ico.append(icon);
+    ico.append(pageIcon());
     const label = document.createElement("span");
+    label.className = "tree-label";
     label.textContent = title;
     node.append(ico, label);
+
+    if (this.project.pages.length > 1) {
+      const del = document.createElement("span");
+      del.className = "sheet-del";
+      del.textContent = "✕";
+      del.title = "Удалить лист";
+      del.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.handlers.onRemove(pageId);
+      });
+      node.append(del);
+    }
+
+    node.addEventListener("click", () => this.handlers.onSelect(pageId));
     parent.append(node);
     return node;
+  }
+
+  /** Строка «+ Лист». */
+  private addRow(parent: HTMLElement, title: string, depth: number): void {
+    const node = document.createElement("div");
+    node.className = "tree-node add";
+    node.style.paddingLeft = `${4 + depth * 12 + 12}px`;
+    node.textContent = title;
+    node.addEventListener("click", () => this.handlers.onAdd());
+    parent.append(node);
   }
 }

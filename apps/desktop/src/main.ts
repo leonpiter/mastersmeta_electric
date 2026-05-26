@@ -1,10 +1,13 @@
 import "./style.css";
 import {
-  createPage,
+  createProject,
+  activePage,
   CommandStack,
   SymbolLibrary,
   GOST_SYMBOLS,
   EditInstanceCommand,
+  AddPageCommand,
+  RemovePageCommand,
   type SymbolInstance,
 } from "@see/core";
 import { CanvasView } from "./canvas";
@@ -16,17 +19,34 @@ const hud = document.getElementById("hud-info")!;
 const libraryEl = document.getElementById("library")!;
 const projectEl = document.getElementById("project")!;
 
-const page = createPage(); // A3, шаг сетки 5 мм
+const project = createProject(); // 1 лист A3
 const stack = new CommandStack();
 const library = new SymbolLibrary(GOST_SYMBOLS);
 
 let panel: LibraryPanel | undefined;
-const view = new CanvasView(svg, page, stack, hud, library, {
+const view = new CanvasView(svg, activePage(project), stack, hud, library, {
   onArmedChange: (id) => panel?.setActive(id),
   onRequestEdit: (inst) => openProps(inst),
 });
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
-new ProjectPanel(projectEl, page);
+
+const projectPanel = new ProjectPanel(projectEl, project, {
+  onSelect: (id) => {
+    if (id !== project.activePageId) {
+      project.activePageId = id;
+      view.setPage(activePage(project));
+      projectPanel.refresh();
+    }
+  },
+  onAdd: () => stack.execute(new AddPageCommand(project)),
+  onRemove: (id) => stack.execute(new RemovePageCommand(project, id)),
+});
+
+// синхронизация дерева и вида при изменениях стека (в т.ч. add/remove листа)
+stack.subscribe(() => {
+  projectPanel.refresh();
+  if (view.currentPageId !== project.activePageId) view.setPage(activePage(project));
+});
 
 // обмен боковых панелей местами (с запоминанием)
 const SWAP_KEY = "see.swapped";

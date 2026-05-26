@@ -69,3 +69,25 @@ export function createPage(opts: CreatePageOptions = {}): Page {
     instances: [],
   };
 }
+
+/**
+ * Проект: набор листов одного документа (минимальный срез под мультилист S21).
+ * Полная иерархия `Project → Document[] → Page[]` (см. ARCHITECTURE) — позже.
+ */
+export interface Project {
+  id: Id;
+  name: string;
+  pages: Page[];
+  /** id активного (показываемого) листа. */
+  activePageId: Id;
+}
+
+export function createProject(opts: CreatePageOptions = {}): Project {
+  const page = createPage(opts);
+  return { id: newId(), name: "Без имени", pages: [page], activePageId: page.id };
+}
+
+/** Активный лист проекта. */
+export function activePage(project: Project): Page {
+  return project.pages.find((p) => p.id === project.activePageId) ?? project.pages[0];
+}
