@@ -5,6 +5,7 @@ coverage/
 *.log
 .DS_Store
 .vite/
+scripts/_*.png
 
 # Локальные референс-мануалы (проприетарные IGE+XAO) — НЕ версионируем и НЕ публикуем
 docs/manual/

@@ -169,7 +169,7 @@ export class CanvasView {
   ) {
     const defs = el("defs");
     this.gridPattern = el("pattern", {
-      id: "grid",
+      id: "see-grid-pattern",
       patternUnits: "userSpaceOnUse",
       width: 1,
       height: 1,
@@ -188,7 +188,7 @@ export class CanvasView {
     // совпадает с прямоугольником листа → клетка не выходит за границы листа)
     this.paperShadow = el("rect", { fill: "#00000022" });
     this.paper = el("rect", { fill: "#ffffff" });
-    this.grid = el("rect", { fill: "url(#grid)" });
+    this.grid = el("rect", { fill: "url(#see-grid-pattern)" });
 
     this.content = el("g");
     this.sheetG = el("g");
