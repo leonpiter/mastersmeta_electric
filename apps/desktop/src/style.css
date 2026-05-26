@@ -1137,6 +1137,47 @@ body.resizing #canvas {
   margin: 0;
 }
 
+/* редактор характеристик категории (S27): строка атрибута */
+#cp-attrs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.cp-row {
+  display: grid;
+  grid-template-columns: 1.3fr 0.8fr auto 1.3fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.cp-row input,
+.cp-row select {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  min-width: 0;
+}
+
+.cp-del {
+  font: inherit;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 3px 7px;
+}
+
+.cp-del:hover {
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
 .panel-header-btn {
   font: inherit;
   font-size: 14px;

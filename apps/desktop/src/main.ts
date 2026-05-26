@@ -27,6 +27,8 @@ import {
   CategoryRegistry,
   GOST_CATEGORIES,
   captureBlock,
+  type AttrDef,
+  type EquipmentCategory,
   type SymbolDef,
   type SymbolInstance,
   type Wire,
@@ -39,7 +41,7 @@ import { ProjectPanel } from "./project-panel";
 import { PageTabs, type OpenTab } from "./page-tabs";
 import { SymbolEditor } from "./symbol-editor";
 import { loadUserSymbols, upsertUserSymbol, removeUserSymbol, userSymbolIds } from "./user-symbols";
-import { loadUserCategories, upsertUserCategory } from "./user-categories";
+import { loadUserCategories, upsertUserCategory, removeUserCategory } from "./user-categories";
 import { loadUserBlocks, upsertUserBlock, removeUserBlock } from "./user-blocks";
 
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
@@ -107,13 +109,17 @@ function applyUserSymbol(sym: SymbolDef): void {
   view.rerender();
 }
 // реестр категорий (S27): базовый комплект ГОСТ + пользовательские (localStorage)
+const GOST_CAT_NAMES = new Set(GOST_CATEGORIES.map((c) => c.name));
 let registry = new CategoryRegistry([...GOST_CATEGORIES, ...loadUserCategories()]);
+function rebuildRegistry(): void {
+  registry = new CategoryRegistry([...GOST_CATEGORIES, ...loadUserCategories()]);
+}
 const symbolEditor = new SymbolEditor(
   applyUserSymbol,
   () => registry,
   (cat) => {
     upsertUserCategory(cat);
-    registry = new CategoryRegistry([...GOST_CATEGORIES, ...loadUserCategories()]);
+    rebuildRegistry();
   },
 );
 
@@ -129,6 +135,10 @@ panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
     removeUserBlock(id);
     panel?.refresh();
   },
+  onCategoryParams: (name) => openCategoryParams(name),
+  onCategoryRename: (name) => openCategoryRename(name),
+  onCategoryDelete: (name) => deleteCategory(name),
+  isUserCategory: (name) => !GOST_CAT_NAMES.has(name),
   onReset: (id) => {
     removeUserSymbol(id);
     const orig = GOST_SYMBOLS.find((s) => s.id === id);
@@ -188,6 +198,142 @@ blockDialog.addEventListener("close", () => {
   }
   blockIds = [];
 });
+
+// ----- категории: ПКМ → параметры (характеристики) / переименовать / удалить (S27) -----
+
+/** Перевести пользовательские символы из категории oldName в newName (с обновлением библиотеки). */
+function recategorizeUserSymbols(oldName: string, newName: string): void {
+  for (const s of loadUserSymbols()) {
+    if (s.category === oldName) {
+      const updated = { ...s, category: newName };
+      upsertUserSymbol(updated);
+      library.add(updated);
+    }
+  }
+  userIds = userSymbolIds();
+}
+
+// — диалог «Характеристики категории» (редактор атрибутов)
+const cpDialog = document.getElementById("category-params-dialog") as HTMLDialogElement;
+const cpAttrsEl = document.getElementById("cp-attrs")!;
+const cpTitleEl = document.getElementById("cp-title")!;
+const cpHintEl = document.getElementById("cp-hint")!;
+let cpEditing: EquipmentCategory | null = null;
+
+const cpTypeOptions = (): HTMLSelectElement => {
+  const sel = document.createElement("select");
+  sel.className = "cp-type";
+  sel.append(opt("text", "текст"), opt("number", "число"), opt("select", "список"));
+  return sel;
+};
+
+function cpAddRow(attr?: AttrDef): void {
+  const row = document.createElement("div");
+  row.className = "cp-row";
+  const label = document.createElement("input");
+  label.className = "cp-label";
+  label.placeholder = "Подпись";
+  label.value = attr?.label ?? "";
+  const key = document.createElement("input");
+  key.className = "cp-key";
+  key.placeholder = "ключ";
+  key.value = attr?.key ?? "";
+  const type = cpTypeOptions();
+  type.value = attr?.type ?? "text";
+  const opts = document.createElement("input");
+  opts.className = "cp-opts";
+  opts.placeholder = "варианты через запятую";
+  opts.value = attr?.options?.join(", ") ?? "";
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "cp-del";
+  del.textContent = "✕";
+  del.addEventListener("click", () => row.remove());
+  row.append(label, key, type, opts, del);
+  cpAttrsEl.append(row);
+}
+
+function openCategoryParams(name: string): void {
+  const cat = registry.byName(name);
+  if (!cat) return;
+  cpEditing = cat;
+  cpTitleEl.textContent = name;
+  cpHintEl.textContent = "";
+  cpAttrsEl.replaceChildren();
+  for (const a of cat.attributes) cpAddRow(a);
+  cpDialog.showModal();
+}
+
+(document.getElementById("cp-add") as HTMLButtonElement).addEventListener("click", () =>
+  cpAddRow(),
+);
+(document.getElementById("cp-save") as HTMLButtonElement).addEventListener("click", () => {
+  if (!cpEditing) return;
+  const attributes: AttrDef[] = [];
+  for (const row of cpAttrsEl.querySelectorAll<HTMLElement>(".cp-row")) {
+    const label = row.querySelector<HTMLInputElement>(".cp-label")!.value.trim();
+    const keyRaw = row.querySelector<HTMLInputElement>(".cp-key")!.value.trim();
+    const type = row.querySelector<HTMLSelectElement>(".cp-type")!.value as AttrDef["type"];
+    const optsRaw = row.querySelector<HTMLInputElement>(".cp-opts")!.value.trim();
+    if (!label && !keyRaw) continue;
+    const attr: AttrDef = { key: keyRaw || label, label: label || keyRaw, type };
+    if (type === "select" && optsRaw) {
+      attr.options = optsRaw
+        .split(",")
+        .map((o) => o.trim())
+        .filter(Boolean);
+    }
+    attributes.push(attr);
+  }
+  // сохранить как пользовательскую категорию (для встроенной — override по имени)
+  upsertUserCategory({ ...cpEditing, attributes, user: true });
+  rebuildRegistry();
+  cpEditing = null;
+  panel?.refresh();
+  cpDialog.close();
+});
+
+// — диалог «Переименовать категорию» (только пользовательская)
+const crDialog = document.getElementById("cat-rename-dialog") as HTMLDialogElement;
+const crInput = document.getElementById("cr-input") as HTMLInputElement;
+const crHint = document.getElementById("cr-hint")!;
+let crEditing: string | null = null;
+function openCategoryRename(name: string): void {
+  crEditing = name;
+  crInput.value = name;
+  crHint.textContent = "";
+  crDialog.showModal();
+  crInput.focus();
+  crInput.select();
+}
+(document.getElementById("cr-input") as HTMLInputElement).addEventListener("keydown", (e) => {
+  if (e.key === "Enter") e.stopPropagation();
+});
+crDialog.addEventListener("close", () => {
+  if (crDialog.returnValue === "ok" && crEditing) {
+    const newName = crInput.value.trim();
+    const cat = registry.byName(crEditing);
+    if (newName && cat && newName !== crEditing && !registry.byName(newName)) {
+      removeUserCategory(crEditing);
+      upsertUserCategory({ ...cat, name: newName, user: true });
+      recategorizeUserSymbols(crEditing, newName);
+      rebuildRegistry();
+      panel?.refresh();
+      view.rerender();
+    }
+  }
+  crEditing = null;
+});
+
+/** Удалить пользовательскую категорию: её символы переносятся в «Прочее». */
+function deleteCategory(name: string): void {
+  if (GOST_CAT_NAMES.has(name)) return;
+  recategorizeUserSymbols(name, "Прочее");
+  removeUserCategory(name);
+  rebuildRegistry();
+  panel?.refresh();
+  view.rerender();
+}
 
 // ----- рабочее пространство: вкладки открытых страниц (S26) -----
 let openPages: Page[] = [activePage(project)]; // открытые листы (вкладки)

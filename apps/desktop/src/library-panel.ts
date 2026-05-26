@@ -29,6 +29,14 @@ export interface LibraryHandlers {
   onPickBlock?: (block: BlockDef) => void;
   /** Удалить блок. */
   onDeleteBlock?: (id: string) => void;
+  /** ПКМ по категории → редактировать её характеристики (параметры). */
+  onCategoryParams?: (name: string) => void;
+  /** ПКМ по категории → переименовать (только пользовательская). */
+  onCategoryRename?: (name: string) => void;
+  /** ПКМ по категории → удалить (только пользовательская). */
+  onCategoryDelete?: (name: string) => void;
+  /** Пользовательская ли категория (можно переименовать/удалить). */
+  isUserCategory?: (name: string) => boolean;
 }
 
 function loadFavorites(): Set<string> {
@@ -191,7 +199,7 @@ export class LibraryPanel {
       if (!visible.length) continue;
       const system = visible.filter((s) => !isUser(s.id));
       const mine = visible.filter((s) => isUser(s.id));
-      this.renderFolder(category, system, { mine });
+      this.renderFolder(category, system, { mine, category });
     }
 
     if (this.listEl.childElementCount === 0) {
@@ -207,7 +215,7 @@ export class LibraryPanel {
   private renderFolder(
     title: string,
     syms: SymbolDef[],
-    opts: { fav?: boolean; mine?: SymbolDef[] } = {},
+    opts: { fav?: boolean; mine?: SymbolDef[]; category?: string } = {},
   ): void {
     const folder = document.createElement("div");
     folder.className = "lib-folder";
@@ -240,8 +248,41 @@ export class LibraryPanel {
       rows.hidden = !rows.hidden;
       exp.textContent = rows.hidden ? "+" : "−";
     });
+    // ПКМ по категории — параметры/переименовать/удалить (S27)
+    if (opts.category && this.handlers.onCategoryParams) {
+      const cat = opts.category;
+      folder.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.openCategoryCtx(cat, e.clientX, e.clientY);
+      });
+    }
 
     this.listEl.append(folder, rows);
+  }
+
+  /** Контекстное меню категории: параметры (характеристики) / переименовать / удалить (S27). */
+  private openCategoryCtx(name: string, x: number, y: number): void {
+    const h = this.handlers;
+    this.ctxMenu.replaceChildren();
+    const item = (label: string, fn: () => void): void => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "dd-item";
+      b.textContent = label;
+      b.addEventListener("click", () => {
+        this.ctxMenu.hidden = true;
+        fn();
+      });
+      this.ctxMenu.append(b);
+    };
+    item("Параметры…", () => h.onCategoryParams?.(name));
+    if (h.isUserCategory?.(name)) {
+      if (h.onCategoryRename) item("Переименовать…", () => h.onCategoryRename?.(name));
+      if (h.onCategoryDelete) item("Удалить", () => h.onCategoryDelete?.(name));
+    }
+    this.ctxMenu.style.left = `${x}px`;
+    this.ctxMenu.style.top = `${y}px`;
+    this.ctxMenu.hidden = false;
   }
 
   /** Подпапка «Мои символы» внутри категории (свои УГО этого класса). */

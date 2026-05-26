@@ -664,6 +664,39 @@
       </form>
     </dialog>
 
+    <dialog id="category-params-dialog">
+      <form method="dialog" class="modal-form modal-wide">
+        <h3>Характеристики категории: «<span id="cp-title"></span>»</h3>
+        <div class="prop-type">
+          Поля класса — они доступны в свойствах элемента и в подписях на схеме.
+        </div>
+        <div id="cp-attrs"></div>
+        <div class="se-tools">
+          <button type="button" id="cp-add" class="btn-secondary">+ характеристика</button>
+        </div>
+        <div id="cp-hint" class="prop-type"></div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button type="button" id="cp-save">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="cat-rename-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>Переименовать категорию</h3>
+        <div class="prop-row">
+          <label for="cr-input">Новое название</label>
+          <input id="cr-input" type="text" autocomplete="off" />
+        </div>
+        <div id="cr-hint" class="prop-type"></div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit">OK</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="rename-dialog">
       <form method="dialog" class="modal-form">
         <h3>Переименовать символ</h3>

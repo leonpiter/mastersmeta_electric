@@ -41,6 +41,13 @@ export function upsertUserCategory(cat: EquipmentCategory): EquipmentCategory[] 
   return list;
 }
 
+/** Удалить пользовательскую категорию по имени. Возвращает новый список. */
+export function removeUserCategory(name: string): EquipmentCategory[] {
+  const list = loadUserCategories().filter((c) => c.name !== name);
+  persist(list);
+  return list;
+}
+
 /** Множество имён пользовательских категорий. */
 export function userCategoryNames(): Set<string> {
   return new Set(loadUserCategories().map((c) => c.name));
