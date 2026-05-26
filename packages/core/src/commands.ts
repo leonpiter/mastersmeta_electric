@@ -258,6 +258,27 @@ export class RemovePageCommand implements Command {
   }
 }
 
+/** Задать наименование листа (графа 1 штампа ГОСТ 2.104); видно в дереве и на штампе. Обратима. */
+export class SetPageTitleCommand implements Command {
+  readonly type = "set-page-title";
+  private readonly before: string;
+
+  constructor(
+    private readonly page: Page,
+    private readonly title: string,
+  ) {
+    this.before = page.titleBlock.title;
+  }
+
+  do(): void {
+    this.page.titleBlock.title = this.title;
+  }
+
+  undo(): void {
+    this.page.titleBlock.title = this.before;
+  }
+}
+
 /** Составная команда: выполнить набор команд как одну (атомарный undo/redo). */
 export class MacroCommand implements Command {
   readonly type = "macro";

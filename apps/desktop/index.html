@@ -349,6 +349,9 @@
       <button class="dd-item" id="file-saveas" type="button">Сохранить как…</button>
       <div class="dd-sep"></div>
       <button class="dd-item" id="pdf" type="button">Экспорт в PDF</button>
+      <div class="dd-sep"></div>
+      <button class="dd-item" id="lib-export" type="button">Экспорт библиотеки УГО…</button>
+      <button class="dd-item" id="lib-import" type="button">Импорт библиотеки УГО…</button>
     </div>
 
     <div id="grid-menu" class="dropdown" hidden>
@@ -543,8 +546,15 @@
               <input id="se-code" type="text" autocomplete="off" placeholder="QF / KM / …" />
             </div>
             <div class="prop-row">
-              <label for="se-cat">Категория</label>
-              <input id="se-cat" type="text" autocomplete="off" placeholder="Коммутация" />
+              <label for="se-cat">Категория (папка)</label>
+              <input
+                id="se-cat"
+                type="text"
+                autocomplete="off"
+                list="se-cat-list"
+                placeholder="Коммутация / Мои символы"
+              />
+              <datalist id="se-cat-list"></datalist>
             </div>
             <div class="prop-row">
               <label for="se-kind">Поведение</label>
@@ -583,6 +593,20 @@
         <div class="prop-actions">
           <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
           <button type="button" id="se-save">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="sheet-name-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>Наименование листа</h3>
+        <div class="prop-row">
+          <label for="sn-input">Название (в штампе и в дереве)</label>
+          <input id="sn-input" type="text" autocomplete="off" placeholder="напр. Силовая часть" />
+        </div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit">OK</button>
         </div>
       </form>
     </dialog>

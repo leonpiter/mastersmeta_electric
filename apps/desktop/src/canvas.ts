@@ -330,6 +330,11 @@ export class CanvasView {
     this.renderNodes();
   }
 
+  /** Перерисовать лист/штамп (напр. после смены наименования листа, S26). */
+  refreshSheet(): void {
+    this.renderSheet();
+  }
+
   /** Автонумерация цепей (ГОСТ 2.709): по потенциалам или по проводам. Обратима. */
   autoNumber(opts: AutoNumberOptions = {}): void {
     this.stack.execute(new AutoNumberCommand(this.page, this.library, opts));

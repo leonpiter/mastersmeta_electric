@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createProject, activePage } from "./model";
 import { CommandStack } from "./command";
-import { AddPageCommand, RemovePageCommand } from "./commands";
+import { AddPageCommand, RemovePageCommand, SetPageTitleCommand } from "./commands";
 
 describe("проект и листы", () => {
   it("createProject — один лист, он активен", () => {
@@ -53,5 +53,15 @@ describe("проект и листы", () => {
     const stack = new CommandStack();
     stack.execute(new RemovePageCommand(proj, proj.pages[0].id));
     expect(proj.pages).toHaveLength(1);
+  });
+
+  it("наименование листа (штамп) — обратимо", () => {
+    const proj = createProject();
+    const stack = new CommandStack();
+    const page = proj.pages[0];
+    stack.execute(new SetPageTitleCommand(page, "Силовая часть"));
+    expect(page.titleBlock.title).toBe("Силовая часть");
+    stack.undo();
+    expect(page.titleBlock.title).toBe("");
   });
 });

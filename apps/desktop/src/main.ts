@@ -9,6 +9,7 @@ import {
   EditWireCommand,
   AddPageCommand,
   RemovePageCommand,
+  SetPageTitleCommand,
   serializeProject,
   deserializeProject,
   computeDevices,
@@ -22,6 +23,7 @@ import {
   Catalog,
   BUILTIN_PARTS,
   partLabel,
+  validateSymbol,
   type SymbolDef,
   type SymbolInstance,
   type Wire,
@@ -86,7 +88,7 @@ function applyUserSymbol(sym: SymbolDef): void {
   panel?.refresh();
   view.rerender();
 }
-const symbolEditor = new SymbolEditor(applyUserSymbol);
+const symbolEditor = new SymbolEditor(applyUserSymbol, () => [...library.byCategory().keys()]);
 
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
   onCreate: () => symbolEditor.open(),
@@ -168,6 +170,7 @@ const projectPanel = new ProjectPanel(
       activatePage(cmd.newPage);
     },
     onRemove: (p, page) => stack.execute(new RemovePageCommand(p, page.id)),
+    onRenameSheet: (_p, page) => openSheetName(page),
     onSettings: (p, focusName) => openProjectSettings(p, focusName),
     onCloseProject: (p) => closeProject(p),
   },
@@ -238,6 +241,28 @@ psDialog.addEventListener("close", () => {
       view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
     }
     renderWorkspace();
+  }
+});
+
+// ----- наименование листа (ПКМ листа → штамп + дерево, S26) -----
+const snDialog = document.getElementById("sheet-name-dialog") as HTMLDialogElement;
+const snInput = document.getElementById("sn-input") as HTMLInputElement;
+let snTarget: Page | null = null;
+
+function openSheetName(page: Page): void {
+  snTarget = page;
+  snInput.value = page.titleBlock.title;
+  snDialog.showModal();
+  snInput.focus();
+  snInput.select();
+}
+
+snDialog.addEventListener("close", () => {
+  const page = snTarget;
+  snTarget = null;
+  if (snDialog.returnValue === "ok" && page) {
+    stack.execute(new SetPageTitleCommand(page, snInput.value.trim()));
+    view.refreshSheet(); // обновить штамп активного листа
   }
 });
 
@@ -521,6 +546,58 @@ const saveHandler = (): void => {
   "click",
   saveHandler,
 );
+
+// ----- библиотека УГО: экспорт/импорт (S9; авто-папка из ОС — в десктоп-оболочке S11) -----
+function downloadText(filename: string, text: string, mime: string): void {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const libInput = document.createElement("input");
+libInput.type = "file";
+libInput.accept = ".json,application/json";
+libInput.style.display = "none";
+document.body.append(libInput);
+libInput.addEventListener("change", () => {
+  const f = libInput.files?.[0];
+  libInput.value = "";
+  if (!f) return;
+  void f.text().then((text) => {
+    try {
+      const arr: unknown = JSON.parse(text);
+      if (!Array.isArray(arr)) throw new Error("ожидался массив символов");
+      let n = 0;
+      for (const item of arr) {
+        const v = validateSymbol(item);
+        if (v.ok) {
+          upsertUserSymbol(v.symbol);
+          library.add(v.symbol);
+          n++;
+        }
+      }
+      userIds = userSymbolIds();
+      panel?.refresh();
+      view.rerender();
+      window.alert(`Импортировано символов: ${n}`);
+    } catch (e) {
+      window.alert("Не удалось импортировать: " + (e instanceof Error ? e.message : String(e)));
+    }
+  });
+});
+
+(document.getElementById("lib-export") as HTMLButtonElement).addEventListener("click", () => {
+  downloadText("ugo-library.json", JSON.stringify(loadUserSymbols(), null, 2), "application/json");
+  closeFileMenu();
+});
+(document.getElementById("lib-import") as HTMLButtonElement).addEventListener("click", () => {
+  libInput.click();
+  closeFileMenu();
+});
 
 // верхняя полоса заголовка (S21): быстрый доступ к файловым действиям
 (document.getElementById("tb-new") as HTMLButtonElement).addEventListener("click", () =>

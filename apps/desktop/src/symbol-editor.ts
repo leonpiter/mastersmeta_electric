@@ -45,7 +45,13 @@ export class SymbolEditor {
   private start: { x: number; y: number } | null = null;
   private editId: string | null = null;
 
-  constructor(private readonly onSave: (sym: SymbolDef) => void) {
+  private readonly catList = document.getElementById("se-cat-list") as HTMLDataListElement;
+
+  constructor(
+    private readonly onSave: (sym: SymbolDef) => void,
+    /** Существующие категории (папки) — для подсказок при выборе папки. */
+    private readonly getCategories: () => string[] = () => [],
+  ) {
     this.svg.setAttribute("viewBox", `${-SPAN} ${-SPAN} ${SPAN * 2} ${SPAN * 2}`);
     this.toolBtns.forEach((b) =>
       b.addEventListener("click", () => {
@@ -76,12 +82,21 @@ export class SymbolEditor {
 
   /** Открыть редактор: новый символ (seed=undefined) или правка существующего. */
   open(seed?: SymbolDef, opts: { asCopy?: boolean } = {}): void {
+    // подсказки папок (категорий) — существующие + базовая «Мои символы»
+    const cats = [...new Set(["Мои символы", ...this.getCategories()])];
+    this.catList.replaceChildren(
+      ...cats.map((c) => {
+        const o = document.createElement("option");
+        o.value = c;
+        return o;
+      }),
+    );
     this.graphics = seed ? seed.graphics.map((g) => ({ ...g })) : [];
     this.pins = seed ? seed.pins.map((p) => ({ ...p })) : [];
     this.editId = seed && !opts.asCopy ? seed.id : null;
     this.nameEl.value = seed ? (opts.asCopy ? `${seed.name} (копия)` : seed.name) : "";
     this.codeEl.value = seed?.componentCode ?? "";
-    this.catEl.value = seed?.category ?? "Пользовательские";
+    this.catEl.value = seed?.category ?? "Мои символы";
     this.kindEl.value = seed?.kind ?? "component";
     this.pinNameEl.value = "1";
     this.hintEl.textContent = this.editId
@@ -254,7 +269,7 @@ export class SymbolEditor {
     const sym: SymbolDef = {
       id: this.editId ?? `user.${slug}.${Date.now().toString(36)}`,
       name,
-      category: this.catEl.value.trim() || "Пользовательские",
+      category: this.catEl.value.trim() || "Мои символы",
       componentCode: code,
       kind: this.kindEl.value as SymbolKind,
       graphics: this.graphics,

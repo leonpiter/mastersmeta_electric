@@ -12,6 +12,8 @@ export interface ProjectPanelHandlers {
   onSelect: (project: Project, page: Page) => void;
   onAdd: (project: Project) => void;
   onRemove: (project: Project, page: Page) => void;
+  /** Задать наименование листа (показывается в штампе и дереве). */
+  onRenameSheet: (project: Project, page: Page) => void;
   /** Открыть настройки проекта (focusName — сразу фокус на поле имени, для «Переименовать»). */
   onSettings: (project: Project, focusName: boolean) => void;
   /** Закрыть проект (убрать из рабочего пространства). */
@@ -126,6 +128,15 @@ export class ProjectPanel {
       if (this.ctxProject) this.handlers.onAdd(this.ctxProject);
       this.closeCtx();
     });
+    const ctxRename = document.createElement("button");
+    ctxRename.type = "button";
+    ctxRename.className = "dd-item";
+    ctxRename.textContent = "Наименование листа…";
+    ctxRename.addEventListener("click", () => {
+      if (this.ctxProject && this.ctxPage)
+        this.handlers.onRenameSheet(this.ctxProject, this.ctxPage);
+      this.closeCtx();
+    });
     const sep = document.createElement("div");
     sep.className = "dd-sep";
     this.ctxDel = document.createElement("button");
@@ -136,7 +147,7 @@ export class ProjectPanel {
       if (this.ctxProject && this.ctxPage) this.handlers.onRemove(this.ctxProject, this.ctxPage);
       this.closeCtx();
     });
-    this.ctxMenu.append(ctxAdd, sep, this.ctxDel);
+    this.ctxMenu.append(ctxAdd, ctxRename, sep, this.ctxDel);
     this.ctxMenu.addEventListener("click", (e) => e.stopPropagation());
     document.body.append(this.ctxMenu);
 
@@ -232,7 +243,8 @@ export class ProjectPanel {
     const doc = this.folder(root, "Схема электрическая", 1, true, groupIcon());
 
     project.pages.forEach((page, i) => {
-      const row = this.pageRow(doc, project, page, `Лист ${i + 1} · ${page.format.name}`, 2);
+      const name = page.titleBlock.title ? ` · ${page.titleBlock.title}` : "";
+      const row = this.pageRow(doc, project, page, `Лист ${i + 1} · ${page.format.name}${name}`, 2);
       if (page.id === activeId) row.classList.add("active");
     });
     this.addRow(doc, project, "+ Лист", 2);
