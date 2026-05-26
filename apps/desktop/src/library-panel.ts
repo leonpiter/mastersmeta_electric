@@ -3,7 +3,7 @@
  * дерево «папка-категория → строки [иконка + название]». Папки сворачиваются,
  * «★ Избранное» хранится в localStorage. Клик по строке — взвести вставку.
  */
-import type { SymbolDef, SymbolLibrary } from "@see/core";
+import type { BlockDef, SymbolDef, SymbolLibrary } from "@see/core";
 import { symbolIcon } from "./symbol-render";
 
 const FAV_KEY = "see.favorites";
@@ -23,6 +23,12 @@ export interface LibraryHandlers {
   canDelete?: (id: string) => boolean;
   /** пользовательский УГО (не системный) → группируется в подпапку «Мои символы». */
   isUser?: (id: string) => boolean;
+  /** Поставщик сохранённых блоков (макрос-групп, S27 Ф4). */
+  blocks?: () => BlockDef[];
+  /** Клик по блоку — взвести его для вставки. */
+  onPickBlock?: (block: BlockDef) => void;
+  /** Удалить блок. */
+  onDeleteBlock?: (id: string) => void;
 }
 
 function loadFavorites(): Set<string> {
@@ -55,6 +61,31 @@ function folderIcon(): SVGSVGElement {
   p.setAttribute("stroke", "#bf9a3d");
   p.setAttribute("stroke-width", "0.8");
   svg.append(p);
+  return svg;
+}
+
+/** Иконка блока (макрос-группа): 2×2 сетка модулей. */
+function blockIcon(): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("width", "14");
+  svg.setAttribute("height", "14");
+  for (const [x, y] of [
+    [1, 1],
+    [9, 1],
+    [1, 9],
+    [9, 9],
+  ]) {
+    const r = document.createElementNS(SVG_NS, "rect");
+    r.setAttribute("x", String(x));
+    r.setAttribute("y", String(y));
+    r.setAttribute("width", "6");
+    r.setAttribute("height", "6");
+    r.setAttribute("fill", "#cfe0f3");
+    r.setAttribute("stroke", "#1b6fc4");
+    r.setAttribute("stroke-width", "0.8");
+    svg.append(r);
+  }
   return svg;
 }
 
@@ -145,6 +176,12 @@ export class LibraryPanel {
     this.listEl.replaceChildren();
     const isUser = this.handlers.isUser ?? (() => false);
 
+    // блоки (макрос-группы, S27 Ф4) — отдельная папка наверху
+    const blocks = (this.handlers.blocks?.() ?? []).filter(
+      (b) => !this.filter || b.name.toLowerCase().includes(this.filter),
+    );
+    if (blocks.length) this.renderBlockFolder(blocks);
+
     const favs = this.library.all().filter((s) => this.favorites.has(s.id) && this.matches(s));
     if (favs.length) this.renderFolder("Избранное", favs, { fav: true });
 
@@ -234,6 +271,64 @@ export class LibraryPanel {
 
     wrap.append(head, subrows);
     return wrap;
+  }
+
+  /** Папка «Блоки» (макрос-группы): клик по строке — взвести вставку; ПКМ — удалить. */
+  private renderBlockFolder(blocks: BlockDef[]): void {
+    const folder = document.createElement("div");
+    folder.className = "lib-folder";
+    const exp = document.createElement("span");
+    exp.className = "lib-exp";
+    exp.textContent = "−";
+    const name = document.createElement("span");
+    name.className = "lib-fname";
+    name.textContent = "Блоки";
+    folder.append(exp, blockIcon(), name);
+
+    const rows = document.createElement("div");
+    rows.className = "lib-rows";
+    for (const block of blocks) {
+      const row = document.createElement("div");
+      row.className = "lib-row";
+      row.dataset.blockId = block.id;
+      row.title = `Блок: ${block.name} (${block.members.length} эл.)`;
+      const ico = document.createElement("span");
+      ico.className = "ico";
+      ico.append(blockIcon());
+      const nm = document.createElement("span");
+      nm.className = "nm";
+      nm.textContent = block.name;
+      row.append(ico, nm);
+      row.addEventListener("click", () => this.handlers.onPickBlock?.(block));
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.openBlockCtx(block, e.clientX, e.clientY);
+      });
+      rows.append(row);
+    }
+
+    folder.addEventListener("click", () => {
+      rows.hidden = !rows.hidden;
+      exp.textContent = rows.hidden ? "+" : "−";
+    });
+    this.listEl.append(folder, rows);
+  }
+
+  private openBlockCtx(block: BlockDef, x: number, y: number): void {
+    if (!this.handlers.onDeleteBlock) return;
+    this.ctxMenu.replaceChildren();
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "dd-item";
+    b.textContent = "Удалить блок";
+    b.addEventListener("click", () => {
+      this.ctxMenu.hidden = true;
+      this.handlers.onDeleteBlock?.(block.id);
+    });
+    this.ctxMenu.append(b);
+    this.ctxMenu.style.left = `${x}px`;
+    this.ctxMenu.style.top = `${y}px`;
+    this.ctxMenu.hidden = false;
   }
 
   private row(sym: SymbolDef): HTMLElement {

@@ -26,6 +26,7 @@ import {
   validateSymbol,
   CategoryRegistry,
   GOST_CATEGORIES,
+  captureBlock,
   type SymbolDef,
   type SymbolInstance,
   type Wire,
@@ -39,11 +40,14 @@ import { PageTabs, type OpenTab } from "./page-tabs";
 import { SymbolEditor } from "./symbol-editor";
 import { loadUserSymbols, upsertUserSymbol, removeUserSymbol, userSymbolIds } from "./user-symbols";
 import { loadUserCategories, upsertUserCategory } from "./user-categories";
+import { loadUserBlocks, upsertUserBlock, removeUserBlock } from "./user-blocks";
 
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
 const hud = document.getElementById("hud-info")!;
 const libraryEl = document.getElementById("library")!;
 const projectEl = document.getElementById("project")!;
+// кнопка «В блок» — объявлена до канваса: хук onSelectionCountChange управляет доступностью
+const saveBlockBtn = document.getElementById("save-block") as HTMLButtonElement;
 
 // рабочее пространство (S26): несколько открытых проектов, активный — `project`
 const projects: Project[] = [createProject()]; // 1 проект, 1 лист A3
@@ -89,6 +93,10 @@ const view = new CanvasView(svg, activePage(project), stack, hud, library, {
     if (target !== activePageObj) activatePage(target);
     view.focusInstance(instanceId);
   },
+  // доступность кнопки «В блок»: нужно ≥2 выбранных инстанса (S27 Ф4)
+  onSelectionCountChange: (count) => {
+    saveBlockBtn.disabled = count < 2;
+  },
 });
 // редактор УГО (S9): сохранение в пользовательскую библиотеку (override по id)
 function applyUserSymbol(sym: SymbolDef): void {
@@ -115,6 +123,12 @@ panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
   onDuplicate: (sym) => symbolEditor.open(sym, { asCopy: true }),
   onRename: (sym) => openRename(sym),
   isUser: (id) => userIds.has(id) && !GOST_IDS.has(id),
+  blocks: () => loadUserBlocks(),
+  onPickBlock: (block) => view.armBlock(block),
+  onDeleteBlock: (id) => {
+    removeUserBlock(id);
+    panel?.refresh();
+  },
   onReset: (id) => {
     removeUserSymbol(id);
     const orig = GOST_SYMBOLS.find((s) => s.id === id);
@@ -152,6 +166,27 @@ renameDialog.addEventListener("close", () => {
     if (name && name !== renaming.name) applyUserSymbol({ ...renaming, name });
   }
   renaming = null;
+});
+
+// «Сохранить как блок» (S27 Ф4): из выбранных инстансов собрать макрос-группу
+const blockDialog = document.getElementById("block-dialog") as HTMLDialogElement;
+const bkInput = document.getElementById("bk-input") as HTMLInputElement;
+let blockIds: string[] = [];
+saveBlockBtn.addEventListener("click", () => {
+  blockIds = view.selectedIds;
+  if (blockIds.length < 2) return;
+  bkInput.value = "";
+  blockDialog.showModal();
+  bkInput.focus();
+});
+blockDialog.addEventListener("close", () => {
+  if (blockDialog.returnValue === "ok" && blockIds.length >= 2) {
+    const name = bkInput.value.trim() || "Блок";
+    upsertUserBlock(captureBlock(name, activePageObj, blockIds));
+    panel?.refresh();
+    view.clearMulti();
+  }
+  blockIds = [];
 });
 
 // ----- рабочее пространство: вкладки открытых страниц (S26) -----

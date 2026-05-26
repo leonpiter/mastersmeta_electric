@@ -34,6 +34,7 @@ import {
   instancePins,
   instanceLabels,
   coilContactRows,
+  InsertBlockCommand,
   pointOnSegment,
   newId,
   DEFAULT_ANNOTATION_STYLE,
@@ -56,6 +57,7 @@ import {
   type SymbolInstance,
   type SymbolLibrary,
   type Rotation,
+  type BlockDef,
 } from "@see/core";
 import { symbolToSvg } from "./symbol-render";
 
@@ -81,6 +83,8 @@ export interface CanvasHooks {
   onRequestText?: (commit: (text: string) => void) => void;
   /** Двойной клик по адресу в зеркале контактов — перейти на лист контакта (S27 Ф2). */
   onNavigateToContact?: (pageIndex: number, instanceId: string) => void;
+  /** Изменилось число выбранных инстансов (для кнопки «В блок», S27 Ф4). */
+  onSelectionCountChange?: (count: number) => void;
 }
 
 /** Инструмент рисования аннотаций. */
@@ -166,6 +170,10 @@ export class CanvasView {
   // --- расстановка символов (S2) ---
   /** Взведённый для вставки символ (режим вставки). */
   private armed: SymbolDef | null = null;
+  /** Взведённый для вставки блок (макрос-группа, S27 Ф4). */
+  private armedBlock: BlockDef | null = null;
+  /** Множественное выделение инстансов (Shift+клик) — для сборки блока (S27 Ф4). */
+  private readonly multi = new Set<string>();
   /** Выбранный инстанс на листе (для поворота/зеркала/удаления). */
   private selected: SymbolInstance | null = null;
   /** Выбранный провод (для удаления/свойств). */
@@ -428,6 +436,8 @@ export class CanvasView {
     this.selectedWire = null;
     this.selectedAnno = null;
     this.armed = null;
+    this.armedBlock = null;
+    this.multi.clear();
     this.hooks.onArmedChange?.(null);
     this.renderSheet();
     this.renderWires();
@@ -1048,6 +1058,21 @@ export class CanvasView {
           }),
         );
       }
+      // подсветка мультивыделения для сборки блока (S27 Ф4)
+      if (this.multi.has(inst.id)) {
+        this.overlayG.append(
+          el("rect", {
+            x: wb.x - 1.5,
+            y: wb.y - 1.5,
+            width: wb.w + 3,
+            height: wb.h + 3,
+            fill: "#e8731c1f",
+            stroke: "#e8731c",
+            "stroke-width": 0.35,
+            "stroke-dasharray": "1 1",
+          }),
+        );
+      }
       if (inst.showLabels && inst.designation) {
         // стопка подписей: сигла (4 мм, жирн.) + строки характеристик (3 мм) — ГОСТ 2.304
         let ly = wb.y + 2.2;
@@ -1236,6 +1261,21 @@ export class CanvasView {
       }
       return;
     }
+    // призрак блока — члены со сдвигом от точки вставки (S27 Ф4)
+    if (this.armedBlock) {
+      const p = snapPoint(this.last, this.page.gridStep);
+      for (const m of this.armedBlock.members) {
+        const sym = this.library.get(m.symbolId);
+        if (!sym) continue;
+        const g = symbolToSvg(sym, { stroke: "#1b6fc4", pins: true, opacity: 0.5 });
+        g.setAttribute(
+          "transform",
+          `translate(${p.x + m.dx} ${p.y + m.dy}) rotate(${m.rotation}) scale(${m.mirror ? -1 : 1} 1)`,
+        );
+        this.ghostG.append(g);
+      }
+      return;
+    }
     if (!this.armed) return;
     const p = snapPoint(this.last, this.page.gridStep);
     const g = symbolToSvg(this.armed, { stroke: "#1b6fc4", pins: true, opacity: 0.5 });
@@ -1304,6 +1344,8 @@ export class CanvasView {
     this.exitWireMode();
     this.exitDrawTool();
     this.armed = sym;
+    this.armedBlock = null;
+    this.multi.clear();
     this.selected = null;
     this.selectedWire = null;
     this.clearAnnoSelection();
@@ -1316,9 +1358,43 @@ export class CanvasView {
     this.updateHud();
   }
 
-  /** Выйти из режима вставки. */
+  /** Взвести блок (макрос-группу) для вставки (S27 Ф4). */
+  armBlock(block: BlockDef): void {
+    this.exitWireMode();
+    this.exitDrawTool();
+    this.armed = null;
+    this.armedBlock = block;
+    this.multi.clear();
+    this.selected = null;
+    this.selectedWire = null;
+    this.clearAnnoSelection();
+    this.pendingRotation = 0;
+    this.pendingMirror = false;
+    this.svg.style.cursor = "copy";
+    this.hooks.onArmedChange?.(null);
+    this.renderInstances();
+    this.renderGhost();
+    this.updateHud();
+  }
+
+  /** id инстансов под выделением (мульти — приоритетно; иначе одиночный). */
+  get selectedIds(): string[] {
+    if (this.multi.size > 0) return [...this.multi];
+    return this.selected ? [this.selected.id] : [];
+  }
+
+  /** Снять мультивыделение (напр. после сохранения блока). */
+  clearMulti(): void {
+    if (this.multi.size === 0) return;
+    this.multi.clear();
+    this.renderInstances();
+    this.updateHud();
+  }
+
+  /** Выйти из режима вставки (символа или блока). */
   private disarm(): void {
     this.armed = null;
+    this.armedBlock = null;
     this.svg.style.cursor = "";
     this.ghostG.replaceChildren();
     this.hooks.onArmedChange?.(null);
@@ -1416,7 +1492,8 @@ export class CanvasView {
       }
       return;
     }
-    if (this.armed) this.disarm();
+    if (this.armed || this.armedBlock) this.disarm();
+    else if (this.multi.size > 0) this.clearMulti();
     else if (this.selectedAnno) this.selectAnno(null);
     else this.select(null);
   }
@@ -1444,19 +1521,24 @@ export class CanvasView {
         : "Провод: укажите начало"
       : this.drawTool
         ? `Рисование: ${drawNames[this.drawTool]}${this.drawTool === "text" ? " — клик" : " — растяните"}`
-        : this.armed
-          ? `Вставка: ${this.armed.componentCode}${this.pendingMirror ? " ↔" : ""}${this.pendingRotation ? ` ${this.pendingRotation}°` : ""}`
-          : this.selectedAnno
-            ? "Выбрана аннотация (Del — удалить)"
-            : this.selectedWire
-              ? "Выбран провод (Del — удалить, 2× — свойства)"
-              : this.selected
-                ? `Выбран: ${this.selected.designation}`
-                : "Выбор";
+        : this.armedBlock
+          ? `Вставка блока «${this.armedBlock.name}» (Esc — отмена)`
+          : this.armed
+            ? `Вставка: ${this.armed.componentCode}${this.pendingMirror ? " ↔" : ""}${this.pendingRotation ? ` ${this.pendingRotation}°` : ""}`
+            : this.multi.size > 0
+              ? `Выбрано: ${this.multi.size} (Shift+клик; «В блок»)`
+              : this.selectedAnno
+                ? "Выбрана аннотация (Del — удалить)"
+                : this.selectedWire
+                  ? "Выбран провод (Del — удалить, 2× — свойства)"
+                  : this.selected
+                    ? `Выбран: ${this.selected.designation}`
+                    : "Выбор";
     this.hud.textContent =
       `${this.page.format.name}  ·  Zoom ${Math.round(this.zoom * 100)}%  ·  ` +
       `Курсор ${fmt(this.last.x)}, ${fmt(this.last.y)} мм  ·  ` +
       `Элементов: ${this.page.instances.length}  ·  ${mode}`;
+    this.hooks.onSelectionCountChange?.(this.selectedIds.length);
   }
 
   private installEvents(): void {
@@ -1475,9 +1557,19 @@ export class CanvasView {
       }
 
       // ЛКМ по символу/аннотации (вне вставки/провода/рисования) — выбрать и готовить перетаскивание
-      if (!this.armed && !this.wireMode && !this.drawTool && e.button === 0) {
+      if (!this.armed && !this.armedBlock && !this.wireMode && !this.drawTool && e.button === 0) {
         const hit = this.hitTest(this.last);
+        // Shift+клик — мультивыделение для сборки блока (S27 Ф4), без перетаскивания
+        if (hit && e.shiftKey) {
+          if (this.multi.has(hit.id)) this.multi.delete(hit.id);
+          else this.multi.add(hit.id);
+          this.selected = null;
+          this.renderInstances();
+          this.updateHud();
+          return;
+        }
         if (hit) {
+          if (!this.multi.has(hit.id)) this.multi.clear();
           this.select(hit);
           this.dragging = {
             inst: hit,
@@ -1487,6 +1579,11 @@ export class CanvasView {
             grabDY: this.last.y - hit.y,
           };
           return;
+        }
+        if (this.multi.size > 0) {
+          this.multi.clear();
+          this.renderInstances();
+          this.updateHud();
         }
         const anno = this.hitTestAnnotation(this.last);
         if (anno) {
@@ -1663,6 +1760,10 @@ export class CanvasView {
           const cmd = splits.length ? new MacroCommand([addCmd, ...splits]) : addCmd;
           this.stack.execute(cmd); // подписка перерисует слой символов/проводов
           this.select(addCmd.instance); // выбрать новый, режим вставки сохраняется
+        } else if (this.armedBlock) {
+          const p = snapPoint(this.last, this.page.gridStep);
+          const cmd = new InsertBlockCommand(this.page, this.armedBlock, this.library, p.x, p.y);
+          this.stack.execute(cmd); // раскрытие блока в инстансы (режим вставки сохраняется)
         } else {
           const inst = this.hitTest(this.last);
           if (inst) this.select(inst);

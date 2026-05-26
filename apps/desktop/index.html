@@ -106,6 +106,25 @@
             </div>
             <div class="rgroup-cap">Элемент</div>
           </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button
+                id="save-block"
+                type="button"
+                disabled
+                title="Сохранить выбранные (Shift+клик ≥2) как блок"
+              >
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <rect x="1.5" y="1.5" width="5" height="5" />
+                  <rect x="9.5" y="1.5" width="5" height="5" />
+                  <rect x="1.5" y="9.5" width="5" height="5" />
+                  <rect x="9.5" y="9.5" width="5" height="5" />
+                </svg>
+                <span>В блок</span>
+              </button>
+            </div>
+            <div class="rgroup-cap">Группа</div>
+          </div>
         </div>
 
         <div class="rpage" data-tab="wire" hidden>
@@ -655,6 +674,21 @@
         <div class="prop-actions">
           <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
           <button value="ok" type="submit">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="block-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>Сохранить как блок</h3>
+        <div class="prop-row">
+          <label for="bk-input">Название блока</label>
+          <input id="bk-input" type="text" autocomplete="off" placeholder="напр. Ввод 3Ф" />
+        </div>
+        <div id="bk-hint" class="prop-type"></div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit">Сохранить</button>
         </div>
       </form>
     </dialog>
