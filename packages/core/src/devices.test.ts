@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createProject, type Project, type SymbolInstance } from "./model";
 import { SymbolLibrary, type SymbolDef } from "./symbol";
-import { computeDevices, findDevice, findUnlinked } from "./devices";
+import { computeDevices, findDevice, findUnlinked, coilContactRows } from "./devices";
 import { newId } from "./ids";
 
 const coil: SymbolDef = {
@@ -28,6 +28,18 @@ const noContact: SymbolDef = {
   ],
   graphics: [],
 };
+const ncContact: SymbolDef = {
+  id: "t.nc",
+  name: "Контакт НЗ",
+  category: "c",
+  componentCode: "KM",
+  kind: "contact-nc",
+  pins: [
+    { name: "21", x: 0, y: 0 },
+    { name: "22", x: 0, y: 15 },
+  ],
+  graphics: [],
+};
 const button: SymbolDef = {
   id: "t.sb",
   name: "Кнопка",
@@ -40,7 +52,7 @@ const button: SymbolDef = {
   ],
   graphics: [],
 };
-const lib = new SymbolLibrary([coil, noContact, button]);
+const lib = new SymbolLibrary([coil, noContact, ncContact, button]);
 
 function inst(sym: SymbolDef, designation: string, x = 100, y = 100): SymbolInstance {
   return {
@@ -118,5 +130,30 @@ describe("устройства (master/slave, кросс-референсы)", (
     const devices = computeDevices(p, lib);
     expect(findDevice(devices, "KM1")?.designation).toBe("KM1");
     expect(findDevice(devices, "KM9")).toBeUndefined();
+  });
+
+  it("coilContactRows: НО/НЗ с адресом, выводами и целью перехода", () => {
+    const p = project2();
+    p.pages[0].instances.push(inst(coil, "KM1"));
+    const no = inst(noContact, "KM1");
+    const nc = inst(ncContact, "KM1");
+    p.pages[1].instances.push(no, nc);
+
+    const km1 = computeDevices(p, lib)[0];
+    const rows = coilContactRows(km1);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      column: "NO",
+      pins: ["13", "14"],
+      pageIndex: 1,
+      instanceId: no.id,
+    });
+    expect(rows[1]).toMatchObject({
+      column: "NC",
+      pins: ["21", "22"],
+      pageIndex: 1,
+      instanceId: nc.id,
+    });
+    expect(rows[0].address).toMatch(/^2\./);
   });
 });

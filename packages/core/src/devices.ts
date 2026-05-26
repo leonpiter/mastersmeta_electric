@@ -97,6 +97,37 @@ export function findDevice(devices: DeviceInfo[], designation: string): DeviceIn
   return devices.find((d) => d.designation === designation);
 }
 
+/** Колонка зеркала контактов (ГОСТ/See Electrical): силовой / НО / НЗ. */
+export type ContactColumn = "M" | "NO" | "NC";
+
+/** Строка зеркала контактов под катушкой (тип, выводы, адрес, цель перехода). */
+export interface ContactRow {
+  column: ContactColumn;
+  /** Имена выводов контакта, напр. ["13","14"]. */
+  pins: string[];
+  /** Адрес «лист.зона», напр. «2.4». */
+  address: string;
+  /** Индекс листа контакта (0-based) — для перехода по двойному клику. */
+  pageIndex: number;
+  /** id инстанса контакта — для выбора/центрирования вида. */
+  instanceId: string;
+}
+
+/**
+ * Зеркало контактов устройства (S27): по одной строке на размещённый контакт,
+ * с колонкой НО/НЗ и адресом. Колонка M (силовые) зарезервирована — заполнится,
+ * когда появятся силовые контакты как отдельные представления.
+ */
+export function coilContactRows(device: DeviceInfo): ContactRow[] {
+  return device.contacts.map((c) => ({
+    column: c.kind === "contact-nc" ? "NC" : "NO",
+    pins: c.pins,
+    address: c.address,
+    pageIndex: c.pageIndex,
+    instanceId: c.instance.id,
+  }));
+}
+
 /** Несвязанные представления: катушки без контактов и контакты-сироты без катушки. */
 export interface UnlinkedReport {
   /** Катушки, у которых нет ни одного контакта. */

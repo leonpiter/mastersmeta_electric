@@ -82,6 +82,13 @@ const view = new CanvasView(svg, activePage(project), stack, hud, library, {
     textDialog.showModal();
     tdInput.focus();
   },
+  // переход по двойному клику на адрес в зеркале контактов (S27 Ф2)
+  onNavigateToContact: (pageIndex, instanceId) => {
+    const target = project.pages[pageIndex];
+    if (!target) return;
+    if (target !== activePageObj) activatePage(target);
+    view.focusInstance(instanceId);
+  },
 });
 // редактор УГО (S9): сохранение в пользовательскую библиотеку (override по id)
 function applyUserSymbol(sym: SymbolDef): void {

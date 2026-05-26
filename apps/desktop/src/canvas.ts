@@ -33,10 +33,12 @@ import {
   computeNets,
   instancePins,
   instanceLabels,
+  coilContactRows,
   pointOnSegment,
   newId,
   DEFAULT_ANNOTATION_STYLE,
   type AutoNumberOptions,
+  type ContactColumn,
   type DeviceInfo,
   type DeviceMember,
   type Annotation,
@@ -77,6 +79,8 @@ export interface CanvasHooks {
   onAnnotationStyle?: (style: AnnotationStyle | null) => void;
   /** Запрос ввода текста аннотации: показать модалку и вернуть текст через `commit`. */
   onRequestText?: (commit: (text: string) => void) => void;
+  /** Двойной клик по адресу в зеркале контактов — перейти на лист контакта (S27 Ф2). */
+  onNavigateToContact?: (pageIndex: number, instanceId: string) => void;
 }
 
 /** Инструмент рисования аннотаций. */
@@ -1071,15 +1075,9 @@ export class CanvasView {
       return t;
     };
 
-    // у катушки — «зеркало контактов»: список контактов (тип, выводы, адрес лист.зона)
+    // у катушки — боксовое «зеркало контактов»: таблица M | НО | НЗ с адресами (S27 Ф2)
     if (member.kind === "coil" && device.contacts.length > 0) {
-      let y = wb.y + wb.h + 2.6;
-      for (const c of device.contacts) {
-        const t = c.kind === "contact-nc" ? "НЗ" : "НО";
-        const label = `${t} ${c.pins.join("·")} → ${c.address}`;
-        this.overlayG.append(muted(this.text(label, wb.x - 1, y, 2.4, "start")));
-        y += 2.9;
-      }
+      this.renderContactMirror(wb, device);
     }
 
     // у контакта — адрес катушки (откуда управляется)
@@ -1090,6 +1088,93 @@ export class CanvasView {
         ),
       );
     }
+  }
+
+  /**
+   * Боксовое зеркало контактов под катушкой (S27 Ф2): таблица «выводы | M | НО | НЗ»;
+   * адрес контакта в своей колонке кликабелен — двойной клик ведёт на лист контакта.
+   */
+  private renderContactMirror(wb: Rect, device: DeviceInfo): void {
+    const rows = coilContactRows(device);
+    if (rows.length === 0) return;
+
+    const gutterW = 8;
+    const colW = 7;
+    const headerH = 3;
+    const rowH = 3.4;
+    const cols: ContactColumn[] = ["M", "NO", "NC"];
+    const colLabel: Record<ContactColumn, string> = { M: "M", NO: "НО", NC: "НЗ" };
+    const x0 = wb.x;
+    const y0 = wb.y + wb.h + 1.8;
+    const totalW = gutterW + cols.length * colW;
+    const totalH = headerH + rows.length * rowH;
+    const colX = (i: number): number => x0 + gutterW + i * colW;
+    const div = (x1: number, y1: number, x2: number, y2: number): SVGElement =>
+      el("line", { x1, y1, x2, y2, stroke: "#9fb0c3", "stroke-width": 0.15 });
+
+    this.overlayG.append(
+      el("rect", {
+        x: x0,
+        y: y0,
+        width: totalW,
+        height: totalH,
+        fill: "#ffffffcc",
+        stroke: "#9fb0c3",
+        "stroke-width": 0.2,
+      }),
+    );
+    this.overlayG.append(div(colX(0), y0, colX(0), y0 + totalH));
+    for (let i = 1; i < cols.length; i++)
+      this.overlayG.append(div(colX(i), y0, colX(i), y0 + totalH));
+    this.overlayG.append(div(x0, y0 + headerH, x0 + totalW, y0 + headerH));
+
+    cols.forEach((c, i) => {
+      const t = this.text(colLabel[c], colX(i) + colW / 2, y0 + headerH / 2, 2, "middle");
+      t.setAttribute("fill", "#5a7088");
+      this.overlayG.append(t);
+    });
+
+    rows.forEach((row, r) => {
+      const ry = y0 + headerH + r * rowH;
+      if (r > 0) this.overlayG.append(div(x0, ry, x0 + totalW, ry));
+      const pinT = this.text(row.pins.join("·"), x0 + 1, ry + rowH / 2, 2, "start");
+      pinT.setAttribute("fill", "#5a7088");
+      this.overlayG.append(pinT);
+      const ci = Math.max(0, cols.indexOf(row.column));
+      this.overlayG.append(this.contactAddressCell(row, colX(ci), ry, colW, rowH));
+    });
+  }
+
+  /** Кликабельная ячейка адреса контакта (двойной клик → переход на его лист). */
+  private contactAddressCell(
+    row: { address: string; pageIndex: number; instanceId: string },
+    cellX: number,
+    cellY: number,
+    w: number,
+    h: number,
+  ): SVGGElement {
+    const g = el("g");
+    g.style.cursor = "pointer";
+    g.append(el("rect", { x: cellX, y: cellY, width: w, height: h, fill: "transparent" }));
+    const t = this.text(row.address, cellX + w / 2, cellY + h / 2, 2.2, "middle");
+    t.setAttribute("fill", "#1b6fc4");
+    g.append(t);
+    g.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      this.hooks.onNavigateToContact?.(row.pageIndex, row.instanceId);
+    });
+    return g;
+  }
+
+  /** Перейти к инстансу на текущем листе: центрировать вид и выделить (S27 Ф2). */
+  focusInstance(id: string): void {
+    const inst = this.page.instances.find((i) => i.id === id);
+    if (!inst) return;
+    const r = this.svg.getBoundingClientRect();
+    this.panX = r.width / 2 - inst.x * this.scalePx;
+    this.panY = r.height / 2 - inst.y * this.scalePx;
+    this.updateView();
+    this.select(inst);
   }
 
   private renderGhost(): void {
