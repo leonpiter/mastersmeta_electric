@@ -176,7 +176,7 @@ export class CanvasView {
     });
     this.gridPath = el("path", {
       d: "",
-      stroke: "#dde3ec",
+      stroke: "#c4ccd8",
       "stroke-width": 1,
       fill: "none",
       "shape-rendering": "crispEdges",
