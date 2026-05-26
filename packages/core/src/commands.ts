@@ -1,12 +1,14 @@
 /** Конкретные команды над моделью (обратимые). */
 import type { Command } from "./command";
 import { type Id, newId } from "./ids";
+import type { Point } from "./geometry";
 import {
   createPage,
   type Page,
   type Project,
   type SchematicNode,
   type SymbolInstance,
+  type Wire,
 } from "./model";
 import { type Rotation, type SymbolDef, nextDesignation } from "./symbol";
 
@@ -243,5 +245,54 @@ export class RemovePageCommand implements Command {
     if (!this.removed) return;
     this.project.pages.splice(this.index, 0, this.removed);
     this.project.activePageId = this.prevActive;
+  }
+}
+
+/** Нарисовать провод (точки уже привязаны к сетке вызывающим кодом). */
+export class AddWireCommand implements Command {
+  readonly type = "add-wire";
+  private readonly wire: Wire;
+
+  constructor(
+    private readonly page: Page,
+    points: Point[],
+    type: Wire["type"] = "power",
+    id: Id = newId(),
+  ) {
+    this.wire = { id, points: points.map((p) => ({ x: p.x, y: p.y })), type };
+  }
+
+  /** Созданный провод. */
+  get created(): Wire {
+    return this.wire;
+  }
+
+  do(): void {
+    this.page.wires.push(this.wire);
+  }
+
+  undo(): void {
+    const i = this.page.wires.findIndex((w) => w.id === this.wire.id);
+    if (i >= 0) this.page.wires.splice(i, 1);
+  }
+}
+
+/** Удалить провод (восстанавливается на прежней позиции). */
+export class RemoveWireCommand implements Command {
+  readonly type = "remove-wire";
+  private index = -1;
+
+  constructor(
+    private readonly page: Page,
+    private readonly wire: Wire,
+  ) {}
+
+  do(): void {
+    this.index = this.page.wires.indexOf(this.wire);
+    if (this.index >= 0) this.page.wires.splice(this.index, 1);
+  }
+
+  undo(): void {
+    if (this.index >= 0) this.page.wires.splice(this.index, 0, this.wire);
   }
 }

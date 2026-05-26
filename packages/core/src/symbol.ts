@@ -101,6 +101,28 @@ export function transformLocalPoint(p: Point, rotation: Rotation, mirror: boolea
   return rotatePoint(m, rotation);
 }
 
+/** Вывод в координатах листа (после поворота/зеркала и сдвига инстанса). */
+export interface PlacedPin {
+  name: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * Положения выводов символа на листе для размещения `placement`
+ * (структурно совпадает с `SymbolInstance`: x/y/rotation/mirror).
+ * Используется движком связности (S3) — не зависит от модели схемы.
+ */
+export function instancePins(
+  sym: SymbolDef,
+  placement: { x: number; y: number; rotation: Rotation; mirror: boolean },
+): PlacedPin[] {
+  return sym.pins.map((p) => {
+    const t = transformLocalPoint(p, placement.rotation, placement.mirror);
+    return { name: p.name, x: placement.x + t.x, y: placement.y + t.y };
+  });
+}
+
 /** Габаритный прямоугольник символа (мм) по графике и выводам. */
 export function symbolBounds(sym: SymbolDef): Rect {
   let minX = Infinity;

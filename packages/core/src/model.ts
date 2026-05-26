@@ -41,6 +41,17 @@ export interface SymbolInstance {
   deviceId?: Id;
 }
 
+/**
+ * Провод — электрическое соединение (CLAUDE принцип 2: `Wire` ≠ `Line`).
+ * Только провода участвуют в связности; геометрия — полилиния в мм (точки на сетке).
+ */
+export interface Wire {
+  id: Id;
+  points: Point[];
+  /** Силовой / цепь управления (ГОСТ). */
+  type: "power" | "control";
+}
+
 export interface Page {
   id: Id;
   /** Шаг сетки в мм (выводы символов кратны ему; по умолчанию 5 мм). */
@@ -52,6 +63,8 @@ export interface Page {
   nodes: SchematicNode[];
   /** Размещённые символы. */
   instances: SymbolInstance[];
+  /** Провода (электрические соединения). */
+  wires: Wire[];
 }
 
 export interface CreatePageOptions {
@@ -67,6 +80,7 @@ export function createPage(opts: CreatePageOptions = {}): Page {
     titleBlock: defaultTitleBlock(),
     nodes: [],
     instances: [],
+    wires: [],
   };
 }
 
