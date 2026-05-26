@@ -110,3 +110,61 @@ export function danglingPins(page: Page, library: SymbolLibrary): NetPin[] {
     .filter((n) => n.wireIds.length === 0)
     .flatMap((n) => n.pins);
 }
+
+/** Лежит ли точка строго внутри отрезка (не на его концах). */
+function onSegmentInterior(p: Point, a: Point, b: Point): boolean {
+  const eps = 0.05;
+  const atEnd = (q: Point): boolean => Math.abs(p.x - q.x) < eps && Math.abs(p.y - q.y) < eps;
+  if (atEnd(a) || atEnd(b)) return false;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return false;
+  const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  if (t <= 0 || t >= 1) return false;
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)) < eps;
+}
+
+/**
+ * Точки-узлы (жирные точки соединения): где сходятся ≥3 «концов» проводов —
+ * Т-ответвление или схождение трёх проводов. Простое пересечение без вершины
+ * (две линии крест-накрест) узлом НЕ считается.
+ */
+export function computeJunctions(page: Page): Point[] {
+  const step = page.gridStep;
+  const key = (p: Point): string => `${snap(p.x, step)},${snap(p.y, step)}`;
+  const deg = new Map<string, { x: number; y: number; d: number }>();
+  const bump = (p: Point, by: number): void => {
+    const k = key(p);
+    const e = deg.get(k) ?? { x: snap(p.x, step), y: snap(p.y, step), d: 0 };
+    e.d += by;
+    deg.set(k, e);
+  };
+
+  // степень вершин: конец полилинии = 1, угол (внутренняя вершина) = 2
+  for (const w of page.wires) {
+    if (w.points.length < 2) continue;
+    w.points.forEach((p, i) => bump(p, i === 0 || i === w.points.length - 1 ? 1 : 2));
+  }
+
+  // конец одного провода на середине другого (Т) → сквозной провод добавляет 2
+  for (const w of page.wires) {
+    if (w.points.length < 2) continue;
+    const ends = [w.points[0], w.points[w.points.length - 1]];
+    for (const e of ends) {
+      for (const o of page.wires) {
+        if (o === w || o.points.length < 2) continue;
+        let hit = false;
+        for (let s = 1; s < o.points.length && !hit; s++) {
+          if (onSegmentInterior(e, o.points[s - 1], o.points[s])) hit = true;
+        }
+        if (hit) {
+          bump(e, 2);
+          break;
+        }
+      }
+    }
+  }
+
+  return [...deg.values()].filter((v) => v.d >= 3).map((v) => ({ x: v.x, y: v.y }));
+}

@@ -17,7 +17,9 @@ import {
   RemoveInstanceCommand,
   MoveInstanceCommand,
   AddWireCommand,
+  AddWiresCommand,
   RemoveWireCommand,
+  computeJunctions,
   type Page,
   type Wire,
   type Point,
@@ -39,10 +41,32 @@ export interface CanvasHooks {
   onArmedChange?: (symbolId: string | null) => void;
   /** Запрос на редактирование свойств инстанса (двойной клик). */
   onRequestEdit?: (inst: SymbolInstance) => void;
-  /** Включён/выключен инструмент «Провод». */
-  onWireModeChange?: (active: boolean) => void;
+  /** Включён/выключен инструмент «Провод» (poles — число полюсов: 1 или 3). */
+  onWireModeChange?: (active: boolean, poles: 1 | 3) => void;
   /** Запрос на редактирование свойств провода (двойной клик). */
   onRequestEditWire?: (wire: Wire) => void;
+}
+
+/** Шаг между полюсами 3-полюсного провода (мм). */
+const WIRE_PHASE_STEP = 5;
+
+/** Параллельные отрезки со смещением перпендикулярно на `step·k` (k = 0..count-1). */
+function parallelSegments(a: Point, b: Point, count: number, step: number): Point[][] {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  const polys: Point[][] = [];
+  for (let k = 0; k < count; k++) {
+    const ox = nx * step * k;
+    const oy = ny * step * k;
+    polys.push([
+      { x: a.x + ox, y: a.y + oy },
+      { x: b.x + ox, y: b.y + oy },
+    ]);
+  }
+  return polys;
 }
 
 /** Расстояние от точки до отрезка (мм). */
@@ -112,6 +136,8 @@ export class CanvasView {
   /** Режим рисования провода и его текущая стартовая точка (цепочка). */
   private wireMode = false;
   private wireStart: Point | null = null;
+  /** Число полюсов провода: 1 (1-Wire) или 3 (3-Wire, шаг 5 мм). */
+  private wirePoles: 1 | 3 = 1;
   /** Текущее перетаскивание инстанса. */
   private dragging: {
     inst: SymbolInstance;
@@ -552,6 +578,10 @@ export class CanvasView {
         }),
       );
     }
+    // узлы соединения (жирные точки на Т-ответвлениях)
+    for (const j of computeJunctions(this.page)) {
+      this.wiresG.append(el("circle", { cx: j.x, cy: j.y, r: 0.9, fill: "#1a1a1a" }));
+    }
   }
 
   // ----- расстановка символов (S2) -----
@@ -626,17 +656,23 @@ export class CanvasView {
     if (this.wireMode) {
       if (!this.wireStart) return;
       const p = snapPoint(this.last, this.page.gridStep);
-      this.ghostG.append(
-        el("line", {
-          x1: this.wireStart.x,
-          y1: this.wireStart.y,
-          x2: p.x,
-          y2: p.y,
-          stroke: "#1b6fc4",
-          "stroke-width": 0.5,
-          "stroke-dasharray": "1.5 1",
-        }),
-      );
+      const polys =
+        this.wirePoles === 3
+          ? parallelSegments(this.wireStart, p, 3, WIRE_PHASE_STEP)
+          : [[this.wireStart, p]];
+      for (const seg of polys) {
+        this.ghostG.append(
+          el("line", {
+            x1: seg[0].x,
+            y1: seg[0].y,
+            x2: seg[1].x,
+            y2: seg[1].y,
+            stroke: "#1b6fc4",
+            "stroke-width": 0.5,
+            "stroke-dasharray": "1.5 1",
+          }),
+        );
+      }
       return;
     }
     if (!this.armed) return;
@@ -714,16 +750,17 @@ export class CanvasView {
     this.updateHud();
   }
 
-  /** Включить инструмент «Провод» (1-Wide): клики задают точки полилинии. */
-  armWire(): void {
+  /** Включить инструмент «Провод»: 1-полюсный (цепочка) или 3-полюсный (шаг 5 мм). */
+  armWire(poles: 1 | 3 = 1): void {
     this.armed = null;
     this.selected = null;
     this.selectedWire = null;
     this.wireMode = true;
+    this.wirePoles = poles;
     this.wireStart = null;
     this.svg.style.cursor = "crosshair";
     this.hooks.onArmedChange?.(null);
-    this.hooks.onWireModeChange?.(true);
+    this.hooks.onWireModeChange?.(true, poles);
     this.renderInstances();
     this.ghostG.replaceChildren();
     this.updateHud();
@@ -735,7 +772,7 @@ export class CanvasView {
     this.wireStart = null;
     this.svg.style.cursor = "";
     this.ghostG.replaceChildren();
-    this.hooks.onWireModeChange?.(false);
+    this.hooks.onWireModeChange?.(false, this.wirePoles);
     this.updateHud();
   }
 
@@ -894,8 +931,14 @@ export class CanvasView {
           if (!this.wireStart) {
             this.wireStart = p;
           } else if (p.x !== this.wireStart.x || p.y !== this.wireStart.y) {
-            this.stack.execute(new AddWireCommand(this.page, [this.wireStart, p], "power"));
-            this.wireStart = p; // продолжаем цепочку от конца
+            if (this.wirePoles === 3) {
+              const polys = parallelSegments(this.wireStart, p, 3, WIRE_PHASE_STEP);
+              this.stack.execute(new AddWiresCommand(this.page, polys, "power"));
+              this.wireStart = null; // 3-полюсный — без цепочки
+            } else {
+              this.stack.execute(new AddWireCommand(this.page, [this.wireStart, p], "power"));
+              this.wireStart = p; // 1-полюсный — продолжаем цепочку
+            }
           }
           this.renderGhost();
         } else if (this.armed) {

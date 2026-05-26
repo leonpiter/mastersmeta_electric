@@ -277,6 +277,35 @@ export class AddWireCommand implements Command {
   }
 }
 
+/** Добавить несколько проводов одной командой (для 3-полюсного провода). */
+export class AddWiresCommand implements Command {
+  readonly type = "add-wires";
+  private readonly wires: Wire[];
+
+  constructor(
+    private readonly page: Page,
+    polylines: Point[][],
+    type: Wire["type"] = "power",
+  ) {
+    this.wires = polylines.map((pts) => ({
+      id: newId(),
+      points: pts.map((p) => ({ x: p.x, y: p.y })),
+      type,
+    }));
+  }
+
+  do(): void {
+    this.page.wires.push(...this.wires);
+  }
+
+  undo(): void {
+    for (const w of this.wires) {
+      const i = this.page.wires.indexOf(w);
+      if (i >= 0) this.page.wires.splice(i, 1);
+    }
+  }
+}
+
 /** Изменить свойства провода (тип, сечение, цвет). */
 export class EditWireCommand implements Command {
   readonly type = "edit-wire";

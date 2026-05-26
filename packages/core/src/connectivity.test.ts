@@ -9,7 +9,7 @@ import {
 } from "./commands";
 import { SymbolLibrary } from "./symbol";
 import { GOST_SYMBOLS } from "./symbols-gost";
-import { computeNets, danglingPins } from "./connectivity";
+import { computeNets, danglingPins, computeJunctions } from "./connectivity";
 
 const lib = new SymbolLibrary(GOST_SYMBOLS);
 const qf = GOST_SYMBOLS.find((s) => s.id === "gost.qf")!;
@@ -93,6 +93,34 @@ describe("движок связности (union-find)", () => {
     expect(page.wires).toHaveLength(0);
     stack.undo();
     expect(page.wires).toHaveLength(1);
+  });
+
+  it("узел появляется на Т-ответвлении, но не на простом угле/пересечении", () => {
+    // Т: горизонтальный провод + ответвление от его середины
+    const t = createPage();
+    new AddWireCommand(t, [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+    ]).do();
+    new AddWireCommand(t, [
+      { x: 5, y: 0 },
+      { x: 5, y: 5 },
+    ]).do();
+    const j = computeJunctions(t);
+    expect(j).toHaveLength(1);
+    expect(j[0]).toEqual({ x: 5, y: 0 });
+
+    // угол (два провода встык одним концом) — не узел
+    const corner = createPage();
+    new AddWireCommand(corner, [
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+    ]).do();
+    new AddWireCommand(corner, [
+      { x: 5, y: 0 },
+      { x: 5, y: 5 },
+    ]).do();
+    expect(computeJunctions(corner)).toHaveLength(0);
   });
 
   it("EditWire (тип/сечение/цвет) обратимо", () => {

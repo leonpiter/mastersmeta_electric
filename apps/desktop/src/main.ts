@@ -30,7 +30,10 @@ const view = new CanvasView(svg, activePage(project), stack, hud, library, {
   onArmedChange: (id) => panel?.setActive(id),
   onRequestEdit: (inst) => openProps(inst),
   onRequestEditWire: (wire) => openWireSettings(wire),
-  onWireModeChange: (active) => wireBtn.classList.toggle("on", active),
+  onWireModeChange: (active, poles) => {
+    wireBtn.classList.toggle("on", active && poles === 1);
+    wire3Btn.classList.toggle("on", active && poles === 3);
+  },
 });
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
 
@@ -220,7 +223,9 @@ mirrorBtn.addEventListener("click", () => view.mirrorSelectedOrPending());
 deleteBtn.addEventListener("click", () => view.deleteSelected());
 
 const wireBtn = document.getElementById("wire-1") as HTMLButtonElement;
-wireBtn.addEventListener("click", () => view.armWire());
+const wire3Btn = document.getElementById("wire-3") as HTMLButtonElement;
+wireBtn.addEventListener("click", () => view.armWire(1));
+wire3Btn.addEventListener("click", () => view.armWire(3));
 
 // ----- меню сетки (показать/скрыть + шаг) -----
 const gridBtn = document.getElementById("grid") as HTMLButtonElement;
