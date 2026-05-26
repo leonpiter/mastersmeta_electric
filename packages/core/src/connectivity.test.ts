@@ -6,6 +6,9 @@ import {
   RemoveWireCommand,
   EditWireCommand,
   AddSymbolInstanceCommand,
+  MacroCommand,
+  MoveWireEndpointCommand,
+  SplitWireCommand,
 } from "./commands";
 import { SymbolLibrary } from "./symbol";
 import { GOST_SYMBOLS } from "./symbols-gost";
@@ -121,6 +124,62 @@ describe("движок связности (union-find)", () => {
       { x: 5, y: 5 },
     ]).do();
     expect(computeJunctions(corner)).toHaveLength(0);
+  });
+
+  it("Macro + MoveWireEndpoint: атомарный undo авто-реконнекта", () => {
+    const page = createPage();
+    const stack = new CommandStack();
+    const add = new AddWireCommand(page, [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+    ]);
+    add.do();
+    const w = add.created;
+
+    // сдвинуть оба конца на (+5,+5) одной командой
+    stack.execute(
+      new MacroCommand([
+        new MoveWireEndpointCommand(w, 0, 0, 0, 5, 5),
+        new MoveWireEndpointCommand(w, 1, 10, 0, 15, 5),
+      ]),
+    );
+    expect(w.points[0]).toEqual({ x: 5, y: 5 });
+    expect(w.points[1]).toEqual({ x: 15, y: 5 });
+    stack.undo();
+    expect(w.points[0]).toEqual({ x: 0, y: 0 });
+    expect(w.points[1]).toEqual({ x: 10, y: 0 });
+  });
+
+  it("SplitWire разрезает провод в точке и обратимо", () => {
+    const page = createPage();
+    const stack = new CommandStack();
+    const add = new AddWireCommand(page, [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+    ]);
+    add.do();
+    const w = add.created;
+
+    stack.execute(new SplitWireCommand(page, w, { x: 5, y: 0 }));
+    expect(page.wires).toHaveLength(2);
+    expect(page.wires[0].points).toEqual([
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+    ]);
+    expect(page.wires[1].points).toEqual([
+      { x: 5, y: 0 },
+      { x: 10, y: 0 },
+    ]);
+    // связность сохранена: общий конец (5,0) → одна цепь
+    expect(computeNets(page, lib)).toHaveLength(1);
+
+    stack.undo();
+    expect(page.wires).toHaveLength(1);
+    expect(page.wires[0]).toBe(w);
+
+    // разрез в конце провода — no-op
+    new SplitWireCommand(page, w, { x: 0, y: 0 }).do();
+    expect(page.wires).toHaveLength(1);
   });
 
   it("EditWire (тип/сечение/цвет) обратимо", () => {

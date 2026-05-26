@@ -19,10 +19,16 @@ import {
   AddWireCommand,
   AddWiresCommand,
   RemoveWireCommand,
+  SplitWireCommand,
+  MacroCommand,
+  MoveWireEndpointCommand,
   computeJunctions,
   computeNets,
+  instancePins,
+  pointOnSegment,
   DEFAULT_WIRE_WIDTH_POWER,
   DEFAULT_WIRE_WIDTH_CONTROL,
+  type Command,
   type Page,
   type Wire,
   type Point,
@@ -962,7 +968,28 @@ export class CanvasView {
           const toY = d.inst.y;
           d.inst.x = d.originX; // откат: do() команды — единственный источник истины
           d.inst.y = d.originY;
-          this.stack.execute(new MoveInstanceCommand(d.inst, d.originX, d.originY, toX, toY));
+          const dx = toX - d.originX;
+          const dy = toY - d.originY;
+          const cmds: Command[] = [new MoveInstanceCommand(d.inst, d.originX, d.originY, toX, toY)];
+          // авто-реконнект: концы проводов на выводах символа едут вместе с ним
+          const sym = this.library.get(d.inst.symbolId);
+          if (sym) {
+            const oldPins = instancePins(sym, {
+              x: d.originX,
+              y: d.originY,
+              rotation: d.inst.rotation,
+              mirror: d.inst.mirror,
+            });
+            for (const w of this.page.wires) {
+              for (const idx of [0, w.points.length - 1]) {
+                const pt = w.points[idx];
+                if (pt && oldPins.some((pp) => pp.x === pt.x && pp.y === pt.y)) {
+                  cmds.push(new MoveWireEndpointCommand(w, idx, pt.x, pt.y, pt.x + dx, pt.y + dy));
+                }
+              }
+            }
+          }
+          this.stack.execute(cmds.length > 1 ? new MacroCommand(cmds) : cmds[0]);
         }
         this.down = null;
         return;
@@ -986,12 +1013,27 @@ export class CanvasView {
           this.renderGhost();
         } else if (this.armed) {
           const p = snapPoint(this.last, this.page.gridStep);
-          const cmd = new AddSymbolInstanceCommand(this.page, this.armed, p.x, p.y, {
+          const addCmd = new AddSymbolInstanceCommand(this.page, this.armed, p.x, p.y, {
             rotation: this.pendingRotation,
             mirror: this.pendingMirror,
           });
-          this.stack.execute(cmd); // подписка перерисует слой символов
-          this.select(cmd.instance); // выбрать новый, режим вставки сохраняется
+          // разрез провода при вставке символа на него (принцип 2)
+          const pins = instancePins(this.armed, {
+            x: p.x,
+            y: p.y,
+            rotation: this.pendingRotation,
+            mirror: this.pendingMirror,
+          });
+          const splits: Command[] = [];
+          for (const w of this.page.wires) {
+            const cut = pins.find((pin) =>
+              w.points.some((_, i) => i > 0 && pointOnSegment(pin, w.points[i - 1], w.points[i])),
+            );
+            if (cut) splits.push(new SplitWireCommand(this.page, w, { x: cut.x, y: cut.y }));
+          }
+          const cmd = splits.length ? new MacroCommand([addCmd, ...splits]) : addCmd;
+          this.stack.execute(cmd); // подписка перерисует слой символов/проводов
+          this.select(addCmd.instance); // выбрать новый, режим вставки сохраняется
         } else {
           const inst = this.hitTest(this.last);
           if (inst) this.select(inst);

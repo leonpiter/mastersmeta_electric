@@ -1,7 +1,7 @@
 /** Конкретные команды над моделью (обратимые). */
 import type { Command } from "./command";
 import { type Id, newId } from "./ids";
-import type { Point } from "./geometry";
+import { pointOnSegment, type Point } from "./geometry";
 import {
   createPage,
   type Page,
@@ -248,6 +248,51 @@ export class RemovePageCommand implements Command {
   }
 }
 
+/** Составная команда: выполнить набор команд как одну (атомарный undo/redo). */
+export class MacroCommand implements Command {
+  readonly type = "macro";
+
+  constructor(private readonly cmds: Command[]) {}
+
+  do(): void {
+    for (const c of this.cmds) c.do();
+  }
+
+  undo(): void {
+    for (let i = this.cmds.length - 1; i >= 0; i--) this.cmds[i].undo();
+  }
+}
+
+/** Переместить конкретную точку (вершину) провода — для авто-реконнекта. */
+export class MoveWireEndpointCommand implements Command {
+  readonly type = "move-wire-endpoint";
+
+  constructor(
+    private readonly wire: Wire,
+    private readonly index: number,
+    private readonly fromX: number,
+    private readonly fromY: number,
+    private readonly toX: number,
+    private readonly toY: number,
+  ) {}
+
+  do(): void {
+    const p = this.wire.points[this.index];
+    if (p) {
+      p.x = this.toX;
+      p.y = this.toY;
+    }
+  }
+
+  undo(): void {
+    const p = this.wire.points[this.index];
+    if (p) {
+      p.x = this.fromX;
+      p.y = this.fromY;
+    }
+  }
+}
+
 /** Нарисовать провод (точки уже привязаны к сетке вызывающим кодом). */
 export class AddWireCommand implements Command {
   readonly type = "add-wire";
@@ -348,5 +393,58 @@ export class RemoveWireCommand implements Command {
 
   undo(): void {
     if (this.index >= 0) this.page.wires.splice(this.index, 0, this.wire);
+  }
+}
+
+/**
+ * Разрезать провод в точке `at` (на внутренней точке сегмента) на два провода —
+ * для вставки символа на провод (CLAUDE принцип 2). Если точка не на сегменте — no-op.
+ */
+export class SplitWireCommand implements Command {
+  readonly type = "split-wire";
+  private index = -1;
+  private readonly parts: [Wire, Wire] | null;
+
+  constructor(
+    private readonly page: Page,
+    private readonly wire: Wire,
+    at: Point,
+  ) {
+    const pts = wire.points;
+    let seg = -1;
+    for (let i = 1; i < pts.length; i++) {
+      if (pointOnSegment(at, pts[i - 1], pts[i])) {
+        seg = i;
+        break;
+      }
+    }
+    if (seg < 0) {
+      this.parts = null;
+      return;
+    }
+    const cut = { x: at.x, y: at.y };
+    const mk = (points: Point[]): Wire => ({
+      id: newId(),
+      points,
+      type: wire.type,
+      section: wire.section,
+      color: wire.color,
+    });
+    this.parts = [
+      mk([...pts.slice(0, seg).map((p) => ({ x: p.x, y: p.y })), cut]),
+      mk([cut, ...pts.slice(seg).map((p) => ({ x: p.x, y: p.y }))]),
+    ];
+  }
+
+  do(): void {
+    if (!this.parts) return;
+    this.index = this.page.wires.indexOf(this.wire);
+    if (this.index < 0) return;
+    this.page.wires.splice(this.index, 1, this.parts[0], this.parts[1]);
+  }
+
+  undo(): void {
+    if (!this.parts || this.index < 0) return;
+    this.page.wires.splice(this.index, 2, this.wire);
   }
 }

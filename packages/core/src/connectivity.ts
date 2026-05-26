@@ -6,7 +6,7 @@
  * в одной цепи. Каждая компонента связности = один потенциал (`Net`).
  */
 import type { Id } from "./ids";
-import { snap, type Point } from "./geometry";
+import { snap, pointOnSegment, type Point } from "./geometry";
 import type { Page } from "./model";
 import { instancePins, type SymbolLibrary } from "./symbol";
 
@@ -111,20 +111,6 @@ export function danglingPins(page: Page, library: SymbolLibrary): NetPin[] {
     .flatMap((n) => n.pins);
 }
 
-/** Лежит ли точка строго внутри отрезка (не на его концах). */
-function onSegmentInterior(p: Point, a: Point, b: Point): boolean {
-  const eps = 0.05;
-  const atEnd = (q: Point): boolean => Math.abs(p.x - q.x) < eps && Math.abs(p.y - q.y) < eps;
-  if (atEnd(a) || atEnd(b)) return false;
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len2 = dx * dx + dy * dy;
-  if (len2 === 0) return false;
-  const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
-  if (t <= 0 || t >= 1) return false;
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)) < eps;
-}
-
 /**
  * Точки-узлы (жирные точки соединения): где сходятся ≥3 «концов» проводов —
  * Т-ответвление или схождение трёх проводов. Простое пересечение без вершины
@@ -156,7 +142,7 @@ export function computeJunctions(page: Page): Point[] {
         if (o === w || o.points.length < 2) continue;
         let hit = false;
         for (let s = 1; s < o.points.length && !hit; s++) {
-          if (onSegmentInterior(e, o.points[s - 1], o.points[s])) hit = true;
+          if (pointOnSegment(e, o.points[s - 1], o.points[s])) hit = true;
         }
         if (hit) {
           bump(e, 2);
