@@ -12,6 +12,7 @@
         <button class="rtab active" type="button" data-tab="edit">Правка</button>
         <button class="rtab" type="button" data-tab="wire">Соединения</button>
         <button class="rtab" type="button" data-tab="schema">Схема</button>
+        <button class="rtab" type="button" data-tab="draw">Оформление</button>
         <button class="rtab" type="button" data-tab="view">Вид</button>
       </div>
       <div id="ribbon-body">
@@ -148,6 +149,73 @@
               </button>
             </div>
             <div class="rgroup-cap">Отчёты</div>
+          </div>
+        </div>
+
+        <div class="rpage" data-tab="draw" hidden>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button id="draw-line" type="button" title="Линия">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M2.5 13.5 13.5 2.5" />
+                </svg>
+                <span>Линия</span>
+              </button>
+              <button id="draw-rect" type="button" title="Прямоугольник">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <rect x="2.5" y="4" width="11" height="8" />
+                </svg>
+                <span>Прямоуг.</span>
+              </button>
+              <button id="draw-ellipse" type="button" title="Окружность / эллипс">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <ellipse cx="8" cy="8" rx="5.5" ry="4" />
+                </svg>
+                <span>Окружн.</span>
+              </button>
+              <button id="draw-arrow" type="button" title="Стрелка">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M2.5 13.5 12.5 3.5" />
+                  <path d="M8.5 3.5H12.5V7.5" />
+                </svg>
+                <span>Стрелка</span>
+              </button>
+              <button id="draw-text" type="button" title="Текст">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 3.5H13M8 3.5V13" />
+                </svg>
+                <span>Текст</span>
+              </button>
+            </div>
+            <div class="rgroup-cap">Инструменты</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-fields">
+              <label class="rfield">
+                <span>Тип линии</span>
+                <select id="anno-dash">
+                  <option value="solid">сплошная</option>
+                  <option value="dashed">штриховая</option>
+                  <option value="dotted">пунктир</option>
+                </select>
+              </label>
+              <label class="rfield">
+                <span>Толщина, мм</span>
+                <select id="anno-width">
+                  <option value="0.18">0.18</option>
+                  <option value="0.25">0.25</option>
+                  <option value="0.35" selected>0.35</option>
+                  <option value="0.5">0.5</option>
+                  <option value="0.7">0.7</option>
+                  <option value="1">1.0</option>
+                </select>
+              </label>
+              <label class="rfield">
+                <span>Цвет</span>
+                <input id="anno-color" type="color" value="#1a1a1a" />
+              </label>
+            </div>
+            <div class="rgroup-cap">Стиль линии</div>
           </div>
         </div>
 
@@ -392,6 +460,20 @@
         <div id="dl-body" class="dl-body"></div>
         <div class="prop-actions">
           <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="text-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>Текст</h3>
+        <div class="prop-row">
+          <label for="td-input">Содержимое</label>
+          <input id="td-input" type="text" autocomplete="off" />
+        </div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit">OK</button>
         </div>
       </form>
     </dialog>

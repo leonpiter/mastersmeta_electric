@@ -24,13 +24,22 @@ import {
   MoveWireEndpointCommand,
   AutoNumberCommand,
   ClearNumbersCommand,
+  AddAnnotationCommand,
+  RemoveAnnotationCommand,
+  MoveAnnotationCommand,
+  RestyleAnnotationCommand,
+  translateAnnotation,
   computeJunctions,
   computeNets,
   instancePins,
   pointOnSegment,
+  newId,
+  DEFAULT_ANNOTATION_STYLE,
   type AutoNumberOptions,
   type DeviceInfo,
   type DeviceMember,
+  type Annotation,
+  type AnnotationStyle,
   DEFAULT_WIRE_WIDTH_POWER,
   DEFAULT_WIRE_WIDTH_CONTROL,
   type Command,
@@ -61,7 +70,16 @@ export interface CanvasHooks {
   onRequestEditWire?: (wire: Wire) => void;
   /** Поставщик устройств проекта (master/slave) для кросс-референсов (S5). */
   getDevices?: () => DeviceInfo[];
+  /** Сменился активный инструмент рисования (или снят — `null`). */
+  onDrawToolChange?: (tool: DrawTool | null) => void;
+  /** Выбрана аннотация — синхронизировать стиль в ленте (или снято — `null`). */
+  onAnnotationStyle?: (style: AnnotationStyle | null) => void;
+  /** Запрос ввода текста аннотации: показать модалку и вернуть текст через `commit`. */
+  onRequestText?: (commit: (text: string) => void) => void;
 }
+
+/** Инструмент рисования аннотаций. */
+export type DrawTool = "line" | "rect" | "ellipse" | "arrow" | "text";
 
 /** Шаг между полюсами 3-полюсного провода (мм). */
 const WIRE_PHASE_STEP = 5;
@@ -131,6 +149,7 @@ export class CanvasView {
   private readonly sheetG: SVGGElement;
   private readonly wiresG: SVGGElement;
   private readonly instancesG: SVGGElement;
+  private readonly annotationsG: SVGGElement;
   private readonly overlayG: SVGGElement;
   private readonly nodesG: SVGGElement;
   private readonly ghostG: SVGGElement;
@@ -146,6 +165,22 @@ export class CanvasView {
   private selected: SymbolInstance | null = null;
   /** Выбранный провод (для удаления/свойств). */
   private selectedWire: Wire | null = null;
+  /** Выбранная аннотация (оформление). */
+  private selectedAnno: Annotation | null = null;
+  /** Активный инструмент рисования аннотаций (или null). */
+  private drawTool: DrawTool | null = null;
+  /** Текущий стиль аннотаций (для новых; применяется и к выбранной). */
+  private annoStyle: AnnotationStyle = { ...DEFAULT_ANNOTATION_STYLE };
+  /** Стартовая точка рисуемой фигуры (drag). */
+  private annoStart: Point | null = null;
+  /** Перетаскивание аннотации. */
+  private annoDrag: {
+    anno: Annotation;
+    lastX: number;
+    lastY: number;
+    totalDX: number;
+    totalDY: number;
+  } | null = null;
   /** Ориентация для следующей вставки. */
   private pendingRotation: Rotation = 0;
   private pendingMirror = false;
@@ -201,6 +236,7 @@ export class CanvasView {
     this.sheetG = el("g");
     this.wiresG = el("g");
     this.instancesG = el("g");
+    this.annotationsG = el("g", { "data-layer": "annotations" });
     this.overlayG = el("g");
     this.nodesG = el("g");
     this.ghostG = el("g");
@@ -211,11 +247,12 @@ export class CanvasView {
       "stroke-width": 0.4,
       visibility: "hidden",
     });
-    // снизу вверх: лист → провода → символы → выделение/подписи → узлы → курсор → «призрак»
+    // снизу вверх: лист → провода → символы → аннотации → выделение/подписи → узлы → курсор → «призрак»
     this.content.append(
       this.sheetG,
       this.wiresG,
       this.instancesG,
+      this.annotationsG,
       this.overlayG,
       this.nodesG,
       this.cursorMarker,
@@ -229,10 +266,12 @@ export class CanvasView {
     this.resetView();
     this.renderWires();
     this.renderInstances();
+    this.renderAnnotations();
     this.renderNodes();
     this.stack.subscribe(() => {
       this.renderWires();
       this.renderInstances();
+      this.renderAnnotations();
       this.renderNodes();
       this.updateHud();
     });
@@ -306,6 +345,57 @@ export class CanvasView {
     return this.selectedWire !== null;
   }
 
+  /** Можно ли повернуть (выбран инстанс или взведена вставка) — для пробела. */
+  get hasRotatable(): boolean {
+    return this.selected !== null || this.armed !== null;
+  }
+
+  // ----- инструменты рисования (оформление, S25) -----
+
+  /** Включить инструмент рисования аннотаций (линия/фигура/стрелка/текст). */
+  armDraw(tool: DrawTool): void {
+    this.exitWireMode();
+    this.armed = null;
+    this.selected = null;
+    this.selectedWire = null;
+    this.selectedAnno = null;
+    this.drawTool = tool;
+    this.annoStart = null;
+    this.svg.style.cursor = tool === "text" ? "text" : "crosshair";
+    this.hooks.onArmedChange?.(null);
+    this.hooks.onDrawToolChange?.(tool);
+    this.hooks.onAnnotationStyle?.(null);
+    this.renderWires();
+    this.renderInstances();
+    this.renderAnnotations();
+    this.ghostG.replaceChildren();
+    this.updateHud();
+  }
+
+  /** Выйти из режима рисования. */
+  exitDrawTool(): void {
+    if (!this.drawTool) return;
+    this.drawTool = null;
+    this.annoStart = null;
+    this.svg.style.cursor = "";
+    this.ghostG.replaceChildren();
+    this.hooks.onDrawToolChange?.(null);
+    this.updateHud();
+  }
+
+  /** Текущий стиль аннотаций (для синхронизации контролов ленты). */
+  get currentAnnoStyle(): AnnotationStyle {
+    return { ...this.annoStyle };
+  }
+
+  /** Задать стиль аннотаций: для новых фигур и (если выбрана) для текущей. */
+  setAnnoStyle(patch: Partial<AnnotationStyle>): void {
+    this.annoStyle = { ...this.annoStyle, ...patch };
+    if (this.selectedAnno) {
+      this.stack.execute(new RestyleAnnotationCommand(this.selectedAnno, patch));
+    }
+  }
+
   /** id текущего показываемого листа. */
   get currentPageId(): string {
     return this.page.id;
@@ -314,14 +404,17 @@ export class CanvasView {
   /** Переключить показываемый лист: перерисовать и вписать в окно. */
   setPage(page: Page): void {
     this.exitWireMode();
+    this.exitDrawTool();
     this.page = page;
     this.selected = null;
     this.selectedWire = null;
+    this.selectedAnno = null;
     this.armed = null;
     this.hooks.onArmedChange?.(null);
     this.renderSheet();
     this.renderWires();
     this.renderInstances();
+    this.renderAnnotations();
     this.renderNodes();
     this.resetView();
   }
@@ -601,6 +694,200 @@ export class CanvasView {
     }
   }
 
+  // ----- аннотации (оформление, S25) -----
+
+  /** Штриховка по типу линии (в мм, относительно толщины). */
+  private dashArray(dash: AnnotationStyle["dash"], w: number): string | null {
+    if (dash === "dashed") return `${w * 4} ${w * 3}`;
+    if (dash === "dotted") return `${Math.max(w, 0.2)} ${w * 2.5}`;
+    return null;
+  }
+
+  /** Габаритный прямоугольник аннотации (мм). */
+  private annoBounds(a: Annotation): Rect {
+    switch (a.kind) {
+      case "line":
+        return {
+          x: Math.min(a.x1, a.x2),
+          y: Math.min(a.y1, a.y2),
+          w: Math.abs(a.x2 - a.x1),
+          h: Math.abs(a.y2 - a.y1),
+        };
+      case "rect":
+        return { x: a.x, y: a.y, w: a.w, h: a.h };
+      case "ellipse":
+        return { x: a.cx - a.rx, y: a.cy - a.ry, w: a.rx * 2, h: a.ry * 2 };
+      case "text":
+        return { x: a.x, y: a.y - a.size, w: Math.max(a.text.length * a.size * 0.6, 2), h: a.size };
+    }
+  }
+
+  /** Наконечник стрелки в конце линии (треугольник). */
+  private arrowHead(a: Extract<Annotation, { kind: "line" }>): SVGElement {
+    const dx = a.x2 - a.x1;
+    const dy = a.y2 - a.y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const size = Math.max(2, a.style.width * 6);
+    const bx = a.x2 - ux * size;
+    const by = a.y2 - uy * size;
+    const wide = size * 0.45;
+    const pts = `${a.x2},${a.y2} ${bx - uy * wide},${by + ux * wide} ${bx + uy * wide},${by - ux * wide}`;
+    return el("polygon", { points: pts, fill: a.style.color });
+  }
+
+  private renderAnnotations(): void {
+    this.annotationsG.replaceChildren();
+    for (const a of this.page.annotations) {
+      const s = a.style;
+      if (a.kind === "line") {
+        const ln = el("line", {
+          x1: a.x1,
+          y1: a.y1,
+          x2: a.x2,
+          y2: a.y2,
+          stroke: s.color,
+          "stroke-width": s.width,
+          "stroke-linecap": "round",
+        });
+        const dash = this.dashArray(s.dash, s.width);
+        if (dash) ln.setAttribute("stroke-dasharray", dash);
+        this.annotationsG.append(ln);
+        if (a.arrowEnd) this.annotationsG.append(this.arrowHead(a));
+      } else if (a.kind === "rect") {
+        const r = el("rect", {
+          x: a.x,
+          y: a.y,
+          width: Math.max(a.w, 0.01),
+          height: Math.max(a.h, 0.01),
+          fill: "none",
+          stroke: s.color,
+          "stroke-width": s.width,
+        });
+        const dash = this.dashArray(s.dash, s.width);
+        if (dash) r.setAttribute("stroke-dasharray", dash);
+        this.annotationsG.append(r);
+      } else if (a.kind === "ellipse") {
+        const e = el("ellipse", {
+          cx: a.cx,
+          cy: a.cy,
+          rx: Math.max(a.rx, 0.01),
+          ry: Math.max(a.ry, 0.01),
+          fill: "none",
+          stroke: s.color,
+          "stroke-width": s.width,
+        });
+        const dash = this.dashArray(s.dash, s.width);
+        if (dash) e.setAttribute("stroke-dasharray", dash);
+        this.annotationsG.append(e);
+      } else {
+        const t = this.text(a.text, a.x, a.y, a.size, "start");
+        t.setAttribute("fill", s.color);
+        t.setAttribute("dominant-baseline", "alphabetic");
+        this.annotationsG.append(t);
+      }
+      if (this.selectedAnno?.id === a.id) {
+        const b = this.annoBounds(a);
+        this.annotationsG.append(
+          el("rect", {
+            x: b.x - 1,
+            y: b.y - 1,
+            width: b.w + 2,
+            height: b.h + 2,
+            fill: "none",
+            stroke: "#1b6fc4",
+            "stroke-width": 0.3,
+            "stroke-dasharray": "1.5 1",
+          }),
+        );
+      }
+    }
+  }
+
+  /** Собрать аннотацию-фигуру по инструменту и двум точкам (текст — отдельно). */
+  private makeShape(tool: DrawTool, a: Point, b: Point): Annotation | null {
+    const style = { ...this.annoStyle };
+    const id = newId();
+    if (tool === "line" || tool === "arrow") {
+      return {
+        id,
+        kind: "line",
+        x1: a.x,
+        y1: a.y,
+        x2: b.x,
+        y2: b.y,
+        arrowEnd: tool === "arrow",
+        style,
+      };
+    }
+    if (tool === "rect") {
+      return {
+        id,
+        kind: "rect",
+        x: Math.min(a.x, b.x),
+        y: Math.min(a.y, b.y),
+        w: Math.abs(b.x - a.x),
+        h: Math.abs(b.y - a.y),
+        style,
+      };
+    }
+    if (tool === "ellipse") {
+      return {
+        id,
+        kind: "ellipse",
+        cx: (a.x + b.x) / 2,
+        cy: (a.y + b.y) / 2,
+        rx: Math.abs(b.x - a.x) / 2,
+        ry: Math.abs(b.y - a.y) / 2,
+        style,
+      };
+    }
+    return null;
+  }
+
+  private nearRectBorder(p: Point, b: Rect, tol: number): boolean {
+    const inX = p.x >= b.x - tol && p.x <= b.x + b.w + tol;
+    const inY = p.y >= b.y - tol && p.y <= b.y + b.h + tol;
+    const nearV = Math.abs(p.x - b.x) <= tol || Math.abs(p.x - (b.x + b.w)) <= tol;
+    const nearH = Math.abs(p.y - b.y) <= tol || Math.abs(p.y - (b.y + b.h)) <= tol;
+    return (inY && nearV) || (inX && nearH);
+  }
+
+  /** Найти аннотацию под точкой (мм). */
+  private hitTestAnnotation(p: Point): Annotation | null {
+    const tol = 1.5;
+    for (let i = this.page.annotations.length - 1; i >= 0; i--) {
+      const a = this.page.annotations[i];
+      if (a.kind === "line") {
+        if (distToSegment(p, { x: a.x1, y: a.y1 }, { x: a.x2, y: a.y2 }) <= tol) return a;
+      } else if (a.kind === "text") {
+        const b = this.annoBounds(a);
+        if (
+          p.x >= b.x - tol &&
+          p.x <= b.x + b.w + tol &&
+          p.y >= b.y - tol &&
+          p.y <= b.y + b.h + tol
+        )
+          return a;
+      } else if (this.nearRectBorder(p, this.annoBounds(a), tol)) {
+        return a;
+      }
+    }
+    return null;
+  }
+
+  private selectAnno(a: Annotation | null): void {
+    this.selectedAnno = a;
+    this.selected = null;
+    this.selectedWire = null;
+    this.hooks.onAnnotationStyle?.(a ? { ...a.style } : null);
+    this.renderWires();
+    this.renderInstances();
+    this.renderAnnotations();
+    this.updateHud();
+  }
+
   private renderWires(): void {
     this.wiresG.replaceChildren();
 
@@ -810,6 +1097,41 @@ export class CanvasView {
       }
       return;
     }
+    if (this.drawTool) {
+      if (this.drawTool === "text" || !this.annoStart) return;
+      const p = snapPoint(this.last, this.page.gridStep);
+      const ghostAttrs = {
+        fill: "none",
+        stroke: "#1b6fc4",
+        "stroke-width": 0.5,
+        "stroke-dasharray": "1.5 1",
+      } as const;
+      const a = this.annoStart;
+      if (this.drawTool === "rect") {
+        this.ghostG.append(
+          el("rect", {
+            x: Math.min(a.x, p.x),
+            y: Math.min(a.y, p.y),
+            width: Math.abs(p.x - a.x),
+            height: Math.abs(p.y - a.y),
+            ...ghostAttrs,
+          }),
+        );
+      } else if (this.drawTool === "ellipse") {
+        this.ghostG.append(
+          el("ellipse", {
+            cx: (a.x + p.x) / 2,
+            cy: (a.y + p.y) / 2,
+            rx: Math.abs(p.x - a.x) / 2,
+            ry: Math.abs(p.y - a.y) / 2,
+            ...ghostAttrs,
+          }),
+        );
+      } else {
+        this.ghostG.append(el("line", { x1: a.x, y1: a.y, x2: p.x, y2: p.y, ...ghostAttrs }));
+      }
+      return;
+    }
     if (!this.armed) return;
     const p = snapPoint(this.last, this.page.gridStep);
     const g = symbolToSvg(this.armed, { stroke: "#1b6fc4", pins: true, opacity: 0.5 });
@@ -848,25 +1170,39 @@ export class CanvasView {
   private selectWire(wire: Wire | null): void {
     this.selectedWire = wire;
     this.selected = null;
+    this.clearAnnoSelection();
     this.renderInstances();
     this.renderWires();
+    this.renderAnnotations();
     this.updateHud();
   }
 
   private select(inst: SymbolInstance | null): void {
     this.selected = inst;
     this.selectedWire = null;
+    this.clearAnnoSelection();
     this.renderWires();
     this.renderInstances();
+    this.renderAnnotations();
     this.updateHud();
+  }
+
+  /** Снять выделение аннотации (без перерисовки — вызывается перед общей перерисовкой). */
+  private clearAnnoSelection(): void {
+    if (this.selectedAnno) {
+      this.selectedAnno = null;
+      this.hooks.onAnnotationStyle?.(null);
+    }
   }
 
   /** Взвести символ для вставки (режим вставки). */
   arm(sym: SymbolDef): void {
     this.exitWireMode();
+    this.exitDrawTool();
     this.armed = sym;
     this.selected = null;
     this.selectedWire = null;
+    this.clearAnnoSelection();
     this.pendingRotation = 0;
     this.pendingMirror = false;
     this.svg.style.cursor = "copy";
@@ -887,9 +1223,12 @@ export class CanvasView {
 
   /** Включить инструмент «Провод»: 1-полюсный (цепочка) или 3-полюсный (шаг 5 мм). */
   armWire(poles: 1 | 3 = 1): void {
+    this.exitDrawTool();
     this.armed = null;
     this.selected = null;
     this.selectedWire = null;
+    this.clearAnnoSelection();
+    this.renderAnnotations();
     this.wireMode = true;
     this.wirePoles = poles;
     this.wireStart = null;
@@ -933,9 +1272,14 @@ export class CanvasView {
     }
   }
 
-  /** Delete — удалить выбранный провод или инстанс. */
+  /** Delete — удалить выбранный провод, инстанс или аннотацию. */
   deleteSelected(): void {
-    if (this.selectedWire) {
+    if (this.selectedAnno) {
+      const a = this.selectedAnno;
+      this.selectedAnno = null;
+      this.hooks.onAnnotationStyle?.(null);
+      this.stack.execute(new RemoveAnnotationCommand(this.page, a));
+    } else if (this.selectedWire) {
       const w = this.selectedWire;
       this.selectedWire = null;
       this.stack.execute(new RemoveWireCommand(this.page, w));
@@ -946,7 +1290,7 @@ export class CanvasView {
     }
   }
 
-  /** Esc — завершить/прервать провод, выйти из вставки, иначе снять выделение. */
+  /** Esc — завершить/прервать провод, выйти из вставки/рисования, иначе снять выделение. */
   cancelPlacement(): void {
     if (this.wireMode) {
       if (this.wireStart) {
@@ -958,7 +1302,18 @@ export class CanvasView {
       }
       return;
     }
+    if (this.drawTool) {
+      if (this.annoStart) {
+        this.annoStart = null; // прервать текущую фигуру, остаться в инструменте
+        this.ghostG.replaceChildren();
+        this.updateHud();
+      } else {
+        this.exitDrawTool();
+      }
+      return;
+    }
     if (this.armed) this.disarm();
+    else if (this.selectedAnno) this.selectAnno(null);
     else this.select(null);
   }
 
@@ -972,17 +1327,28 @@ export class CanvasView {
 
   private updateHud(): void {
     const fmt = (v: number): string => v.toFixed(1);
+    const drawNames: Record<DrawTool, string> = {
+      line: "Линия",
+      rect: "Прямоугольник",
+      ellipse: "Окружность",
+      arrow: "Стрелка",
+      text: "Текст",
+    };
     const mode = this.wireMode
       ? this.wireStart
         ? "Провод: укажите конец (Esc — завершить)"
         : "Провод: укажите начало"
-      : this.armed
-        ? `Вставка: ${this.armed.componentCode}${this.pendingMirror ? " ↔" : ""}${this.pendingRotation ? ` ${this.pendingRotation}°` : ""}`
-        : this.selectedWire
-          ? "Выбран провод (Del — удалить, 2× — свойства)"
-          : this.selected
-            ? `Выбран: ${this.selected.designation}`
-            : "Выбор";
+      : this.drawTool
+        ? `Рисование: ${drawNames[this.drawTool]}${this.drawTool === "text" ? " — клик" : " — растяните"}`
+        : this.armed
+          ? `Вставка: ${this.armed.componentCode}${this.pendingMirror ? " ↔" : ""}${this.pendingRotation ? ` ${this.pendingRotation}°` : ""}`
+          : this.selectedAnno
+            ? "Выбрана аннотация (Del — удалить)"
+            : this.selectedWire
+              ? "Выбран провод (Del — удалить, 2× — свойства)"
+              : this.selected
+                ? `Выбран: ${this.selected.designation}`
+                : "Выбор";
     this.hud.textContent =
       `${this.page.format.name}  ·  Zoom ${Math.round(this.zoom * 100)}%  ·  ` +
       `Курсор ${fmt(this.last.x)}, ${fmt(this.last.y)} мм  ·  ` +
@@ -995,11 +1361,17 @@ export class CanvasView {
     svg.addEventListener("pointerdown", (e) => {
       svg.setPointerCapture(e.pointerId);
       this.down = { x: e.clientX, y: e.clientY, button: e.button, moved: false };
+      const r = svg.getBoundingClientRect();
+      this.last = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
 
-      // ЛКМ по существующему символу (вне вставки/провода) — выбрать и готовить перетаскивание
-      if (!this.armed && !this.wireMode && e.button === 0) {
-        const r = svg.getBoundingClientRect();
-        this.last = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
+      // рисование фигуры: запомнить старт (текст ставится по клику на pointerup)
+      if (this.drawTool && this.drawTool !== "text" && e.button === 0) {
+        this.annoStart = snapPoint(this.last, this.page.gridStep);
+        return;
+      }
+
+      // ЛКМ по символу/аннотации (вне вставки/провода/рисования) — выбрать и готовить перетаскивание
+      if (!this.armed && !this.wireMode && !this.drawTool && e.button === 0) {
         const hit = this.hitTest(this.last);
         if (hit) {
           this.select(hit);
@@ -1010,6 +1382,13 @@ export class CanvasView {
             grabDX: this.last.x - hit.x,
             grabDY: this.last.y - hit.y,
           };
+          return;
+        }
+        const anno = this.hitTestAnnotation(this.last);
+        if (anno) {
+          this.selectAnno(anno);
+          const start = snapPoint(this.last, this.page.gridStep);
+          this.annoDrag = { anno, lastX: start.x, lastY: start.y, totalDX: 0, totalDY: 0 };
         }
       }
     });
@@ -1036,7 +1415,23 @@ export class CanvasView {
           this.dragging.inst.x = target.x;
           this.dragging.inst.y = target.y;
           this.renderInstances();
-        } else if (this.down.moved && (this.down.button === 0 || this.down.button === 1)) {
+        } else if (this.down.moved && this.annoDrag) {
+          // перетаскивание аннотации (живой сдвиг; на pointerup — одна команда)
+          const target = snapPoint(this.last, this.page.gridStep);
+          const dx = target.x - this.annoDrag.lastX;
+          const dy = target.y - this.annoDrag.lastY;
+          if (dx !== 0 || dy !== 0) {
+            translateAnnotation(this.annoDrag.anno, dx, dy);
+            this.annoDrag.lastX = target.x;
+            this.annoDrag.lastY = target.y;
+            this.annoDrag.totalDX += dx;
+            this.annoDrag.totalDY += dy;
+            this.renderAnnotations();
+          }
+        } else if (
+          this.down.moved &&
+          (this.down.button === 1 || (this.down.button === 0 && !this.drawTool))
+        ) {
           this.panX += e.movementX;
           this.panY += e.movementY;
           this.updateView();
@@ -1077,6 +1472,50 @@ export class CanvasView {
           }
           this.stack.execute(cmds.length > 1 ? new MacroCommand(cmds) : cmds[0]);
         }
+        this.down = null;
+        return;
+      }
+
+      // завершить перетаскивание аннотации → одна команда Move
+      if (this.annoDrag) {
+        const ad = this.annoDrag;
+        this.annoDrag = null;
+        if (this.down?.moved && (ad.totalDX !== 0 || ad.totalDY !== 0)) {
+          translateAnnotation(ad.anno, -ad.totalDX, -ad.totalDY); // откат живого сдвига
+          this.stack.execute(new MoveAnnotationCommand(ad.anno, ad.totalDX, ad.totalDY));
+        }
+        this.down = null;
+        return;
+      }
+
+      // рисование аннотации (фигуры — по drag; текст — по клику)
+      if (this.drawTool) {
+        const p = snapPoint(this.last, this.page.gridStep);
+        if (this.drawTool === "text") {
+          if (this.down?.button === 0 && !this.down.moved) {
+            const style = { ...this.annoStyle };
+            this.hooks.onRequestText?.((text) => {
+              const t = text.trim();
+              if (!t) return;
+              this.stack.execute(
+                new AddAnnotationCommand(this.page, {
+                  id: newId(),
+                  kind: "text",
+                  x: p.x,
+                  y: p.y,
+                  text: t,
+                  size: 5,
+                  style,
+                }),
+              );
+            });
+          }
+        } else if (this.annoStart && (p.x !== this.annoStart.x || p.y !== this.annoStart.y)) {
+          const shape = this.makeShape(this.drawTool, this.annoStart, p);
+          if (shape) this.stack.execute(new AddAnnotationCommand(this.page, shape));
+        }
+        this.annoStart = null;
+        this.ghostG.replaceChildren();
         this.down = null;
         return;
       }
@@ -1155,7 +1594,7 @@ export class CanvasView {
     svg.addEventListener("contextmenu", (e) => e.preventDefault());
 
     svg.addEventListener("dblclick", (e) => {
-      if (this.armed || this.wireMode) return;
+      if (this.armed || this.wireMode || this.drawTool) return;
       const r = svg.getBoundingClientRect();
       const p = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
       const hit = this.hitTest(p);

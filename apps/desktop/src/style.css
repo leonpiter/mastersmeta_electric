@@ -249,6 +249,44 @@ body.resizing #canvas {
   border-color: var(--accent);
 }
 
+/* поля стиля в ленте (вкладка «Оформление») */
+.rgroup-fields {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+
+.rfield {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.rfield > span {
+  min-width: 64px;
+}
+
+.rfield select {
+  font: inherit;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 2px 4px;
+}
+
+.rfield input[type="color"] {
+  width: 36px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
 /* ---- выпадающее меню (сетка и т.п.) ---- */
 .dropdown {
   position: fixed;

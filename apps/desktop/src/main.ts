@@ -47,6 +47,21 @@ const view = new CanvasView(svg, activePage(project), stack, hud, library, {
     wire3Btn.classList.toggle("on", active && poles === 3);
   },
   getDevices: () => computeDevices(project, library),
+  onDrawToolChange: (tool) => {
+    for (const [t, b] of Object.entries(drawButtons)) b.classList.toggle("on", t === tool);
+  },
+  onAnnotationStyle: (style) => {
+    if (!style) return;
+    annoDash.value = style.dash;
+    annoWidth.value = String(style.width);
+    annoColor.value = style.color;
+  },
+  onRequestText: (commit) => {
+    textCommit = commit;
+    tdInput.value = "";
+    textDialog.showModal();
+    tdInput.focus();
+  },
 });
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
 
@@ -403,6 +418,39 @@ const wire3Btn = document.getElementById("wire-3") as HTMLButtonElement;
 wireBtn.addEventListener("click", () => view.armWire(1));
 wire3Btn.addEventListener("click", () => view.armWire(3));
 
+// ----- инструменты оформления (вкладка «Оформление», S25) -----
+const drawButtons: Record<string, HTMLButtonElement> = {
+  line: document.getElementById("draw-line") as HTMLButtonElement,
+  rect: document.getElementById("draw-rect") as HTMLButtonElement,
+  ellipse: document.getElementById("draw-ellipse") as HTMLButtonElement,
+  arrow: document.getElementById("draw-arrow") as HTMLButtonElement,
+  text: document.getElementById("draw-text") as HTMLButtonElement,
+};
+const annoDash = document.getElementById("anno-dash") as HTMLSelectElement;
+const annoWidth = document.getElementById("anno-width") as HTMLSelectElement;
+const annoColor = document.getElementById("anno-color") as HTMLInputElement;
+
+for (const [tool, btn] of Object.entries(drawButtons)) {
+  btn.addEventListener("click", () =>
+    view.armDraw(tool as "line" | "rect" | "ellipse" | "arrow" | "text"),
+  );
+}
+annoDash.addEventListener("change", () =>
+  view.setAnnoStyle({ dash: annoDash.value as "solid" | "dashed" | "dotted" }),
+);
+annoWidth.addEventListener("change", () => view.setAnnoStyle({ width: Number(annoWidth.value) }));
+annoColor.addEventListener("input", () => view.setAnnoStyle({ color: annoColor.value }));
+
+// модалка ввода текста аннотации (вместо браузерного prompt)
+const textDialog = document.getElementById("text-dialog") as HTMLDialogElement;
+const tdInput = document.getElementById("td-input") as HTMLInputElement;
+let textCommit: ((text: string) => void) | null = null;
+textDialog.addEventListener("close", () => {
+  const commit = textCommit;
+  textCommit = null;
+  if (textDialog.returnValue === "ok" && commit) commit(tdInput.value);
+});
+
 // ----- меню «Нумерация» (вкладка Соединения) -----
 const numberingBtn = document.getElementById("numbering") as HTMLButtonElement;
 const numberMenu = document.getElementById("number-menu")!;
@@ -715,6 +763,10 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     stack.redo();
   } else if (!mod && !e.altKey && k === "r") {
+    e.preventDefault();
+    view.rotateSelectedOrPending();
+  } else if (!mod && !e.altKey && (k === " " || e.code === "Space") && view.hasRotatable) {
+    // пробел вращает выбранный УГО на 90° (только когда есть что вращать)
     e.preventDefault();
     view.rotateSelectedOrPending();
   } else if (!mod && !e.altKey && k === "m") {
