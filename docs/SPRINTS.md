@@ -8,11 +8,11 @@
 | | | | |
 |---|---|---|---|
 | [S0 ✅](sprints/archive/S00-skeleton.md) | [S1 ✅](sprints/archive/S01-sheet-titleblock.md) | [S2 🚧](sprints/S02-symbols-library.md) | [S3 ✅](sprints/archive/S03-wires-connectivity.md) |
-| [S4](sprints/S04-wire-numbering.md) | [S5](sprints/S05-master-slave-xref.md) | [S6](sprints/S06-catalog.md) | [S7](sprints/S07-reports.md) |
+| [S4 ✅](sprints/archive/S04-wire-numbering.md) | [S5 ✅](sprints/archive/S05-master-slave-xref.md) | [S6 ✅](sprints/archive/S06-catalog.md) | [S7 ✅](sprints/archive/S07-reports.md) |
 | [S8](sprints/S08-terminals-connectors.md) | [S9](sprints/S09-symbol-editor.md) | [S10](sprints/S10-cabinet-layout.md) | [S11](sprints/S11-shell-autoupdate.md) |
 | [S12](sprints/S12-open-formats-packs.md) | [S13](sprints/S13-community-registry.md) | [S14](sprints/S14-core-api.md) | [S15](sprints/S15-skills.md) |
 | [S16](sprints/S16-dsl-autolayout.md) | [S17](sprints/S17-web-pwa.md) | [S18](sprints/S18-backend-multitenant.md) | [S19](sprints/S19-realtime-collab.md) |
-| [S23](sprints/S23-ai-first-mode.md) | [S24](sprints/S24-element-editor-footprint.md) | [S25 🚧](sprints/S25-graphics-annotations.md) | |
+| [S23](sprints/S23-ai-first-mode.md) | [S24](sprints/S24-element-editor-footprint.md) | [S25 ✅](sprints/archive/S25-graphics-annotations.md) | |
 
 **Сквозные (инфраструктура, вне вех A–G):**
 - [S20 — гейт качества](sprints/archive/S20-infra-quality-gate.md) ✅ — ESLint/Prettier, `pnpm verify`, pre-push git-хук, `.claude` allowlist, README/LICENSE (MIT).
@@ -177,4 +177,6 @@ G (S17–S19) — только если решим делать SaaS.
 ```
 
 Критический путь к «MVP, которым можно работать» — **S1→S7** (лист, символы, провода, нумерация,
-master/slave, каталог, отчёты). S9–S10 повышают ценность; S11 — чтобы раздавать; F — стратегическая цель.
+master/slave, каталог, отчёты) — **✅ закрыт (2026-05-26)**: сквозной цикл «лист → УГО → провода →
+нумерация → master/slave → каталог → перечень элементов + таблица соединений». S9–S10 повышают
+ценность; S11 — чтобы раздавать; F — стратегическая цель.
