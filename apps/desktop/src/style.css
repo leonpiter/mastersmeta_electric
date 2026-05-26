@@ -620,16 +620,33 @@ body.resizing #canvas {
 }
 
 #props::backdrop,
-#project-settings::backdrop {
+#project-settings::backdrop,
+#wire-settings::backdrop {
   background: rgb(20 26 35 / 32%);
 }
 
-#project-settings {
+#project-settings,
+#wire-settings {
   border: 1px solid var(--border);
   padding: 0;
   box-shadow: 0 4px 18px rgb(0 0 0 / 28%);
   min-width: 300px;
   color: var(--text);
+}
+
+.prop-row select {
+  font: inherit;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.prop-row input[type="color"] {
+  width: 48px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
 }
 
 .modal-form {

@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { createPage } from "./model";
 import { CommandStack } from "./command";
-import { AddWireCommand, RemoveWireCommand, AddSymbolInstanceCommand } from "./commands";
+import {
+  AddWireCommand,
+  RemoveWireCommand,
+  EditWireCommand,
+  AddSymbolInstanceCommand,
+} from "./commands";
 import { SymbolLibrary } from "./symbol";
 import { GOST_SYMBOLS } from "./symbols-gost";
 import { computeNets, danglingPins } from "./connectivity";
@@ -88,5 +93,24 @@ describe("движок связности (union-find)", () => {
     expect(page.wires).toHaveLength(0);
     stack.undo();
     expect(page.wires).toHaveLength(1);
+  });
+
+  it("EditWire (тип/сечение/цвет) обратимо", () => {
+    const page = createPage();
+    const stack = new CommandStack();
+    const add = new AddWireCommand(page, [
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+    ]);
+    stack.execute(add);
+    const w = add.created;
+    expect(w.type).toBe("power");
+
+    stack.execute(new EditWireCommand(w, { type: "control", section: "1.5", color: "#ff0000" }));
+    expect(w).toMatchObject({ type: "control", section: "1.5", color: "#ff0000" });
+    stack.undo();
+    expect(w.type).toBe("power");
+    expect(w.section).toBeUndefined();
+    expect(w.color).toBeUndefined();
   });
 });

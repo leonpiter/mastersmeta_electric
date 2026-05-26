@@ -50,6 +50,10 @@ export interface Wire {
   points: Point[];
   /** Силовой / цепь управления (ГОСТ). */
   type: "power" | "control";
+  /** Сечение жилы, мм² (напр. «1.5»). */
+  section?: string;
+  /** Цвет жилы (CSS-цвет; по умолчанию чёрный). */
+  color?: string;
 }
 
 export interface Page {

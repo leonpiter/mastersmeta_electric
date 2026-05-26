@@ -212,6 +212,43 @@
       </form>
     </dialog>
 
+    <dialog id="wire-settings">
+      <form method="dialog" class="modal-form">
+        <h3>Свойства провода</h3>
+        <div class="prop-row">
+          <label for="ws-type">Тип</label>
+          <select id="ws-type">
+            <option value="power">Силовой</option>
+            <option value="control">Управление</option>
+          </select>
+        </div>
+        <div class="prop-row">
+          <label for="ws-section">Сечение, мм²</label>
+          <select id="ws-section">
+            <option value="">—</option>
+            <option>0.5</option>
+            <option>0.75</option>
+            <option>1.0</option>
+            <option>1.5</option>
+            <option>2.5</option>
+            <option>4</option>
+            <option>6</option>
+            <option>10</option>
+            <option>16</option>
+            <option>25</option>
+          </select>
+        </div>
+        <div class="prop-row">
+          <label for="ws-color">Цвет</label>
+          <input id="ws-color" type="color" value="#1a1a1a" />
+        </div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit">OK</button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

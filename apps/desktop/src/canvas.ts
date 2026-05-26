@@ -17,7 +17,9 @@ import {
   RemoveInstanceCommand,
   MoveInstanceCommand,
   AddWireCommand,
+  RemoveWireCommand,
   type Page,
+  type Wire,
   type Point,
   type Rect,
   type TitleBlock,
@@ -39,6 +41,19 @@ export interface CanvasHooks {
   onRequestEdit?: (inst: SymbolInstance) => void;
   /** Включён/выключен инструмент «Провод». */
   onWireModeChange?: (active: boolean) => void;
+  /** Запрос на редактирование свойств провода (двойной клик). */
+  onRequestEditWire?: (wire: Wire) => void;
+}
+
+/** Расстояние от точки до отрезка (мм). */
+function distToSegment(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
 function el<K extends keyof SVGElementTagNameMap>(
@@ -89,6 +104,8 @@ export class CanvasView {
   private armed: SymbolDef | null = null;
   /** Выбранный инстанс на листе (для поворота/зеркала/удаления). */
   private selected: SymbolInstance | null = null;
+  /** Выбранный провод (для удаления/свойств). */
+  private selectedWire: Wire | null = null;
   /** Ориентация для следующей вставки. */
   private pendingRotation: Rotation = 0;
   private pendingMirror = false;
@@ -219,6 +236,7 @@ export class CanvasView {
     this.exitWireMode();
     this.page = page;
     this.selected = null;
+    this.selectedWire = null;
     this.armed = null;
     this.hooks.onArmedChange?.(null);
     this.renderSheet();
@@ -508,12 +526,27 @@ export class CanvasView {
     for (const w of this.page.wires) {
       if (w.points.length < 2) continue;
       const d = w.points.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" ");
+      const width = w.type === "power" ? 0.5 : 0.3;
+      // подсветка выбранного провода (ореол под линией)
+      if (this.selectedWire?.id === w.id) {
+        this.wiresG.append(
+          el("path", {
+            d,
+            fill: "none",
+            stroke: "#1b6fc4",
+            "stroke-width": width + 1,
+            opacity: 0.35,
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          }),
+        );
+      }
       this.wiresG.append(
         el("path", {
           d,
           fill: "none",
-          stroke: "#1a1a1a",
-          "stroke-width": w.type === "power" ? 0.5 : 0.3,
+          stroke: w.color ?? "#1a1a1a",
+          "stroke-width": width,
           "stroke-linecap": "round",
           "stroke-linejoin": "round",
         }),
@@ -629,8 +662,30 @@ export class CanvasView {
     return null;
   }
 
+  /** Найти провод под точкой (мм). */
+  private hitTestWire(p: Point): Wire | null {
+    const tol = 1.5;
+    for (let i = this.page.wires.length - 1; i >= 0; i--) {
+      const w = this.page.wires[i];
+      for (let s = 1; s < w.points.length; s++) {
+        if (distToSegment(p, w.points[s - 1], w.points[s]) <= tol) return w;
+      }
+    }
+    return null;
+  }
+
+  private selectWire(wire: Wire | null): void {
+    this.selectedWire = wire;
+    this.selected = null;
+    this.renderInstances();
+    this.renderWires();
+    this.updateHud();
+  }
+
   private select(inst: SymbolInstance | null): void {
     this.selected = inst;
+    this.selectedWire = null;
+    this.renderWires();
     this.renderInstances();
     this.updateHud();
   }
@@ -640,6 +695,7 @@ export class CanvasView {
     this.exitWireMode();
     this.armed = sym;
     this.selected = null;
+    this.selectedWire = null;
     this.pendingRotation = 0;
     this.pendingMirror = false;
     this.svg.style.cursor = "copy";
@@ -662,6 +718,7 @@ export class CanvasView {
   armWire(): void {
     this.armed = null;
     this.selected = null;
+    this.selectedWire = null;
     this.wireMode = true;
     this.wireStart = null;
     this.svg.style.cursor = "crosshair";
@@ -704,12 +761,17 @@ export class CanvasView {
     }
   }
 
-  /** Delete — удалить выбранный инстанс. */
+  /** Delete — удалить выбранный провод или инстанс. */
   deleteSelected(): void {
-    if (!this.selected) return;
-    const inst = this.selected;
-    this.selected = null;
-    this.stack.execute(new RemoveInstanceCommand(this.page, inst));
+    if (this.selectedWire) {
+      const w = this.selectedWire;
+      this.selectedWire = null;
+      this.stack.execute(new RemoveWireCommand(this.page, w));
+    } else if (this.selected) {
+      const inst = this.selected;
+      this.selected = null;
+      this.stack.execute(new RemoveInstanceCommand(this.page, inst));
+    }
   }
 
   /** Esc — завершить/прервать провод, выйти из вставки, иначе снять выделение. */
@@ -744,9 +806,11 @@ export class CanvasView {
         : "Провод: укажите начало"
       : this.armed
         ? `Вставка: ${this.armed.componentCode}${this.pendingMirror ? " ↔" : ""}${this.pendingRotation ? ` ${this.pendingRotation}°` : ""}`
-        : this.selected
-          ? `Выбран: ${this.selected.designation}`
-          : "Выбор";
+        : this.selectedWire
+          ? "Выбран провод (Del — удалить, 2× — свойства)"
+          : this.selected
+            ? `Выбран: ${this.selected.designation}`
+            : "Выбор";
     this.hud.textContent =
       `${this.page.format.name}  ·  Zoom ${Math.round(this.zoom * 100)}%  ·  ` +
       `Курсор ${fmt(this.last.x)}, ${fmt(this.last.y)} мм  ·  ` +
@@ -843,7 +907,9 @@ export class CanvasView {
           this.stack.execute(cmd); // подписка перерисует слой символов
           this.select(cmd.instance); // выбрать новый, режим вставки сохраняется
         } else {
-          this.select(this.hitTest(this.last));
+          const inst = this.hitTest(this.last);
+          if (inst) this.select(inst);
+          else this.selectWire(this.hitTestWire(this.last));
         }
       }
       this.down = null;
@@ -875,13 +941,19 @@ export class CanvasView {
     svg.addEventListener("contextmenu", (e) => e.preventDefault());
 
     svg.addEventListener("dblclick", (e) => {
-      if (this.armed) return;
+      if (this.armed || this.wireMode) return;
       const r = svg.getBoundingClientRect();
       const p = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
       const hit = this.hitTest(p);
       if (hit) {
         this.select(hit);
         this.hooks.onRequestEdit?.(hit);
+        return;
+      }
+      const wire = this.hitTestWire(p);
+      if (wire) {
+        this.selectWire(wire);
+        this.hooks.onRequestEditWire?.(wire);
       }
     });
 

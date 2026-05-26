@@ -6,9 +6,11 @@ import {
   SymbolLibrary,
   GOST_SYMBOLS,
   EditInstanceCommand,
+  EditWireCommand,
   AddPageCommand,
   RemovePageCommand,
   type SymbolInstance,
+  type Wire,
 } from "@see/core";
 import { CanvasView } from "./canvas";
 import { LibraryPanel } from "./library-panel";
@@ -27,6 +29,7 @@ let panel: LibraryPanel | undefined;
 const view = new CanvasView(svg, activePage(project), stack, hud, library, {
   onArmedChange: (id) => panel?.setActive(id),
   onRequestEdit: (inst) => openProps(inst),
+  onRequestEditWire: (wire) => openWireSettings(wire),
   onWireModeChange: (active) => wireBtn.classList.toggle("on", active),
 });
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
@@ -73,6 +76,34 @@ psDialog.addEventListener("close", () => {
       projectPanel.refresh();
     }
   }
+});
+
+// ----- свойства провода (двойной клик по проводу) -----
+const wsDialog = document.getElementById("wire-settings") as HTMLDialogElement;
+const wsType = document.getElementById("ws-type") as HTMLSelectElement;
+const wsSection = document.getElementById("ws-section") as HTMLSelectElement;
+const wsColor = document.getElementById("ws-color") as HTMLInputElement;
+let editingWire: Wire | null = null;
+
+function openWireSettings(wire: Wire): void {
+  editingWire = wire;
+  wsType.value = wire.type;
+  wsSection.value = wire.section ?? "";
+  wsColor.value = wire.color ?? "#1a1a1a";
+  wsDialog.showModal();
+}
+
+wsDialog.addEventListener("close", () => {
+  if (wsDialog.returnValue === "ok" && editingWire) {
+    stack.execute(
+      new EditWireCommand(editingWire, {
+        type: wsType.value as Wire["type"],
+        section: wsSection.value || undefined,
+        color: wsColor.value,
+      }),
+    );
+  }
+  editingWire = null;
 });
 
 // обмен боковых панелей местами (с запоминанием)

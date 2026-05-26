@@ -277,6 +277,31 @@ export class AddWireCommand implements Command {
   }
 }
 
+/** Изменить свойства провода (тип, сечение, цвет). */
+export class EditWireCommand implements Command {
+  readonly type = "edit-wire";
+  private readonly before: { type: Wire["type"]; section?: string; color?: string };
+
+  constructor(
+    private readonly wire: Wire,
+    private readonly after: { type?: Wire["type"]; section?: string; color?: string },
+  ) {
+    this.before = { type: wire.type, section: wire.section, color: wire.color };
+  }
+
+  do(): void {
+    if (this.after.type !== undefined) this.wire.type = this.after.type;
+    this.wire.section = this.after.section;
+    this.wire.color = this.after.color;
+  }
+
+  undo(): void {
+    this.wire.type = this.before.type;
+    this.wire.section = this.before.section;
+    this.wire.color = this.before.color;
+  }
+}
+
 /** Удалить провод (восстанавливается на прежней позиции). */
 export class RemoveWireCommand implements Command {
   readonly type = "remove-wire";
