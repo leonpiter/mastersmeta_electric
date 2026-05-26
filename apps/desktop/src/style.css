@@ -1041,11 +1041,39 @@ body.resizing #canvas {
 }
 
 #se-canvas {
-  width: 360px;
-  height: 360px;
+  width: 540px;
+  height: 460px;
   border: 1px solid var(--border);
   background: #fff;
   touch-action: none;
+  cursor: crosshair;
+}
+
+.se-zoom {
+  margin-left: auto;
+  align-self: center;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+#se-textsize {
+  width: 52px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 4px;
+}
+
+#se-text {
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 4px;
 }
 
 .panel-header-btn {

@@ -572,21 +572,41 @@
             <div class="prop-row">
               <label>Инструмент</label>
               <div class="se-tools">
-                <button type="button" data-tool="line" class="on">Линия</button>
+                <button type="button" data-tool="select" class="on">Выбрать</button>
+                <button type="button" data-tool="line">Линия</button>
                 <button type="button" data-tool="rect">Прямоуг.</button>
                 <button type="button" data-tool="circle">Окружн.</button>
                 <button type="button" data-tool="pin">Вывод</button>
+                <button type="button" data-tool="text">Текст</button>
               </div>
             </div>
             <div class="prop-row">
               <label for="se-pinname">Имя вывода (для инструмента «Вывод»)</label>
               <input id="se-pinname" type="text" value="1" autocomplete="off" />
             </div>
+            <div class="prop-row">
+              <label for="se-text">Текст (для инструмента «Текст»)</label>
+              <div class="se-tools">
+                <input id="se-text" type="text" autocomplete="off" placeholder="напр. PLC" />
+                <input
+                  id="se-textsize"
+                  type="number"
+                  min="1"
+                  step="0.5"
+                  value="4"
+                  title="кегль, мм"
+                />
+              </div>
+            </div>
             <div class="se-tools">
+              <button type="button" id="se-fit" class="btn-secondary">Вписать</button>
               <button type="button" id="se-undo" class="btn-secondary">Убрать последнее</button>
               <button type="button" id="se-clear" class="btn-secondary">Очистить</button>
+              <span id="se-zoom" class="se-zoom">100%</span>
             </div>
-            <div id="se-hint" class="prop-type"></div>
+            <div id="se-hint" class="prop-type">
+              Колесо — масштаб; средняя кнопка или Space+перетаскивание — панорама.
+            </div>
           </div>
           <svg id="se-canvas"></svg>
         </div>
