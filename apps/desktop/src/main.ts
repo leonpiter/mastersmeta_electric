@@ -17,6 +17,8 @@ import {
   bomToCsv,
   computeConnections,
   connectionsToCsv,
+  computeTerminals,
+  terminalsToCsv,
   Catalog,
   BUILTIN_PARTS,
   partLabel,
@@ -670,6 +672,22 @@ const connBody = document.getElementById("conn-body")!;
 );
 (document.getElementById("conn-print") as HTMLButtonElement).addEventListener("click", () =>
   printReport(`Таблица соединений — ${projName()}`, CONN_HEADERS, connRows()),
+);
+
+// таблица клемм
+const TERM_HEADERS = ["Клемма", "Вывод 1", "Вывод 2", "Лист"];
+const termRows = (): string[][] =>
+  computeTerminals(project, library).map((r) => [r.terminal, r.side1, r.side2, r.sheet]);
+const termDialog = document.getElementById("term-dialog") as HTMLDialogElement;
+const termBody = document.getElementById("term-body")!;
+(document.getElementById("report-term") as HTMLButtonElement).addEventListener("click", () =>
+  showReport(termDialog, termBody, TERM_HEADERS, termRows(), "На листах нет клемм (XT)."),
+);
+(document.getElementById("term-csv") as HTMLButtonElement).addEventListener("click", () =>
+  downloadCsv(`${projName()}-клеммы.csv`, terminalsToCsv(computeTerminals(project, library))),
+);
+(document.getElementById("term-print") as HTMLButtonElement).addEventListener("click", () =>
+  printReport(`Таблица клемм — ${projName()}`, TERM_HEADERS, termRows()),
 );
 
 // ----- меню сетки (показать/скрыть + шаг) -----

@@ -160,6 +160,19 @@
                 </svg>
                 <span>Соединения</span>
               </button>
+              <button
+                id="report-term"
+                type="button"
+                title="Таблица клемм (ГОСТ 2.701): экспорт CSV / печать"
+              >
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M4 2.5V13.5M8 2.5V13.5M12 2.5V13.5" />
+                  <circle cx="4" cy="8" r="1.1" fill="currentColor" />
+                  <circle cx="8" cy="8" r="1.1" fill="currentColor" />
+                  <circle cx="12" cy="8" r="1.1" fill="currentColor" />
+                </svg>
+                <span>Клеммы</span>
+              </button>
             </div>
             <div class="rgroup-cap">Отчёты</div>
           </div>
@@ -510,6 +523,18 @@
         <div class="prop-actions">
           <button value="csv" type="button" id="conn-csv" class="btn-secondary">Экспорт CSV</button>
           <button value="print" type="button" id="conn-print" class="btn-secondary">Печать…</button>
+          <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="term-dialog">
+      <form method="dialog" class="modal-form modal-wide">
+        <h3>Таблица клемм</h3>
+        <div id="term-body" class="bom-body"></div>
+        <div class="prop-actions">
+          <button value="csv" type="button" id="term-csv" class="btn-secondary">Экспорт CSV</button>
+          <button value="print" type="button" id="term-print" class="btn-secondary">Печать…</button>
           <button value="ok" type="submit">Закрыть</button>
         </div>
       </form>

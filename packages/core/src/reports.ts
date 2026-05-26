@@ -131,6 +131,78 @@ export function connectionsToCsv(rows: ConnectionRow[]): string {
   ]);
 }
 
+/** Строка таблицы клемм (ГОСТ 2.701): клемма и подключения к каждому её выводу. */
+export interface TerminalRow {
+  /** Обозначение клеммы, напр. «XT1». */
+  terminal: string;
+  /** Вывод 1: цепь и подключённые выводы устройств. */
+  side1: string;
+  /** Вывод 2: цепь и подключённые выводы устройств. */
+  side2: string;
+  /** Номер листа. */
+  sheet: string;
+}
+
+/**
+ * Таблица клемм из проекта: для каждого символа-клеммы (`kind: "terminal"`) — что
+ * подключено к каждому её выводу (номер цепи + соседние выводы устройств).
+ */
+export function computeTerminals(project: Project, library: SymbolLibrary): TerminalRow[] {
+  const rows: TerminalRow[] = [];
+
+  project.pages.forEach((page, pageIndex) => {
+    const nets = computeNets(page, library);
+    const desigOf = new Map(page.instances.map((i) => [i.id, i.designation]));
+    const wireById = new Map(page.wires.map((w) => [w.id, w]));
+
+    const netOfPin = (instanceId: string, pinName: string) =>
+      nets.find((n) => n.pins.some((p) => p.instanceId === instanceId && p.pinName === pinName));
+    const sideLabel = (instanceId: string, pinName: string): string => {
+      const net = netOfPin(instanceId, pinName);
+      if (!net) return "—";
+      const others = net.pins
+        .filter((p) => p.instanceId !== instanceId)
+        .map((p) => `${desigOf.get(p.instanceId) ?? "?"}:${p.pinName}`)
+        .sort((a, b) => a.localeCompare(b, "ru"));
+      const num = net.wireIds.map((id) => wireById.get(id)).find((w) => w?.number)?.number;
+      const parts = [];
+      if (num) parts.push(`цепь ${num}`);
+      if (others.length) parts.push(others.join(", "));
+      return parts.join(" → ") || "—";
+    };
+
+    for (const inst of page.instances) {
+      const sym = library.get(inst.symbolId);
+      if (sym?.kind !== "terminal") continue;
+      const p1 = sym.pins[0]?.name ?? "1";
+      const p2 = sym.pins[1]?.name ?? "2";
+      rows.push({
+        terminal: inst.designation,
+        side1: sideLabel(inst.id, p1),
+        side2: sideLabel(inst.id, p2),
+        sheet: String(pageIndex + 1),
+      });
+    }
+  });
+
+  rows.sort(
+    (a, b) =>
+      a.sheet.localeCompare(b.sheet, undefined, { numeric: true }) ||
+      a.terminal.localeCompare(b.terminal, undefined, { numeric: true }),
+  );
+  return rows;
+}
+
+/** Экспорт таблицы клемм в CSV. */
+export function terminalsToCsv(rows: TerminalRow[]): string {
+  return toCsv(["Клемма", "Вывод 1", "Вывод 2", "Лист"], rows, (r) => [
+    r.terminal,
+    r.side1,
+    r.side2,
+    r.sheet,
+  ]);
+}
+
 /** Общий сборщик CSV (разделитель «;», экранирование, для Excel). */
 function toCsv<T>(header: string[], rows: T[], cells: (row: T) => string[]): string {
   const esc = (s: string): string => (/[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);

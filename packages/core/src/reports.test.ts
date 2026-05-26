@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { computeBom, bomToCsv, computeConnections, connectionsToCsv } from "./reports";
+import {
+  computeBom,
+  bomToCsv,
+  computeConnections,
+  connectionsToCsv,
+  computeTerminals,
+  terminalsToCsv,
+} from "./reports";
 import { Catalog } from "./catalog";
 import { createProject, type Project, type SymbolInstance } from "./model";
 import { SymbolLibrary, type SymbolDef } from "./symbol";
@@ -164,5 +171,82 @@ describe("таблица соединений", () => {
     const lines = csv.split("\r\n");
     expect(lines[0]).toBe("Цепь;Соединяемые выводы;Провод;Лист");
     expect(lines[1]).toBe("1;KM1:A1 · QF1:1;силовой;1");
+  });
+});
+
+describe("таблица клемм", () => {
+  const term: SymbolDef = {
+    id: "t.xt",
+    name: "Клемма",
+    category: "c",
+    componentCode: "XT",
+    kind: "terminal",
+    pins: [
+      { name: "1", x: 0, y: 0 },
+      { name: "2", x: 0, y: 10 },
+    ],
+    graphics: [],
+  };
+  const coil3: SymbolDef = {
+    id: "t.coil3",
+    name: "Катушка",
+    category: "c",
+    componentCode: "KM",
+    kind: "coil",
+    pins: [{ name: "A1", x: 0, y: 0 }],
+    graphics: [],
+  };
+  const brk3: SymbolDef = {
+    id: "t.brk3",
+    name: "Автомат",
+    category: "c",
+    componentCode: "QF",
+    kind: "component-aux",
+    pins: [{ name: "1", x: 0, y: 0 }],
+    graphics: [],
+  };
+  const lib3 = new SymbolLibrary([term, coil3, brk3]);
+
+  function at(sym: SymbolDef, designation: string, x: number, y: number): SymbolInstance {
+    return {
+      id: newId(),
+      symbolId: sym.id,
+      designation,
+      componentCode: sym.componentCode,
+      x,
+      y,
+      rotation: 0,
+      mirror: false,
+      showLabels: true,
+    };
+  }
+
+  it("клемма с подключениями к обоим выводам (совпадающие координаты выводов)", () => {
+    const p = createProject();
+    p.pages[0].instances.push(
+      at(term, "XT1", 0, 0), // выводы 1(0,0), 2(0,10)
+      at(coil3, "KM1", 0, 0), // A1 совпадает с XT1:1
+      at(brk3, "QF1", 0, 10), // 1 совпадает с XT1:2
+    );
+    const rows = computeTerminals(p, lib3);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].terminal).toBe("XT1");
+    expect(rows[0].side1).toBe("KM1:A1");
+    expect(rows[0].side2).toBe("QF1:1");
+    expect(rows[0].sheet).toBe("1");
+  });
+
+  it("несоединённый вывод → «—»; не-клеммы игнорируются", () => {
+    const p = createProject();
+    p.pages[0].instances.push(at(term, "XT1", 50, 50), at(coil3, "KM1", 100, 100));
+    const rows = computeTerminals(p, lib3);
+    expect(rows).toHaveLength(1); // только клемма
+    expect(rows[0].side1).toBe("—");
+    expect(rows[0].side2).toBe("—");
+  });
+
+  it("terminalsToCsv: заголовок", () => {
+    const csv = terminalsToCsv([{ terminal: "XT1", side1: "KM1:A1", side2: "QF1:1", sheet: "1" }]);
+    expect(csv.split("\r\n")[0]).toBe("Клемма;Вывод 1;Вывод 2;Лист");
   });
 });
