@@ -84,11 +84,7 @@ const KM: SymbolDef = {
     { name: "A1", x: 0, y: TOP },
     { name: "A2", x: 0, y: BOT },
   ],
-  graphics: [
-    lead(TOP, 4),
-    lead(11, BOT),
-    { type: "rect", x: -3, y: 4, w: 6, h: 7 },
-  ],
+  graphics: [lead(TOP, 4), lead(11, BOT), { type: "rect", x: -3, y: 4, w: 6, h: 7 }],
 };
 
 /** Кнопка управления (ГОСТ 2.755): нормально разомкнутый контакт с толкателем. */
@@ -182,11 +178,7 @@ const K: SymbolDef = {
     { name: "A1", x: 0, y: TOP },
     { name: "A2", x: 0, y: BOT },
   ],
-  graphics: [
-    lead(TOP, 4),
-    lead(11, BOT),
-    { type: "rect", x: -3, y: 4, w: 6, h: 7 },
-  ],
+  graphics: [lead(TOP, 4), lead(11, BOT), { type: "rect", x: -3, y: 4, w: 6, h: 7 }],
 };
 
 /** Трансформатор однофазный (ГОСТ 2.723): две обмотки — два круга. */

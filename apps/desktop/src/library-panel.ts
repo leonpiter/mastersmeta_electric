@@ -106,9 +106,7 @@ export class LibraryPanel {
   private renderList(): void {
     this.listEl.replaceChildren();
 
-    const favs = this.library
-      .all()
-      .filter((s) => this.favorites.has(s.id) && this.matches(s));
+    const favs = this.library.all().filter((s) => this.favorites.has(s.id) && this.matches(s));
     if (favs.length) this.renderFolder("Избранное", favs, true);
 
     for (const [category, syms] of this.library.byCategory()) {
@@ -164,7 +162,7 @@ export class LibraryPanel {
   private row(sym: SymbolDef): HTMLElement {
     const row = document.createElement("div");
     row.className = "lib-row";
-    row.dataset["symId"] = sym.id;
+    row.dataset.symId = sym.id;
     row.title = `${sym.name} (${sym.componentCode})`;
 
     const ico = document.createElement("span");
@@ -200,9 +198,7 @@ export class LibraryPanel {
 
   /** Подсветить активный (взведённый) символ во всех его строках. */
   setActive(id: string | null): void {
-    this.listEl
-      .querySelectorAll(".lib-row.active")
-      .forEach((el) => el.classList.remove("active"));
+    this.listEl.querySelectorAll(".lib-row.active").forEach((el) => el.classList.remove("active"));
     this.active = id;
     if (id) this.markActive(id);
   }

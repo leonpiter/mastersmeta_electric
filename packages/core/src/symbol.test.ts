@@ -122,13 +122,13 @@ describe("команды инстансов (обратимость)", () => {
     expect(c1.instance.designation).toBe("QF1");
 
     stack.execute(new AddSymbolInstanceCommand(page, qf, 60, 50));
-    expect(page.instances[1]!.designation).toBe("QF2");
+    expect(page.instances[1].designation).toBe("QF2");
 
     stack.undo();
     expect(page.instances).toHaveLength(1);
     stack.redo();
     expect(page.instances).toHaveLength(2);
-    expect(page.instances[1]!.designation).toBe("QF2");
+    expect(page.instances[1].designation).toBe("QF2");
   });
 
   it("поворот / зеркало / удаление обратимы", () => {

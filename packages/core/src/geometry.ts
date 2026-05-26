@@ -8,8 +8,7 @@ export interface Point {
 }
 
 /** Привязать значение к ближайшему узлу сетки с шагом `step`. */
-export const snap = (value: number, step: number): number =>
-  Math.round(value / step) * step;
+export const snap = (value: number, step: number): number => Math.round(value / step) * step;
 
 /** Привязать точку к сетке по обеим осям. */
 export const snapPoint = (p: Point, step: number): Point => ({
@@ -17,5 +16,4 @@ export const snapPoint = (p: Point, step: number): Point => ({
   y: snap(p.y, step),
 });
 
-export const distance = (a: Point, b: Point): number =>
-  Math.hypot(a.x - b.x, a.y - b.y);
+export const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);

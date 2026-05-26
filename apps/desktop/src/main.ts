@@ -12,9 +12,9 @@ import { LibraryPanel } from "./library-panel";
 import { ProjectPanel } from "./project-panel";
 
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
-const hud = document.getElementById("hud-info") as HTMLElement;
-const libraryEl = document.getElementById("library") as HTMLElement;
-const projectEl = document.getElementById("project") as HTMLElement;
+const hud = document.getElementById("hud-info")!;
+const libraryEl = document.getElementById("library")!;
+const projectEl = document.getElementById("project")!;
 
 const page = createPage(); // A3, шаг сетки 5 мм
 const stack = new CommandStack();
@@ -83,13 +83,13 @@ function setupSplitter(el: HTMLElement, side: "left" | "right"): void {
   });
 }
 
-setupSplitter(document.getElementById("split-left") as HTMLElement, "left");
-setupSplitter(document.getElementById("split-right") as HTMLElement, "right");
+setupSplitter(document.getElementById("split-left")!, "left");
+setupSplitter(document.getElementById("split-right")!, "right");
 
 // ----- диалог свойств элемента (двойной клик) -----
 const dialog = document.getElementById("props") as HTMLDialogElement;
 const desigInput = document.getElementById("prop-desig") as HTMLInputElement;
-const typeEl = document.getElementById("prop-type") as HTMLElement;
+const typeEl = document.getElementById("prop-type")!;
 const showLabelsInput = document.getElementById("prop-showlabels") as HTMLInputElement;
 let editing: SymbolInstance | null = null;
 
@@ -124,7 +124,7 @@ const mirrorBtn = document.getElementById("mirror") as HTMLButtonElement;
 const deleteBtn = document.getElementById("delete") as HTMLButtonElement;
 
 // ----- меню «Файл» (классическое выпадающее) -----
-const fileMenu = document.getElementById("file-menu") as HTMLElement;
+const fileMenu = document.getElementById("file-menu")!;
 const closeFileMenu = (): void => {
   fileMenu.hidden = true;
 };
@@ -143,7 +143,7 @@ deleteBtn.addEventListener("click", () => view.deleteSelected());
 
 // ----- меню сетки (показать/скрыть + шаг) -----
 const gridBtn = document.getElementById("grid") as HTMLButtonElement;
-const gridMenu = document.getElementById("grid-menu") as HTMLElement;
+const gridMenu = document.getElementById("grid-menu")!;
 const gridShow = document.getElementById("grid-show") as HTMLInputElement;
 const stepItems = gridMenu.querySelectorAll<HTMLButtonElement>(".dd-item");
 
@@ -155,7 +155,7 @@ function syncGridUi(): void {
   gridBtn.classList.toggle("on", view.gridShown);
   gridShow.checked = view.gridShown;
   stepItems.forEach((b) =>
-    b.classList.toggle("active", Number(b.dataset["step"]) === view.gridStepMm),
+    b.classList.toggle("active", Number(b.dataset.step) === view.gridStepMm),
   );
 }
 syncGridUi();
@@ -188,7 +188,7 @@ gridShow.addEventListener("change", () => {
 });
 stepItems.forEach((b) =>
   b.addEventListener("click", () => {
-    const step = Number(b.dataset["step"]);
+    const step = Number(b.dataset.step);
     view.setGridStep(step);
     try {
       localStorage.setItem("see.gridStep", String(step));
@@ -209,7 +209,7 @@ const ribbonTabs = document.querySelectorAll<HTMLButtonElement>(".rtab");
 const ribbonPages = document.querySelectorAll<HTMLElement>(".rpage");
 ribbonTabs.forEach((tab) => {
   tab.addEventListener("click", (e) => {
-    if (tab.dataset["menu"] === "file") {
+    if (tab.dataset.menu === "file") {
       e.stopPropagation();
       closeGridMenu();
       if (fileMenu.hidden) {
@@ -222,11 +222,11 @@ ribbonTabs.forEach((tab) => {
       }
       return;
     }
-    const name = tab.dataset["tab"];
+    const name = tab.dataset.tab;
     closeFileMenu();
     ribbonTabs.forEach((t) => t.classList.toggle("active", t === tab));
     ribbonPages.forEach((p) => {
-      p.hidden = p.dataset["tab"] !== name;
+      p.hidden = p.dataset.tab !== name;
     });
   });
 });
@@ -243,9 +243,7 @@ window.addEventListener("keydown", (e) => {
   const target = e.target as HTMLElement | null;
   const typing =
     !!target &&
-    (target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.isContentEditable);
+    (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
   if (typing || dialog.open) return;
 
   const k = e.key.toLowerCase();

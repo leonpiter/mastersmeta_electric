@@ -7,10 +7,7 @@ import type { Page } from "@see/core";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-function svgEl(
-  tag: string,
-  attrs: Record<string, string>,
-): SVGElement {
+function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
   const e = document.createElementNS(SVG_NS, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
   return e;
@@ -20,8 +17,24 @@ function svgEl(
 function groupIcon(): SVGSVGElement {
   const svg = svgEl("svg", { viewBox: "0 0 16 13", width: "15", height: "13" }) as SVGSVGElement;
   svg.append(
-    svgEl("rect", { x: "2", y: "1", width: "8", height: "10", fill: "#dfeaf8", stroke: "#3f78c0", "stroke-width": "0.8" }),
-    svgEl("rect", { x: "5", y: "3", width: "8", height: "10", fill: "#eef4fb", stroke: "#3f78c0", "stroke-width": "0.8" }),
+    svgEl("rect", {
+      x: "2",
+      y: "1",
+      width: "8",
+      height: "10",
+      fill: "#dfeaf8",
+      stroke: "#3f78c0",
+      "stroke-width": "0.8",
+    }),
+    svgEl("rect", {
+      x: "5",
+      y: "3",
+      width: "8",
+      height: "10",
+      fill: "#eef4fb",
+      stroke: "#3f78c0",
+      "stroke-width": "0.8",
+    }),
   );
   return svg;
 }
@@ -30,11 +43,37 @@ function groupIcon(): SVGSVGElement {
 function pageIcon(): SVGSVGElement {
   const svg = svgEl("svg", { viewBox: "0 0 12 14", width: "12", height: "14" }) as SVGSVGElement;
   svg.append(
-    svgEl("path", { d: "M2 1H7.5L10 3.5V13H2Z", fill: "#fff", stroke: "#8893a4", "stroke-width": "0.8" }),
+    svgEl("path", {
+      d: "M2 1H7.5L10 3.5V13H2Z",
+      fill: "#fff",
+      stroke: "#8893a4",
+      "stroke-width": "0.8",
+    }),
     svgEl("path", { d: "M7.5 1V3.5H10", fill: "none", stroke: "#8893a4", "stroke-width": "0.8" }),
-    svgEl("line", { x1: "3.5", y1: "6.5", x2: "8", y2: "6.5", stroke: "#b4bcc8", "stroke-width": "0.7" }),
-    svgEl("line", { x1: "3.5", y1: "8.5", x2: "8", y2: "8.5", stroke: "#b4bcc8", "stroke-width": "0.7" }),
-    svgEl("line", { x1: "3.5", y1: "10.5", x2: "6.5", y2: "10.5", stroke: "#b4bcc8", "stroke-width": "0.7" }),
+    svgEl("line", {
+      x1: "3.5",
+      y1: "6.5",
+      x2: "8",
+      y2: "6.5",
+      stroke: "#b4bcc8",
+      "stroke-width": "0.7",
+    }),
+    svgEl("line", {
+      x1: "3.5",
+      y1: "8.5",
+      x2: "8",
+      y2: "8.5",
+      stroke: "#b4bcc8",
+      "stroke-width": "0.7",
+    }),
+    svgEl("line", {
+      x1: "3.5",
+      y1: "10.5",
+      x2: "6.5",
+      y2: "10.5",
+      stroke: "#b4bcc8",
+      "stroke-width": "0.7",
+    }),
   );
   return svg;
 }
@@ -57,9 +96,7 @@ export class ProjectPanel {
     const sheet = this.leaf(doc, `Лист 1 · ${page.format.name}`, 2, pageIcon());
     sheet.classList.add("active");
     sheet.addEventListener("click", () => {
-      tree
-        .querySelectorAll(".tree-node.active")
-        .forEach((n) => n.classList.remove("active"));
+      tree.querySelectorAll(".tree-node.active").forEach((n) => n.classList.remove("active"));
       sheet.classList.add("active");
     });
 

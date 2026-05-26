@@ -44,11 +44,10 @@ function el<K extends keyof SVGElementTagNameMap>(
 ): SVGElementTagNameMap[K] {
   const node = document.createElementNS(SVG_NS, tag);
   for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
-  return node as SVGElementTagNameMap[K];
+  return node;
 }
 
-const clamp = (v: number, lo: number, hi: number): number =>
-  Math.min(hi, Math.max(lo, v));
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
 interface PointerDown {
   x: number;
@@ -216,8 +215,7 @@ export class CanvasView {
   exportPdf(): void {
     const f = this.page.format;
     const ser = new XMLSerializer();
-    const body =
-      ser.serializeToString(this.sheetG) + ser.serializeToString(this.nodesG);
+    const body = ser.serializeToString(this.sheetG) + ser.serializeToString(this.nodesG);
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${f.width} ${f.height}" ` +
       `width="${f.width}mm" height="${f.height}mm">${body}</svg>`;
@@ -240,10 +238,7 @@ export class CanvasView {
   private updateView(): void {
     const s = this.scalePx;
     const f = this.page.format;
-    this.content.setAttribute(
-      "transform",
-      `translate(${this.panX} ${this.panY}) scale(${s})`,
-    );
+    this.content.setAttribute("transform", `translate(${this.panX} ${this.panY}) scale(${s})`);
 
     // лист (бумага/тень/клетка) — в экранных координатах = прямоугольник листа
     const w = f.width * s;
@@ -307,32 +302,88 @@ export class CanvasView {
     g.replaceChildren();
 
     // тонкая граница бумаги
-    g.append(el("rect", { x: 0, y: 0, width: f.width, height: f.height, fill: "none", stroke: "#b9c2cf", "stroke-width": 0.3 }));
+    g.append(
+      el("rect", {
+        x: 0,
+        y: 0,
+        width: f.width,
+        height: f.height,
+        fill: "none",
+        stroke: "#b9c2cf",
+        "stroke-width": 0.3,
+      }),
+    );
 
     // внутренняя рамка (толстая, ГОСТ 2.301)
     const fr = frameRect(f);
-    g.append(el("rect", { x: fr.x, y: fr.y, width: fr.w, height: fr.h, fill: "none", stroke: "#222", "stroke-width": 0.5 }));
+    g.append(
+      el("rect", {
+        x: fr.x,
+        y: fr.y,
+        width: fr.w,
+        height: fr.h,
+        fill: "none",
+        stroke: "#222",
+        "stroke-width": 0.5,
+      }),
+    );
 
     // зонная сетка (ГОСТ 2.104): тики + метки
     const zg = zoneGrid(f);
     const tick = 4;
     for (let i = 1; i < zg.cols; i++) {
-      const x = zg.colX[i]!;
-      g.append(el("line", { x1: x, y1: fr.y, x2: x, y2: fr.y + tick, stroke: "#888", "stroke-width": 0.25 }));
-      g.append(el("line", { x1: x, y1: fr.y + fr.h - tick, x2: x, y2: fr.y + fr.h, stroke: "#888", "stroke-width": 0.25 }));
+      const x = zg.colX[i];
+      g.append(
+        el("line", {
+          x1: x,
+          y1: fr.y,
+          x2: x,
+          y2: fr.y + tick,
+          stroke: "#888",
+          "stroke-width": 0.25,
+        }),
+      );
+      g.append(
+        el("line", {
+          x1: x,
+          y1: fr.y + fr.h - tick,
+          x2: x,
+          y2: fr.y + fr.h,
+          stroke: "#888",
+          "stroke-width": 0.25,
+        }),
+      );
     }
     for (let i = 0; i < zg.cols; i++) {
-      const cx = (zg.colX[i]! + zg.colX[i + 1]!) / 2;
+      const cx = (zg.colX[i] + zg.colX[i + 1]) / 2;
       g.append(this.text(String(i + 1), cx, fr.y + tick / 2 + 0.5, 3));
       g.append(this.text(String(i + 1), cx, fr.y + fr.h - tick / 2 - 0.5, 3));
     }
     for (let i = 1; i < zg.rows; i++) {
-      const y = zg.rowY[i]!;
-      g.append(el("line", { x1: fr.x, y1: y, x2: fr.x + tick, y2: y, stroke: "#888", "stroke-width": 0.25 }));
-      g.append(el("line", { x1: fr.x + fr.w - tick, y1: y, x2: fr.x + fr.w, y2: y, stroke: "#888", "stroke-width": 0.25 }));
+      const y = zg.rowY[i];
+      g.append(
+        el("line", {
+          x1: fr.x,
+          y1: y,
+          x2: fr.x + tick,
+          y2: y,
+          stroke: "#888",
+          "stroke-width": 0.25,
+        }),
+      );
+      g.append(
+        el("line", {
+          x1: fr.x + fr.w - tick,
+          y1: y,
+          x2: fr.x + fr.w,
+          y2: y,
+          stroke: "#888",
+          "stroke-width": 0.25,
+        }),
+      );
     }
     for (let i = 0; i < zg.rows; i++) {
-      const cy = (zg.rowY[i]! + zg.rowY[i + 1]!) / 2;
+      const cy = (zg.rowY[i] + zg.rowY[i + 1]) / 2;
       const letter = String.fromCharCode(65 + i);
       g.append(this.text(letter, fr.x + tick / 2, cy, 3));
       g.append(this.text(letter, fr.x + fr.w - tick / 2, cy, 3));
@@ -350,15 +401,30 @@ export class CanvasView {
     const ty = fr.y + fr.h - H;
 
     const box = (x: number, y: number, w: number, h: number, thick = false): void => {
-      g.append(el("rect", {
-        x: tx + x, y: ty + y, width: w, height: h,
-        fill: "none", stroke: thick ? "#222" : "#555", "stroke-width": thick ? 0.5 : 0.3,
-      }));
+      g.append(
+        el("rect", {
+          x: tx + x,
+          y: ty + y,
+          width: w,
+          height: h,
+          fill: "none",
+          stroke: thick ? "#222" : "#555",
+          "stroke-width": thick ? 0.5 : 0.3,
+        }),
+      );
     };
     const lab = (x: number, y: number, s: string): void => {
       g.append(this.text(s, tx + x + 1, ty + y + 2.4, 2.2, "start"));
     };
-    const val = (x: number, y: number, w: number, h: number, s: string, size = 3, bold = false): void => {
+    const val = (
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      s: string,
+      size = 3,
+      bold = false,
+    ): void => {
       if (s) g.append(this.text(s, tx + x + w / 2, ty + y + h / 2, size, "middle", bold));
     };
 
@@ -372,8 +438,8 @@ export class CanvasView {
       box(25, y, 20, 11);
       box(45, y, 10, 11);
       box(55, y, 10, 11);
-      lab(0, y, roles[r]!);
-      val(25, y, 20, 11, names[r]!, 2.6);
+      lab(0, y, roles[r]);
+      val(25, y, 20, 11, names[r], 2.6);
     }
 
     box(65, 0, 95, 16);
@@ -383,11 +449,21 @@ export class CanvasView {
     box(65, 44, 95, 11);
     val(65, 44, 95, 11, tb.company, 3);
 
-    box(160, 0, 25, 8); lab(160, 0, "Масштаб"); val(160, 2.5, 25, 5.5, tb.scale, 3);
-    box(160, 8, 25, 8); lab(160, 8, "Масса"); val(160, 10.5, 25, 5.5, tb.mass, 3);
-    box(160, 16, 25, 8); lab(160, 16, "Лит."); val(160, 18.5, 25, 5.5, tb.letter, 3);
-    box(160, 24, 25, 15.5); lab(160, 24, "Лист"); val(160, 28, 25, 11, String(tb.sheet), 3.5);
-    box(160, 39.5, 25, 15.5); lab(160, 39.5, "Листов"); val(160, 44, 25, 11, String(tb.sheetsTotal), 3.5);
+    box(160, 0, 25, 8);
+    lab(160, 0, "Масштаб");
+    val(160, 2.5, 25, 5.5, tb.scale, 3);
+    box(160, 8, 25, 8);
+    lab(160, 8, "Масса");
+    val(160, 10.5, 25, 5.5, tb.mass, 3);
+    box(160, 16, 25, 8);
+    lab(160, 16, "Лит.");
+    val(160, 18.5, 25, 5.5, tb.letter, 3);
+    box(160, 24, 25, 15.5);
+    lab(160, 24, "Лист");
+    val(160, 28, 25, 11, String(tb.sheet), 3.5);
+    box(160, 39.5, 25, 15.5);
+    lab(160, 39.5, "Листов");
+    val(160, 44, 25, 11, String(tb.sheetsTotal), 3.5);
   }
 
   private renderNodes(): void {
@@ -413,7 +489,10 @@ export class CanvasView {
       { x: b.x, y: b.y + b.h },
       { x: b.x + b.w, y: b.y + b.h },
     ];
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const c of corners) {
       const t = transformLocalPoint(c, inst.rotation, inst.mirror);
       const wx = inst.x + t.x;
@@ -439,11 +518,18 @@ export class CanvasView {
 
       const wb = this.worldBounds(inst, sym);
       if (this.selected?.id === inst.id) {
-        this.overlayG.append(el("rect", {
-          x: wb.x - 1.5, y: wb.y - 1.5, width: wb.w + 3, height: wb.h + 3,
-          fill: "#1b6fc418", stroke: "#1b6fc4", "stroke-width": 0.3,
-          "stroke-dasharray": "1.5 1",
-        }));
+        this.overlayG.append(
+          el("rect", {
+            x: wb.x - 1.5,
+            y: wb.y - 1.5,
+            width: wb.w + 3,
+            height: wb.h + 3,
+            fill: "#1b6fc418",
+            stroke: "#1b6fc4",
+            "stroke-width": 0.3,
+            "stroke-dasharray": "1.5 1",
+          }),
+        );
       }
       if (inst.showLabels && inst.designation) {
         // подпись позобозначения — шрифт 4 мм (читаемо на А3; ГОСТ 2.304)
@@ -469,7 +555,7 @@ export class CanvasView {
   /** Найти верхний инстанс под точкой (мм). */
   private hitTest(p: Point): SymbolInstance | null {
     for (let i = this.page.instances.length - 1; i >= 0; i--) {
-      const inst = this.page.instances[i]!;
+      const inst = this.page.instances[i];
       const sym = this.library.get(inst.symbolId);
       if (!sym) continue;
       const b = this.worldBounds(inst, sym);
@@ -596,10 +682,7 @@ export class CanvasView {
       this.renderGhost();
 
       if (this.down) {
-        if (
-          !this.down.moved &&
-          Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > 3
-        ) {
+        if (!this.down.moved && Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > 3) {
           this.down.moved = true;
         }
         if (this.down.moved && this.dragging) {
@@ -614,10 +697,7 @@ export class CanvasView {
           this.dragging.inst.x = target.x;
           this.dragging.inst.y = target.y;
           this.renderInstances();
-        } else if (
-          this.down.moved &&
-          (this.down.button === 0 || this.down.button === 1)
-        ) {
+        } else if (this.down.moved && (this.down.button === 0 || this.down.button === 1)) {
           this.panX += e.movementX;
           this.panY += e.movementY;
           this.updateView();
@@ -641,7 +721,7 @@ export class CanvasView {
         return;
       }
 
-      if (this.down && this.down.button === 0 && !this.down.moved) {
+      if (this.down?.button === 0 && !this.down.moved) {
         if (this.armed) {
           const p = snapPoint(this.last, this.page.gridStep);
           const cmd = new AddSymbolInstanceCommand(this.page, this.armed, p.x, p.y, {

@@ -2,11 +2,7 @@
 import type { Command } from "./command";
 import { type Id, newId } from "./ids";
 import type { Page, SchematicNode, SymbolInstance } from "./model";
-import {
-  type Rotation,
-  type SymbolDef,
-  nextDesignation,
-} from "./symbol";
+import { type Rotation, type SymbolDef, nextDesignation } from "./symbol";
 
 /** Поставить узел на листе (координаты уже привязаны к сетке вызывающим кодом). */
 export class AddNodeCommand implements Command {
@@ -118,10 +114,8 @@ export class EditInstanceCommand implements Command {
   }
 
   do(): void {
-    if (this.after.designation !== undefined)
-      this.inst.designation = this.after.designation;
-    if (this.after.showLabels !== undefined)
-      this.inst.showLabels = this.after.showLabels;
+    if (this.after.designation !== undefined) this.inst.designation = this.after.designation;
+    if (this.after.showLabels !== undefined) this.inst.showLabels = this.after.showLabels;
   }
 
   undo(): void {

@@ -96,11 +96,7 @@ export function rotatePoint(p: Point, deg: Rotation): Point {
  * (без сдвига): сначала зеркало по X (scale(-1,1)), затем поворот.
  * Совпадает с SVG-трансформом `rotate(deg) scale(mx,1)`.
  */
-export function transformLocalPoint(
-  p: Point,
-  rotation: Rotation,
-  mirror: boolean,
-): Point {
+export function transformLocalPoint(p: Point, rotation: Rotation, mirror: boolean): Point {
   const m = mirror ? { x: -p.x, y: p.y } : p;
   return rotatePoint(m, rotation);
 }
@@ -152,20 +148,17 @@ export function nextDesignation(existing: string[], code: string): string {
   let max = 0;
   for (const d of existing) {
     const m = d.match(re);
-    if (m) max = Math.max(max, Number.parseInt(m[1]!, 10));
+    if (m) max = Math.max(max, Number.parseInt(m[1], 10));
   }
   return `${code}${max + 1}`;
 }
 
 /** Результат валидации `*.symbol.json`. */
-export type SymbolValidation =
-  | { ok: true; symbol: SymbolDef }
-  | { ok: false; errors: string[] };
+export type SymbolValidation = { ok: true; symbol: SymbolDef } | { ok: false; errors: string[] };
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
-const isNum = (v: unknown): v is number =>
-  typeof v === "number" && Number.isFinite(v);
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const isStr = (v: unknown): v is string => typeof v === "string";
 
 /**
@@ -178,25 +171,24 @@ export function validateSymbol(input: unknown): SymbolValidation {
   if (!isObj(input)) return { ok: false, errors: ["symbol must be an object"] };
 
   for (const f of ["id", "name", "category", "componentCode"] as const) {
-    if (!isStr(input[f]) || (input[f] as string).length === 0)
-      errors.push(`"${f}" must be a non-empty string`);
+    if (!isStr(input[f]) || input[f].length === 0) errors.push(`"${f}" must be a non-empty string`);
   }
-  if (!SYMBOL_KINDS.includes(input["kind"] as SymbolKind))
+  if (!SYMBOL_KINDS.includes(input.kind as SymbolKind))
     errors.push(`"kind" must be one of: ${SYMBOL_KINDS.join(", ")}`);
 
-  if (!Array.isArray(input["pins"])) {
+  if (!Array.isArray(input.pins)) {
     errors.push(`"pins" must be an array`);
   } else {
-    input["pins"].forEach((p, i) => {
-      if (!isObj(p) || !isStr(p["name"]) || !isNum(p["x"]) || !isNum(p["y"]))
+    input.pins.forEach((p, i) => {
+      if (!isObj(p) || !isStr(p.name) || !isNum(p.x) || !isNum(p.y))
         errors.push(`pins[${i}]: requires { name: string, x: number, y: number }`);
     });
   }
 
-  if (!Array.isArray(input["graphics"])) {
+  if (!Array.isArray(input.graphics)) {
     errors.push(`"graphics" must be an array`);
   } else {
-    input["graphics"].forEach((g, i) => {
+    input.graphics.forEach((g, i) => {
       const err = validateGraphic(g);
       if (err) errors.push(`graphics[${i}]: ${err}`);
     });
@@ -208,25 +200,23 @@ export function validateSymbol(input: unknown): SymbolValidation {
 
 function validateGraphic(g: unknown): string | null {
   if (!isObj(g)) return "must be an object";
-  switch (g["type"]) {
+  switch (g.type) {
     case "line":
-      return isNum(g["x1"]) && isNum(g["y1"]) && isNum(g["x2"]) && isNum(g["y2"])
+      return isNum(g.x1) && isNum(g.y1) && isNum(g.x2) && isNum(g.y2)
         ? null
         : "line requires x1,y1,x2,y2 numbers";
     case "rect":
-      return isNum(g["x"]) && isNum(g["y"]) && isNum(g["w"]) && isNum(g["h"])
+      return isNum(g.x) && isNum(g.y) && isNum(g.w) && isNum(g.h)
         ? null
         : "rect requires x,y,w,h numbers";
     case "circle":
-      return isNum(g["cx"]) && isNum(g["cy"]) && isNum(g["r"])
-        ? null
-        : "circle requires cx,cy,r numbers";
+      return isNum(g.cx) && isNum(g.cy) && isNum(g.r) ? null : "circle requires cx,cy,r numbers";
     case "text":
-      return isNum(g["x"]) && isNum(g["y"]) && isStr(g["text"])
+      return isNum(g.x) && isNum(g.y) && isStr(g.text)
         ? null
         : "text requires x,y numbers and text string";
     default:
-      return `unknown graphic type "${String(g["type"])}"`;
+      return `unknown graphic type "${String(g.type)}"`;
   }
 }
 
