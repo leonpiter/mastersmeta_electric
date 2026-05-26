@@ -113,19 +113,36 @@ export class MoveInstanceCommand implements Command {
   }
 }
 
-/** Изменить свойства инстанса (позобозначение, видимость подписи, артикул каталога). */
+/** Свойства инстанса, доступные для правки (позобозначение, подпись, каталог, характеристики). */
+interface InstanceEdit {
+  designation?: string;
+  showLabels?: boolean;
+  catalogCode?: string;
+  attributes?: Record<string, string>;
+  labelFields?: string[];
+}
+
+/** Изменить свойства инстанса (позобозначение, видимость подписи, артикул, характеристики). */
 export class EditInstanceCommand implements Command {
   readonly type = "edit-instance";
-  private readonly before: { designation: string; showLabels: boolean; catalogCode?: string };
+  private readonly before: {
+    designation: string;
+    showLabels: boolean;
+    catalogCode?: string;
+    attributes?: Record<string, string>;
+    labelFields?: string[];
+  };
 
   constructor(
     private readonly inst: SymbolInstance,
-    private readonly after: { designation?: string; showLabels?: boolean; catalogCode?: string },
+    private readonly after: InstanceEdit,
   ) {
     this.before = {
       designation: inst.designation,
       showLabels: inst.showLabels,
       catalogCode: inst.catalogCode,
+      attributes: inst.attributes,
+      labelFields: inst.labelFields,
     };
   }
 
@@ -133,12 +150,16 @@ export class EditInstanceCommand implements Command {
     if (this.after.designation !== undefined) this.inst.designation = this.after.designation;
     if (this.after.showLabels !== undefined) this.inst.showLabels = this.after.showLabels;
     if ("catalogCode" in this.after) this.inst.catalogCode = this.after.catalogCode;
+    if ("attributes" in this.after) this.inst.attributes = this.after.attributes;
+    if ("labelFields" in this.after) this.inst.labelFields = this.after.labelFields;
   }
 
   undo(): void {
     this.inst.designation = this.before.designation;
     this.inst.showLabels = this.before.showLabels;
     this.inst.catalogCode = this.before.catalogCode;
+    this.inst.attributes = this.before.attributes;
+    this.inst.labelFields = this.before.labelFields;
   }
 }
 

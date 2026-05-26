@@ -32,6 +32,7 @@ import {
   computeJunctions,
   computeNets,
   instancePins,
+  instanceLabels,
   pointOnSegment,
   newId,
   DEFAULT_ANNOTATION_STYLE,
@@ -235,9 +236,9 @@ export class CanvasView {
     this.content = el("g");
     this.sheetG = el("g");
     this.wiresG = el("g");
-    this.instancesG = el("g");
+    this.instancesG = el("g", { "data-layer": "instances" });
     this.annotationsG = el("g", { "data-layer": "annotations" });
-    this.overlayG = el("g");
+    this.overlayG = el("g", { "data-layer": "overlay" });
     this.nodesG = el("g");
     this.ghostG = el("g");
     this.cursorMarker = el("circle", {
@@ -1044,10 +1045,15 @@ export class CanvasView {
         );
       }
       if (inst.showLabels && inst.designation) {
-        // подпись позобозначения — шрифт 4 мм (читаемо на А3; ГОСТ 2.304)
-        this.overlayG.append(
-          this.text(inst.designation, wb.x + wb.w + 1.5, wb.y + 2.2, 4, "start", true),
-        );
+        // стопка подписей: сигла (4 мм, жирн.) + строки характеристик (3 мм) — ГОСТ 2.304
+        let ly = wb.y + 2.2;
+        for (const lab of instanceLabels(inst)) {
+          const size = lab.primary ? 4 : 3;
+          this.overlayG.append(
+            this.text(lab.text, wb.x + wb.w + 1.5, ly, size, "start", lab.primary),
+          );
+          ly += lab.primary ? 4.2 : 3.4;
+        }
         this.renderDeviceCrossRef(wb, memberOf.get(inst.id));
       }
     }

@@ -419,8 +419,15 @@ const typeEl = document.getElementById("prop-type")!;
 const showLabelsInput = document.getElementById("prop-showlabels") as HTMLInputElement;
 const partSelect = document.getElementById("prop-part") as HTMLSelectElement;
 const makerSelect = document.getElementById("prop-maker") as HTMLSelectElement;
+const attrsEl = document.getElementById("prop-attrs")!;
 let editing: SymbolInstance | null = null;
 let editingCode = ""; // ГОСТ-код редактируемого инстанса (для перефильтра по марке)
+// контролы характеристик категории (S27): значение + флаг «показывать подписью»
+let attrControls: {
+  key: string;
+  valueEl: HTMLInputElement | HTMLSelectElement;
+  showEl: HTMLInputElement;
+}[] = [];
 
 function opt(value: string, text: string): HTMLOptionElement {
   const o = document.createElement("option");
@@ -457,6 +464,58 @@ function fillParts(componentCode: string, maker: string, current?: string): void
 // смена производителя — перефильтровать изделия (сбросить выбор на «без привязки»)
 makerSelect.addEventListener("change", () => fillParts(editingCode, makerSelect.value));
 
+/**
+ * Построить строки характеристик категории (S27): значение + флаг «подписью на схеме».
+ * Набор полей задаётся категорией символа; значения — из `inst.attributes`.
+ */
+function buildAttrRows(inst: SymbolInstance): void {
+  attrControls = [];
+  attrsEl.replaceChildren();
+  const sym = library.get(inst.symbolId);
+  const cat = sym ? registry.byName(sym.category) : undefined;
+  const attrs = cat?.attributes ?? [];
+  if (attrs.length === 0) return;
+
+  const head = document.createElement("div");
+  head.className = "prop-type";
+  head.textContent = "Характеристики (галка — показывать подписью)";
+  attrsEl.append(head);
+
+  for (const a of attrs) {
+    const row = document.createElement("div");
+    row.className = "prop-row prop-attr-row";
+    const label = document.createElement("label");
+    label.textContent = a.label;
+    const value = inst.attributes?.[a.key] ?? "";
+
+    let valueEl: HTMLInputElement | HTMLSelectElement;
+    if (a.type === "select" && a.options) {
+      const sel = document.createElement("select");
+      sel.append(opt("", "—"));
+      for (const o of a.options) sel.append(opt(o, o));
+      sel.value = value;
+      valueEl = sel;
+    } else {
+      const inp = document.createElement("input");
+      inp.type = a.type === "number" ? "number" : "text";
+      inp.autocomplete = "off";
+      inp.value = value;
+      valueEl = inp;
+    }
+
+    const show = document.createElement("label");
+    show.className = "prop-attr-show";
+    const showEl = document.createElement("input");
+    showEl.type = "checkbox";
+    showEl.checked = inst.labelFields?.includes(a.key) ?? false;
+    show.append(showEl);
+
+    row.append(label, valueEl, show);
+    attrsEl.append(row);
+    attrControls.push({ key: a.key, valueEl, showEl });
+  }
+}
+
 function openProps(inst: SymbolInstance): void {
   editing = inst;
   editingCode = inst.componentCode;
@@ -467,6 +526,7 @@ function openProps(inst: SymbolInstance): void {
   const currentMaker = inst.catalogCode ? (catalog.get(inst.catalogCode)?.manufacturer ?? "") : "";
   fillMakers(inst.componentCode, currentMaker);
   fillParts(inst.componentCode, currentMaker, inst.catalogCode);
+  buildAttrRows(inst);
   dialog.showModal();
   desigInput.focus();
   desigInput.select();
@@ -477,12 +537,32 @@ dialog.addEventListener("close", () => {
     const designation = desigInput.value.trim() || editing.designation;
     const showLabels = showLabelsInput.checked;
     const catalogCode = partSelect.value || undefined;
-    if (
+    // характеристики и поля-подписи из секции «Характеристики»
+    const attrs: Record<string, string> = {};
+    const labelFields: string[] = [];
+    for (const c of attrControls) {
+      const v = c.valueEl.value.trim();
+      if (v) attrs[c.key] = v;
+      if (c.showEl.checked && v) labelFields.push(c.key);
+    }
+    const attributes = Object.keys(attrs).length > 0 ? attrs : undefined;
+    const labels = labelFields.length > 0 ? labelFields : undefined;
+    const dirty =
       designation !== editing.designation ||
       showLabels !== editing.showLabels ||
-      catalogCode !== editing.catalogCode
-    ) {
-      stack.execute(new EditInstanceCommand(editing, { designation, showLabels, catalogCode }));
+      catalogCode !== editing.catalogCode ||
+      JSON.stringify(attributes ?? null) !== JSON.stringify(editing.attributes ?? null) ||
+      JSON.stringify(labels ?? null) !== JSON.stringify(editing.labelFields ?? null);
+    if (dirty) {
+      stack.execute(
+        new EditInstanceCommand(editing, {
+          designation,
+          showLabels,
+          catalogCode,
+          attributes,
+          labelFields: labels,
+        }),
+      );
     }
   }
   editing = null;

@@ -44,6 +44,38 @@ export interface SymbolInstance {
    * Несколько кодов — через `;` (составное изделие). Пусто = без привязки.
    */
   catalogCode?: string;
+  /**
+   * Значения характеристик (S27): ключ = `AttrDef.key` категории, значение — текст.
+   * Напр. `{ current: "10А", curve: "C" }`. Питают подписи и спецификацию.
+   */
+  attributes?: Record<string, string>;
+  /**
+   * Какие характеристики показывать подписями у символа (по порядку), напр. `["current","curve"]`.
+   * Стопка строк рендерится под сиглой (QF1 / 10А / С). Пусто = только сигла.
+   */
+  labelFields?: string[];
+}
+
+/** Строка подписи инстанса (рендерится стопкой у символа). */
+export interface InstanceLabel {
+  text: string;
+  /** Главная сигла (рендерить крупнее/жирнее). */
+  primary: boolean;
+}
+
+/**
+ * Подписи инстанса: главная сигла (`designation`) + строки из выбранных характеристик
+ * (`labelFields`), значения берутся из `attributes`. Пустые значения пропускаются.
+ * Чистая функция — рендер (canvas) и отчёты используют один источник.
+ */
+export function instanceLabels(inst: SymbolInstance): InstanceLabel[] {
+  const out: InstanceLabel[] = [];
+  if (inst.designation) out.push({ text: inst.designation, primary: true });
+  for (const key of inst.labelFields ?? []) {
+    const v = inst.attributes?.[key]?.trim();
+    if (v) out.push({ text: v, primary: false });
+  }
+  return out;
 }
 
 /**

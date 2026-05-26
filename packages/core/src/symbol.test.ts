@@ -9,7 +9,7 @@ import {
   type SymbolDef,
 } from "./symbol";
 import { GOST_SYMBOLS } from "./symbols-gost";
-import { createPage } from "./model";
+import { createPage, instanceLabels, type SymbolInstance } from "./model";
 import { CommandStack } from "./command";
 import {
   AddSymbolInstanceCommand,
@@ -188,5 +188,65 @@ describe("команды инстансов (обратимость)", () => {
     stack.undo();
     expect(inst.designation).toBe("QF1");
     expect(inst.showLabels).toBe(true);
+  });
+
+  it("характеристики и поля-подписи обратимы", () => {
+    const page = createPage();
+    const stack = new CommandStack();
+    const c = new AddSymbolInstanceCommand(page, qf, 0, 0);
+    stack.execute(c);
+    const inst = c.instance;
+
+    stack.execute(
+      new EditInstanceCommand(inst, {
+        attributes: { current: "10А", curve: "C" },
+        labelFields: ["current", "curve"],
+      }),
+    );
+    expect(inst.attributes).toEqual({ current: "10А", curve: "C" });
+    expect(inst.labelFields).toEqual(["current", "curve"]);
+    stack.undo();
+    expect(inst.attributes).toBeUndefined();
+    expect(inst.labelFields).toBeUndefined();
+  });
+});
+
+describe("instanceLabels", () => {
+  const base: SymbolInstance = {
+    id: "i1",
+    symbolId: "gost.qf",
+    designation: "QF1",
+    componentCode: "QF",
+    x: 0,
+    y: 0,
+    rotation: 0,
+    mirror: false,
+    showLabels: true,
+  };
+
+  it("только сигла, если нет выбранных полей", () => {
+    expect(instanceLabels(base)).toEqual([{ text: "QF1", primary: true }]);
+  });
+
+  it("стопка сигла + значения выбранных характеристик (по порядку)", () => {
+    const inst: SymbolInstance = {
+      ...base,
+      attributes: { current: "10А", curve: "C" },
+      labelFields: ["current", "curve"],
+    };
+    expect(instanceLabels(inst)).toEqual([
+      { text: "QF1", primary: true },
+      { text: "10А", primary: false },
+      { text: "C", primary: false },
+    ]);
+  });
+
+  it("пропускает поле без значения", () => {
+    const inst: SymbolInstance = {
+      ...base,
+      attributes: { current: "10А" },
+      labelFields: ["current", "curve"],
+    };
+    expect(instanceLabels(inst).map((l) => l.text)).toEqual(["QF1", "10А"]);
   });
 });

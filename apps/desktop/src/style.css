@@ -893,6 +893,31 @@ body.resizing #canvas {
   color: var(--text);
 }
 
+/* строка характеристики (S27): подпись · значение · флаг «на схеме» */
+.prop-attr-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.prop-attr-row input[type="text"],
+.prop-attr-row input[type="number"],
+.prop-attr-row select {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.prop-attr-show {
+  justify-self: center;
+}
+
+.prop-attr-show input {
+  margin: 0;
+}
+
 /* пресеты потенциалов (L1/L2/L3/N/PE) в свойствах провода */
 .prop-presets {
   display: flex;
