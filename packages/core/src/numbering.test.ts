@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { createPage } from "./model";
 import { CommandStack } from "./command";
-import { AddWireCommand, AutoNumberCommand, SetWireNumberCommand } from "./commands";
+import {
+  AddWireCommand,
+  AutoNumberCommand,
+  SetWireNumberCommand,
+  ClearNumbersCommand,
+} from "./commands";
 import { SymbolLibrary } from "./symbol";
 import { GOST_SYMBOLS } from "./symbols-gost";
 
@@ -43,6 +48,40 @@ describe("автонумерация цепей (ГОСТ 2.709)", () => {
     stack.execute(new AutoNumberCommand(page, lib));
     expect(a.created.number).toBe("L1");
     expect(b.created.number).toBe("L1"); // унаследовал номер цепи
+  });
+
+  it("опции: режим unique + start/step", () => {
+    const page = createPage();
+    const a = new AddWireCommand(page, [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+    ]);
+    a.do();
+    const b = new AddWireCommand(page, [
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+    ]); // одна цепь с a
+    b.do();
+
+    // unique: каждый провод свой номер, старт 10 шаг 5
+    new AutoNumberCommand(page, lib, { mode: "unique", start: 10, step: 5 }).do();
+    expect([a.created.number, b.created.number].sort()).toEqual(["10", "15"]);
+  });
+
+  it("ClearNumbers очищает и обратимо", () => {
+    const page = createPage();
+    const stack = new CommandStack();
+    const a = new AddWireCommand(page, [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+    ]);
+    a.do();
+    stack.execute(new AutoNumberCommand(page, lib));
+    expect(a.created.number).toBe("1");
+    stack.execute(new ClearNumbersCommand(page));
+    expect(a.created.number).toBeUndefined();
+    stack.undo();
+    expect(a.created.number).toBe("1");
   });
 
   it("SetWireNumber (потенциал/lock) обратимо", () => {

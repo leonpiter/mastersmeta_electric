@@ -352,28 +352,50 @@ export class AddWiresCommand implements Command {
   }
 }
 
-/** Изменить свойства провода (тип, сечение, цвет). */
+/** Изменить свойства провода (тип, сечение, цвет, номер/потенциал, блокировка). */
 export class EditWireCommand implements Command {
   readonly type = "edit-wire";
-  private readonly before: { type: Wire["type"]; section?: string; color?: string };
+  private readonly before: {
+    type: Wire["type"];
+    section?: string;
+    color?: string;
+    number?: string;
+    locked?: boolean;
+  };
 
   constructor(
     private readonly wire: Wire,
-    private readonly after: { type?: Wire["type"]; section?: string; color?: string },
+    private readonly after: {
+      type?: Wire["type"];
+      section?: string;
+      color?: string;
+      number?: string;
+      locked?: boolean;
+    },
   ) {
-    this.before = { type: wire.type, section: wire.section, color: wire.color };
+    this.before = {
+      type: wire.type,
+      section: wire.section,
+      color: wire.color,
+      number: wire.number,
+      locked: wire.locked,
+    };
   }
 
   do(): void {
     if (this.after.type !== undefined) this.wire.type = this.after.type;
     this.wire.section = this.after.section;
     this.wire.color = this.after.color;
+    this.wire.number = this.after.number;
+    this.wire.locked = this.after.locked;
   }
 
   undo(): void {
     this.wire.type = this.before.type;
     this.wire.section = this.before.section;
     this.wire.color = this.before.color;
+    this.wire.number = this.before.number;
+    this.wire.locked = this.before.locked;
   }
 }
 
@@ -450,45 +472,124 @@ export class SplitWireCommand implements Command {
   }
 }
 
+export interface AutoNumberOptions {
+  /** Начальный номер (по умолчанию 1). */
+  start?: number;
+  /** Шаг (по умолчанию 1). */
+  step?: number;
+  /** «potential» — одна цепь = один номер (по умолчанию); «unique» — каждый провод уникален. */
+  mode?: "potential" | "unique";
+  /** Перенумеровать и заблокированные (снимая блокировку). По умолчанию — нет. */
+  renumberLocked?: boolean;
+}
+
+interface NumberChange {
+  wire: Wire;
+  fromNumber?: string;
+  fromLocked?: boolean;
+  toNumber: string;
+  toLocked?: boolean;
+}
+
 /**
- * Авто-нумерация проводов по цепям (ГОСТ 2.709): каждой цепи — номер; провода
- * цепи получают её номер. Заблокированные (`locked`) сохраняют ручной номер, и он
- * становится номером всей своей цепи. Обратима.
+ * Авто-нумерация проводов (ГОСТ 2.709). По умолчанию — по цепям: каждой цепи номер,
+ * заблокированный (`locked`) провод задаёт номер всей цепи и не трогается. Опции —
+ * метод/старт/шаг/перенумерация заблокированных. Обратима.
  */
 export class AutoNumberCommand implements Command {
   readonly type = "auto-number";
-  private readonly changes: { wire: Wire; from?: string; to: string }[] = [];
+  private readonly changes: NumberChange[] = [];
 
-  constructor(page: Page, library: SymbolLibrary) {
+  constructor(page: Page, library: SymbolLibrary, opts: AutoNumberOptions = {}) {
+    const step = opts.step ?? 1;
+    const mode = opts.mode ?? "potential";
+    const renumberLocked = opts.renumberLocked ?? false;
+
     const byId = new Map(page.wires.map((w) => [w.id, w]));
     const used = new Set<string>();
-    for (const w of page.wires) if (w.locked && w.number) used.add(w.number);
+    if (!renumberLocked) for (const w of page.wires) if (w.locked && w.number) used.add(w.number);
 
-    let next = 1;
-    for (const net of computeNets(page, library)) {
-      const wires = net.wireIds.map((id) => byId.get(id)!).filter((w) => w.points.length >= 2);
-      if (wires.length === 0) continue;
-      // номер цепи: от заблокированного провода, иначе следующий свободный
-      let num = wires.find((w) => w.locked && w.number)?.number;
-      if (num === undefined) {
-        while (used.has(String(next))) next++;
-        num = String(next);
-        used.add(num);
-        next++;
+    let n = opts.start ?? 1;
+    const nextNum = (): string => {
+      while (used.has(String(n))) n += step;
+      const s = String(n);
+      used.add(s);
+      n += step;
+      return s;
+    };
+    const assign = (w: Wire, num: string): void => {
+      const toLocked = renumberLocked ? false : w.locked;
+      if (w.number !== num || w.locked !== toLocked) {
+        this.changes.push({
+          wire: w,
+          fromNumber: w.number,
+          fromLocked: w.locked,
+          toNumber: num,
+          toLocked,
+        });
       }
-      for (const w of wires) {
-        if (w.locked) continue;
-        if (w.number !== num) this.changes.push({ wire: w, from: w.number, to: num });
+    };
+
+    if (mode === "unique") {
+      for (const w of page.wires) {
+        if (w.points.length < 2) continue;
+        if (w.locked && !renumberLocked) continue;
+        assign(w, nextNum());
+      }
+    } else {
+      for (const net of computeNets(page, library)) {
+        const wires = net.wireIds.map((id) => byId.get(id)!).filter((w) => w.points.length >= 2);
+        if (wires.length === 0) continue;
+        let num = renumberLocked ? undefined : wires.find((w) => w.locked && w.number)?.number;
+        num ??= nextNum();
+        for (const w of wires) {
+          if (w.locked && !renumberLocked) continue;
+          assign(w, num);
+        }
       }
     }
   }
 
   do(): void {
-    for (const c of this.changes) c.wire.number = c.to;
+    for (const c of this.changes) {
+      c.wire.number = c.toNumber;
+      c.wire.locked = c.toLocked;
+    }
   }
 
   undo(): void {
-    for (const c of this.changes) c.wire.number = c.from;
+    for (const c of this.changes) {
+      c.wire.number = c.fromNumber;
+      c.wire.locked = c.fromLocked;
+    }
+  }
+}
+
+/** Очистить номера проводов (всех или выбранных), снимая блокировку. Обратима. */
+export class ClearNumbersCommand implements Command {
+  readonly type = "clear-numbers";
+  private readonly changes: { wire: Wire; number?: string; locked?: boolean }[] = [];
+
+  constructor(page: Page, wires?: Wire[]) {
+    for (const w of wires ?? page.wires) {
+      if (w.number !== undefined || w.locked) {
+        this.changes.push({ wire: w, number: w.number, locked: w.locked });
+      }
+    }
+  }
+
+  do(): void {
+    for (const c of this.changes) {
+      c.wire.number = undefined;
+      c.wire.locked = undefined;
+    }
+  }
+
+  undo(): void {
+    for (const c of this.changes) {
+      c.wire.number = c.number;
+      c.wire.locked = c.locked;
+    }
   }
 }
 
