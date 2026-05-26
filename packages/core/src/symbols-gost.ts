@@ -19,7 +19,7 @@ const lead = (fromY: number, toY: number) =>
 const FU: SymbolDef = {
   id: "gost.fu",
   name: "Предохранитель",
-  category: "Защита",
+  category: "Предохранители",
   componentCode: "FU",
   kind: "component",
   pins: [
@@ -38,7 +38,7 @@ const FU: SymbolDef = {
 const QS: SymbolDef = {
   id: "gost.qs",
   name: "Выключатель-разъединитель",
-  category: "Коммутация",
+  category: "Выключатели-разъединители",
   componentCode: "QS",
   kind: "component-aux",
   pins: [
@@ -57,7 +57,7 @@ const QS: SymbolDef = {
 const QF: SymbolDef = {
   id: "gost.qf",
   name: "Выключатель автоматический",
-  category: "Коммутация",
+  category: "Автоматические выключатели",
   componentCode: "QF",
   kind: "component-aux",
   pins: [
@@ -77,7 +77,7 @@ const QF: SymbolDef = {
 const KM: SymbolDef = {
   id: "gost.km",
   name: "Катушка контактора",
-  category: "Контакторы и реле",
+  category: "Контакторы",
   componentCode: "KM",
   kind: "coil",
   pins: [
@@ -91,7 +91,7 @@ const KM: SymbolDef = {
 const SB: SymbolDef = {
   id: "gost.sb",
   name: "Кнопка управления (НО)",
-  category: "Управление",
+  category: "Кнопки и переключатели",
   componentCode: "SB",
   kind: "contact-no",
   pins: [
@@ -112,7 +112,7 @@ const SB: SymbolDef = {
 const HL: SymbolDef = {
   id: "gost.hl",
   name: "Лампа сигнальная",
-  category: "Индикация",
+  category: "Лампы и индикаторы",
   componentCode: "HL",
   kind: "component",
   pins: [
@@ -132,7 +132,7 @@ const HL: SymbolDef = {
 const M: SymbolDef = {
   id: "gost.m",
   name: "Двигатель",
-  category: "Нагрузка",
+  category: "Двигатели",
   componentCode: "M",
   kind: "component",
   pins: [
@@ -151,7 +151,7 @@ const M: SymbolDef = {
 const QFD: SymbolDef = {
   id: "gost.qfd",
   name: "Дифавтомат (АВДТ)",
-  category: "Коммутация",
+  category: "Дифавтоматы (АВДТ)",
   componentCode: "QF",
   kind: "component-aux",
   pins: [
@@ -171,7 +171,7 @@ const QFD: SymbolDef = {
 const KM_NO: SymbolDef = {
   id: "gost.km.no",
   name: "Контакт КМ (НО)",
-  category: "Контакторы и реле",
+  category: "Контакторы",
   componentCode: "KM",
   kind: "contact-no",
   pins: [
@@ -190,7 +190,7 @@ const KM_NO: SymbolDef = {
 const KM_NC: SymbolDef = {
   id: "gost.km.nc",
   name: "Контакт КМ (НЗ)",
-  category: "Контакторы и реле",
+  category: "Контакторы",
   componentCode: "KM",
   kind: "contact-nc",
   pins: [
@@ -210,7 +210,7 @@ const KM_NC: SymbolDef = {
 const K: SymbolDef = {
   id: "gost.k",
   name: "Катушка реле",
-  category: "Контакторы и реле",
+  category: "Реле",
   componentCode: "K",
   kind: "coil",
   pins: [
@@ -224,7 +224,7 @@ const K: SymbolDef = {
 const K_NO: SymbolDef = {
   id: "gost.k.no",
   name: "Контакт реле (НО)",
-  category: "Контакторы и реле",
+  category: "Реле",
   componentCode: "K",
   kind: "contact-no",
   pins: [
@@ -243,7 +243,7 @@ const K_NO: SymbolDef = {
 const K_NC: SymbolDef = {
   id: "gost.k.nc",
   name: "Контакт реле (НЗ)",
-  category: "Контакторы и реле",
+  category: "Реле",
   componentCode: "K",
   kind: "contact-nc",
   pins: [
@@ -263,7 +263,7 @@ const K_NC: SymbolDef = {
 const T: SymbolDef = {
   id: "gost.t",
   name: "Трансформатор",
-  category: "Питание",
+  category: "Трансформаторы",
   componentCode: "T",
   kind: "component",
   pins: [
@@ -286,7 +286,7 @@ const T: SymbolDef = {
 const XT: SymbolDef = {
   id: "gost.xt",
   name: "Клемма",
-  category: "Соединения",
+  category: "Клеммы",
   componentCode: "XT",
   kind: "terminal",
   pins: [

@@ -4,6 +4,7 @@ export * from "./ids";
 export * from "./geometry";
 export * from "./sheet";
 export * from "./symbol";
+export * from "./categories";
 export * from "./symbols-gost";
 export * from "./command";
 export * from "./model";

@@ -105,7 +105,9 @@ describe("SymbolLibrary", () => {
     expect(lib.all().length).toBe(GOST_SYMBOLS.length);
     expect(lib.get("gost.qf")?.componentCode).toBe("QF");
     const cats = lib.byCategory();
-    expect(cats.get("Коммутация")?.length).toBe(3); // QF, QFD, QS
+    // типизированные категории (S27): контакторы = катушка KM + контакты НО + НЗ
+    expect(cats.get("Контакторы")?.length).toBe(3);
+    expect(cats.get("Автоматические выключатели")?.length).toBe(1); // QF
   });
 });
 
