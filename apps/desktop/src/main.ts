@@ -27,6 +27,8 @@ import {
   CategoryRegistry,
   GOST_CATEGORIES,
   captureBlock,
+  buildPack,
+  parsePack,
   type AttrDef,
   type EquipmentCategory,
   type SymbolDef,
@@ -858,9 +860,23 @@ function downloadText(filename: string, text: string, mime: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Импорт legacy-формата (массив `SymbolDef`) — обратная совместимость со старым экспортом. */
+function importLegacySymbols(arr: unknown[]): number {
+  let n = 0;
+  for (const item of arr) {
+    const v = validateSymbol(item);
+    if (v.ok) {
+      upsertUserSymbol(v.symbol);
+      library.add(v.symbol);
+      n++;
+    }
+  }
+  return n;
+}
+
 const libInput = document.createElement("input");
 libInput.type = "file";
-libInput.accept = ".json,application/json";
+libInput.accept = ".mpack,.json,application/json";
 libInput.style.display = "none";
 document.body.append(libInput);
 libInput.addEventListener("change", () => {
@@ -868,30 +884,53 @@ libInput.addEventListener("change", () => {
   libInput.value = "";
   if (!f) return;
   void f.text().then((text) => {
+    let cats = 0;
+    let syms = 0;
+    let blks = 0;
+    let parsed: unknown;
     try {
-      const arr: unknown = JSON.parse(text);
-      if (!Array.isArray(arr)) throw new Error("ожидался массив символов");
-      let n = 0;
-      for (const item of arr) {
-        const v = validateSymbol(item);
-        if (v.ok) {
-          upsertUserSymbol(v.symbol);
-          library.add(v.symbol);
-          n++;
-        }
-      }
-      userIds = userSymbolIds();
-      panel?.refresh();
-      view.rerender();
-      window.alert(`Импортировано символов: ${n}`);
-    } catch (e) {
-      window.alert("Не удалось импортировать: " + (e instanceof Error ? e.message : String(e)));
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = undefined;
     }
+    if (Array.isArray(parsed)) {
+      // старый формат — массив символов
+      syms = importLegacySymbols(parsed);
+    } else {
+      const r = parsePack(text);
+      if (!r.ok) {
+        window.alert("Не удалось импортировать: " + r.errors.join("; "));
+        return;
+      }
+      for (const c of r.pack.categories) {
+        upsertUserCategory(c);
+        cats++;
+      }
+      for (const s of r.pack.symbols) {
+        upsertUserSymbol(s);
+        library.add(s);
+        syms++;
+      }
+      for (const b of r.pack.blocks) {
+        upsertUserBlock(b);
+        blks++;
+      }
+    }
+    userIds = userSymbolIds();
+    rebuildRegistry();
+    panel?.refresh();
+    view.rerender();
+    window.alert(`Импортировано: категорий ${cats}, символов ${syms}, блоков ${blks}`);
   });
 });
 
 (document.getElementById("lib-export") as HTMLButtonElement).addEventListener("click", () => {
-  downloadText("ugo-library.json", JSON.stringify(loadUserSymbols(), null, 2), "application/json");
+  const pack = buildPack("Библиотека УГО", {
+    categories: loadUserCategories(),
+    symbols: loadUserSymbols(),
+    blocks: loadUserBlocks(),
+  });
+  downloadText("mastermeta-ugo.mpack", JSON.stringify(pack, null, 2), "application/json");
   closeFileMenu();
 });
 (document.getElementById("lib-import") as HTMLButtonElement).addEventListener("click", () => {
