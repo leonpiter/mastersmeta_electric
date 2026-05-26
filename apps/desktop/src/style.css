@@ -6,6 +6,7 @@
 :root {
   --title-h: 30px;
   --toolbar-h: 96px;
+  --tabs-h: 28px;
   --status-h: 22px;
   --left-w: 200px;
   --right-w: 212px;
@@ -43,14 +44,71 @@ body {
 body {
   display: grid;
   grid-template-columns: var(--left-w) 5px 1fr 5px var(--right-w);
-  grid-template-rows: var(--title-h) var(--toolbar-h) 1fr var(--status-h);
+  grid-template-rows: var(--title-h) var(--toolbar-h) var(--tabs-h) 1fr var(--status-h);
   grid-template-areas:
     "titlebar titlebar titlebar titlebar titlebar"
     "toolbar  toolbar  toolbar  toolbar  toolbar"
+    "left     splitL   pagetabs splitR   right"
     "left     splitL   canvas   splitR   right"
     "status   status   status   status  status";
   height: 100vh;
   background: var(--bg);
+}
+
+/* ---- лента открытых страниц (S26) ---- */
+#pagetabs {
+  grid-area: pagetabs;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px 4px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.ptab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 10px;
+  max-width: 220px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ptab.active {
+  background: #fff;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ptab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 4px 0;
+}
+
+.ptab-close {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.ptab-close:hover {
+  background: #d64b4b;
+  color: #fff;
 }
 
 /* ---- верхняя полоса заголовка (S21) ---- */

@@ -26,10 +26,12 @@ import {
   type SymbolInstance,
   type Wire,
   type Project,
+  type Page,
 } from "@see/core";
 import { CanvasView } from "./canvas";
 import { LibraryPanel } from "./library-panel";
 import { ProjectPanel } from "./project-panel";
+import { PageTabs, type OpenTab } from "./page-tabs";
 import { SymbolEditor } from "./symbol-editor";
 import { loadUserSymbols, upsertUserSymbol, removeUserSymbol, userSymbolIds } from "./user-symbols";
 
@@ -38,7 +40,9 @@ const hud = document.getElementById("hud-info")!;
 const libraryEl = document.getElementById("library")!;
 const projectEl = document.getElementById("project")!;
 
-const project = createProject(); // 1 лист A3
+// рабочее пространство (S26): несколько открытых проектов, активный — `project`
+const projects: Project[] = [createProject()]; // 1 проект, 1 лист A3
+let project = projects[0]; // активный проект (определяется активной страницей)
 const stack = new CommandStack();
 const library = new SymbolLibrary(GOST_SYMBOLS);
 const catalog = new Catalog(BUILTIN_PARTS);
@@ -109,23 +113,95 @@ panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
   canDelete: (id) => userIds.has(id) && !GOST_IDS.has(id),
 });
 
-const projectPanel = new ProjectPanel(projectEl, project, {
-  onSelect: (id) => {
-    if (id !== project.activePageId) {
-      project.activePageId = id;
-      view.setPage(activePage(project));
-      projectPanel.refresh();
-    }
-  },
-  onAdd: () => stack.execute(new AddPageCommand(project)),
-  onRemove: (id) => stack.execute(new RemovePageCommand(project, id)),
-  onSettings: (focusName) => openProjectSettings(focusName),
+// ----- рабочее пространство: вкладки открытых страниц (S26) -----
+let openPages: Page[] = [activePage(project)]; // открытые листы (вкладки)
+let activePageObj: Page = openPages[0]; // показываемый лист
+
+const projectOf = (page: Page): Project => projects.find((p) => p.pages.includes(page)) ?? project;
+const openTabs = (): OpenTab[] => openPages.map((page) => ({ project: projectOf(page), page }));
+
+function renderWorkspace(): void {
+  projectPanel.refresh();
+  pageTabs.render(openTabs(), activePageObj);
+  syncTitle();
+}
+
+/** Активировать (и при необходимости открыть) лист — определяет активный проект и канвас. */
+function activatePage(page: Page): void {
+  project = projectOf(page);
+  project.activePageId = page.id;
+  activePageObj = page;
+  if (!openPages.includes(page)) openPages.push(page);
+  view.setPage(page);
+  view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
+  renderWorkspace();
+}
+
+/** Закрыть вкладку страницы (последнюю не закрываем). */
+function closePageTab(page: Page): void {
+  const i = openPages.indexOf(page);
+  if (i < 0 || openPages.length <= 1) return;
+  openPages.splice(i, 1);
+  if (page === activePageObj) activatePage(openPages[Math.min(i, openPages.length - 1)]);
+  else renderWorkspace();
+}
+
+/** Добавить проект в рабочее пространство и переключиться на него. */
+function addProject(p: Project): void {
+  projects.push(p);
+  activatePage(activePage(p));
+}
+
+const pageTabs = new PageTabs(document.getElementById("pagetabs")!, {
+  onActivate: (page) => activatePage(page),
+  onClose: (page) => closePageTab(page),
 });
 
-// синхронизация дерева и вида при изменениях стека (в т.ч. add/remove листа)
+const projectPanel = new ProjectPanel(
+  projectEl,
+  projects,
+  {
+    onSelect: (_p, page) => activatePage(page),
+    onAdd: (p) => {
+      const cmd = new AddPageCommand(p);
+      stack.execute(cmd);
+      activatePage(cmd.newPage);
+    },
+    onRemove: (p, page) => stack.execute(new RemovePageCommand(p, page.id)),
+    onSettings: (p, focusName) => openProjectSettings(p, focusName),
+    onCloseProject: (p) => closeProject(p),
+  },
+  () => activePageObj.id,
+);
+
+/** Закрыть проект целиком (последний не закрываем). */
+function closeProject(p: Project): void {
+  if (projects.length <= 1) return;
+  const i = projects.indexOf(p);
+  if (i < 0) return;
+  projects.splice(i, 1);
+  openPages = openPages.filter((pg) => !p.pages.includes(pg));
+  if (p.pages.includes(activePageObj) || openPages.length === 0) {
+    const fallback = openPages[0] ?? activePage(projects[0]);
+    activatePage(fallback);
+  } else {
+    renderWorkspace();
+  }
+}
+
+// синхронизация после команд (add/remove листа, undo/redo): починить вкладки и вид
 stack.subscribe(() => {
-  projectPanel.refresh();
-  if (view.currentPageId !== project.activePageId) view.setPage(activePage(project));
+  openPages = openPages.filter((pg) => projects.some((p) => p.pages.includes(pg)));
+  if (!projects.some((p) => p.pages.includes(activePageObj))) {
+    activePageObj = openPages[0] ?? activePage(projects[0]);
+  }
+  if (!openPages.includes(activePageObj)) openPages.push(activePageObj);
+  project = projectOf(activePageObj);
+  if (view.currentPageId !== activePageObj.id) {
+    view.setPage(activePageObj);
+    view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
+  }
+  renderWorkspace();
 });
 
 view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
@@ -137,11 +213,14 @@ const psInfo = document.getElementById("ps-info")!;
 const psWPower = document.getElementById("ps-wpower") as HTMLSelectElement;
 const psWControl = document.getElementById("ps-wcontrol") as HTMLSelectElement;
 
-function openProjectSettings(focusName: boolean): void {
-  psName.value = project.name;
-  psWPower.value = String(project.wireWidthPower);
-  psWControl.value = String(project.wireWidthControl);
-  psInfo.textContent = `Листов: ${project.pages.length}`;
+let settingsProject = project; // проект, чьи настройки открыты (ПКМ на конкретном корне)
+
+function openProjectSettings(target: Project, focusName: boolean): void {
+  settingsProject = target;
+  psName.value = target.name;
+  psWPower.value = String(target.wireWidthPower);
+  psWControl.value = String(target.wireWidthControl);
+  psInfo.textContent = `Листов: ${target.pages.length}`;
   psDialog.showModal();
   if (focusName) {
     psName.focus();
@@ -152,12 +231,13 @@ function openProjectSettings(focusName: boolean): void {
 psDialog.addEventListener("close", () => {
   if (psDialog.returnValue === "ok") {
     const name = psName.value.trim();
-    if (name) project.name = name;
-    project.wireWidthPower = Number(psWPower.value);
-    project.wireWidthControl = Number(psWControl.value);
-    view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
-    projectPanel.refresh();
-    syncTitle();
+    if (name) settingsProject.name = name;
+    settingsProject.wireWidthPower = Number(psWPower.value);
+    settingsProject.wireWidthControl = Number(psWControl.value);
+    if (settingsProject === project) {
+      view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
+    }
+    renderWorkspace();
   }
 });
 
@@ -388,19 +468,7 @@ const closeFileMenu = (): void => {
 fileMenu.addEventListener("click", (e) => e.stopPropagation());
 
 // ----- сохранение/открытие проекта (.esch) -----
-function applyProject(loaded: Project): void {
-  project.id = loaded.id;
-  project.name = loaded.name;
-  project.pages = loaded.pages;
-  project.activePageId = loaded.activePageId;
-  project.wireWidthPower = loaded.wireWidthPower;
-  project.wireWidthControl = loaded.wireWidthControl;
-  stack.clear();
-  view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
-  view.setPage(activePage(project));
-  projectPanel.refresh();
-  syncTitle();
-}
+// «Создать»/«Открыть» добавляют проект в рабочее пространство (S26), а не заменяют.
 
 /** Обновить название проекта в верхней полосе заголовка (S21). */
 const tbName = document.getElementById("tb-name")!;
@@ -429,7 +497,7 @@ fileInput.addEventListener("change", () => {
   if (!f) return;
   void f.text().then((text) => {
     try {
-      applyProject(deserializeProject(text));
+      addProject(deserializeProject(text));
     } catch (e) {
       window.alert("Не удалось открыть файл: " + (e instanceof Error ? e.message : String(e)));
     }
@@ -441,7 +509,7 @@ const saveHandler = (): void => {
   closeFileMenu();
 };
 (document.getElementById("file-new") as HTMLButtonElement).addEventListener("click", () => {
-  applyProject(createProject());
+  addProject(createProject());
   closeFileMenu();
 });
 (document.getElementById("file-open") as HTMLButtonElement).addEventListener("click", () => {
@@ -456,7 +524,7 @@ const saveHandler = (): void => {
 
 // верхняя полоса заголовка (S21): быстрый доступ к файловым действиям
 (document.getElementById("tb-new") as HTMLButtonElement).addEventListener("click", () =>
-  applyProject(createProject()),
+  addProject(createProject()),
 );
 (document.getElementById("tb-open") as HTMLButtonElement).addEventListener("click", () =>
   fileInput.click(),
@@ -464,7 +532,7 @@ const saveHandler = (): void => {
 (document.getElementById("tb-save") as HTMLButtonElement).addEventListener("click", () =>
   saveProject(),
 );
-syncTitle();
+renderWorkspace(); // первичная отрисовка дерева + ленты страниц + заголовка
 
 undoBtn.addEventListener("click", () => stack.undo());
 redoBtn.addEventListener("click", () => stack.redo());

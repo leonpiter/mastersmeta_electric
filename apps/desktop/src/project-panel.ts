@@ -3,16 +3,19 @@
  * дерево Проект → документ → листы. Листы можно добавлять (+), удалять (×, кроме
  * последнего) и переключать кликом. Разделы «Шкафы»/«Отчёты» — заглушки под будущие спринты.
  */
-import type { Project } from "@see/core";
+import type { Page, Project } from "@see/core";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 export interface ProjectPanelHandlers {
-  onSelect: (pageId: string) => void;
-  onAdd: () => void;
-  onRemove: (pageId: string) => void;
+  /** Открыть/активировать лист (добавляет вкладку). */
+  onSelect: (project: Project, page: Page) => void;
+  onAdd: (project: Project) => void;
+  onRemove: (project: Project, page: Page) => void;
   /** Открыть настройки проекта (focusName — сразу фокус на поле имени, для «Переименовать»). */
-  onSettings: (focusName: boolean) => void;
+  onSettings: (project: Project, focusName: boolean) => void;
+  /** Закрыть проект (убрать из рабочего пространства). */
+  onCloseProject?: (project: Project) => void;
 }
 
 function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
@@ -89,12 +92,16 @@ export class ProjectPanel {
   private readonly ctxMenu: HTMLElement;
   private readonly ctxDel: HTMLButtonElement;
   private readonly rootCtxMenu: HTMLElement;
-  private ctxTarget: string | null = null;
+  private readonly rootClose: HTMLButtonElement;
+  private ctxProject: Project | null = null;
+  private ctxPage: Page | null = null;
 
   constructor(
     container: HTMLElement,
-    private readonly project: Project,
+    private readonly projects: Project[],
     private readonly handlers: ProjectPanelHandlers,
+    /** id активной (показываемой) страницы — для подсветки. */
+    private readonly activePageId: () => string | null,
   ) {
     container.replaceChildren();
 
@@ -116,7 +123,7 @@ export class ProjectPanel {
     ctxAdd.className = "dd-item";
     ctxAdd.textContent = "Добавить лист";
     ctxAdd.addEventListener("click", () => {
-      this.handlers.onAdd();
+      if (this.ctxProject) this.handlers.onAdd(this.ctxProject);
       this.closeCtx();
     });
     const sep = document.createElement("div");
@@ -126,7 +133,7 @@ export class ProjectPanel {
     this.ctxDel.className = "dd-item";
     this.ctxDel.textContent = "Удалить лист";
     this.ctxDel.addEventListener("click", () => {
-      if (this.ctxTarget) this.handlers.onRemove(this.ctxTarget);
+      if (this.ctxProject && this.ctxPage) this.handlers.onRemove(this.ctxProject, this.ctxPage);
       this.closeCtx();
     });
     this.ctxMenu.append(ctxAdd, sep, this.ctxDel);
@@ -155,12 +162,19 @@ export class ProjectPanel {
     };
     const rootSep = document.createElement("div");
     rootSep.className = "dd-sep";
+    this.rootClose = item("Закрыть проект", () => {
+      if (this.ctxProject) this.handlers.onCloseProject?.(this.ctxProject);
+    });
     this.rootCtxMenu.append(
       item("Копировать"),
-      item("Удалить"),
-      item("Переименовать", () => this.handlers.onSettings(true)),
+      this.rootClose,
+      item("Переименовать", () => {
+        if (this.ctxProject) this.handlers.onSettings(this.ctxProject, true);
+      }),
       rootSep,
-      item("Настройки", () => this.handlers.onSettings(false)),
+      item("Настройки", () => {
+        if (this.ctxProject) this.handlers.onSettings(this.ctxProject, false);
+      }),
     );
     this.rootCtxMenu.addEventListener("click", (e) => e.stopPropagation());
     document.body.append(this.rootCtxMenu);
@@ -170,15 +184,18 @@ export class ProjectPanel {
     this.render();
   }
 
-  private showCtx(x: number, y: number, pageId: string): void {
-    this.ctxTarget = pageId;
-    this.ctxDel.disabled = this.project.pages.length <= 1;
+  private showCtx(x: number, y: number, project: Project, page: Page): void {
+    this.ctxProject = project;
+    this.ctxPage = page;
+    this.ctxDel.disabled = project.pages.length <= 1;
     this.ctxMenu.style.left = `${x}px`;
     this.ctxMenu.style.top = `${y}px`;
     this.ctxMenu.hidden = false;
   }
 
-  private showRootCtx(x: number, y: number): void {
+  private showRootCtx(x: number, y: number, project: Project): void {
+    this.ctxProject = project;
+    this.rootClose.disabled = this.projects.length <= 1; // последний проект не закрываем
     this.rootCtxMenu.style.left = `${x}px`;
     this.rootCtxMenu.style.top = `${y}px`;
     this.rootCtxMenu.hidden = false;
@@ -187,33 +204,38 @@ export class ProjectPanel {
   private closeCtx(): void {
     this.ctxMenu.hidden = true;
     this.rootCtxMenu.hidden = true;
-    this.ctxTarget = null;
+    this.ctxProject = null;
+    this.ctxPage = null;
   }
 
-  /** Перерисовать дерево (после добавления/удаления/переключения листа). */
+  /** Перерисовать дерево (после добавления/удаления/переключения листа/проекта). */
   refresh(): void {
     this.render();
   }
 
   private render(): void {
     this.treeEl.replaceChildren();
+    const activeId = this.activePageId();
+    for (const project of this.projects) this.renderProject(project, activeId);
+  }
 
+  private renderProject(project: Project, activeId: string | null): void {
     const root = this.folder(
       this.treeEl,
-      `Проект «${this.project.name}»`,
+      `Проект «${project.name}»`,
       0,
       true,
       groupIcon(),
       false,
-      (e) => this.showRootCtx(e.clientX, e.clientY),
+      (e) => this.showRootCtx(e.clientX, e.clientY, project),
     );
     const doc = this.folder(root, "Схема электрическая", 1, true, groupIcon());
 
-    this.project.pages.forEach((page, i) => {
-      const row = this.pageRow(doc, page.id, `Лист ${i + 1} · ${page.format.name}`, 2);
-      if (page.id === this.project.activePageId) row.classList.add("active");
+    project.pages.forEach((page, i) => {
+      const row = this.pageRow(doc, project, page, `Лист ${i + 1} · ${page.format.name}`, 2);
+      if (page.id === activeId) row.classList.add("active");
     });
-    this.addRow(doc, "+ Лист", 2);
+    this.addRow(doc, project, "+ Лист", 2);
 
     for (const t of ["Шкафы", "Распределительные схемы", "Отчёты", "Прочие документы"]) {
       this.folder(root, t, 1, false, groupIcon(), true);
@@ -266,7 +288,13 @@ export class ProjectPanel {
    * Строка листа: иконка + название. Клик — выбрать (и сфокусировать).
    * Удаление: ПКМ → контекстное меню, либо Del на выбранном (сфокусированном) листе.
    */
-  private pageRow(parent: HTMLElement, pageId: string, title: string, depth: number): HTMLElement {
+  private pageRow(
+    parent: HTMLElement,
+    project: Project,
+    page: Page,
+    title: string,
+    depth: number,
+  ): HTMLElement {
     const node = document.createElement("div");
     node.className = "tree-node sheet";
     node.tabIndex = 0;
@@ -282,21 +310,21 @@ export class ProjectPanel {
     node.append(ico, label);
 
     node.addEventListener("click", () => {
-      this.handlers.onSelect(pageId);
+      this.handlers.onSelect(project, page);
       node.focus();
     });
     node.addEventListener("keydown", (e) => {
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         e.stopPropagation(); // не пускать Del в глобальный обработчик (удаление символа)
-        this.handlers.onRemove(pageId);
+        this.handlers.onRemove(project, page);
       }
     });
     node.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      this.handlers.onSelect(pageId);
+      this.handlers.onSelect(project, page);
       node.focus();
-      this.showCtx(e.clientX, e.clientY, pageId);
+      this.showCtx(e.clientX, e.clientY, project, page);
     });
 
     parent.append(node);
@@ -304,12 +332,12 @@ export class ProjectPanel {
   }
 
   /** Строка «+ Лист». */
-  private addRow(parent: HTMLElement, title: string, depth: number): void {
+  private addRow(parent: HTMLElement, project: Project, title: string, depth: number): void {
     const node = document.createElement("div");
     node.className = "tree-node add";
     node.style.paddingLeft = `${4 + depth * 12 + 12}px`;
     node.textContent = title;
-    node.addEventListener("click", () => this.handlers.onAdd());
+    node.addEventListener("click", () => this.handlers.onAdd(project));
     parent.append(node);
   }
 }
