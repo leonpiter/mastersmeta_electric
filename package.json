@@ -28,10 +28,15 @@
     "typescript-eslint": "^8.18.1"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm exec lint-staged",
+    "pre-commit": "pnpm exec lint-staged && pnpm typecheck",
+    "commit-msg": "node scripts/hooks/commit-msg.mjs",
     "pre-push": "pnpm verify"
   },
   "lint-staged": {
-    "*.{ts,js,json,css,html}": "prettier --write"
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,mjs,json,css,html}": "prettier --write"
   }
 }

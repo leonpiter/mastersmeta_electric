@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "scripts/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
@@ -20,6 +20,17 @@ export default tseslint.config(
       "@typescript-eslint/no-floating-promises": "error",
       // допускаем `let`, читаемый в замыкании до присваивания (циклические ссылки UI)
       "prefer-const": ["error", { ignoreReadBeforeAssign: true }],
+    },
+  },
+  {
+    // страж принципа 1: ядро без DOM (рендер/ввод — только в apps/desktop)
+    files: ["packages/core/**/*.ts"],
+    rules: {
+      "no-restricted-globals": [
+        "error",
+        { name: "document", message: "core без DOM (принцип 1): рендер/ввод — в apps/desktop" },
+        { name: "window", message: "core без DOM (принцип 1)" },
+      ],
     },
   },
   {

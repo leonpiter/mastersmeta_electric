@@ -59,6 +59,7 @@ AskUserQuestion (3 вопроса, можно одним опросом):
 Если в шаге 4 есть важное — AskUserQuestion: «Записать урок в memory (`feedback`/`project`)?». Если да — создать файл в memory-папке проекта (формат из глобального CLAUDE.md: frontmatter name/description/type, тело с **Why:**/**How to apply:**) и добавить строку в `MEMORY.md`. Без согласия — НЕ писать.
 
 ### 9. Коммит/PR (предложение)
+**Сначала прогнать `pnpm verify`** (полный гейт: typecheck+lint+format:check+test+build) — финализировать спринт можно только при зелёном; если красный — отказать и сообщить, что чинить.
 AskUserQuestion: «Закоммитить финализацию?». Если да — подсказать (на текущей ветке):
 ```bash
 git add docs/ && git commit -m "docs(sprint-{N}): финализация — <кратко>"
