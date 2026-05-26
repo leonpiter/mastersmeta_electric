@@ -56,13 +56,19 @@ stack.subscribe(() => {
   if (view.currentPageId !== project.activePageId) view.setPage(activePage(project));
 });
 
+view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
+
 // ----- настройки проекта (ПКМ на корне → модальное окно) -----
 const psDialog = document.getElementById("project-settings") as HTMLDialogElement;
 const psName = document.getElementById("ps-name") as HTMLInputElement;
 const psInfo = document.getElementById("ps-info")!;
+const psWPower = document.getElementById("ps-wpower") as HTMLSelectElement;
+const psWControl = document.getElementById("ps-wcontrol") as HTMLSelectElement;
 
 function openProjectSettings(focusName: boolean): void {
   psName.value = project.name;
+  psWPower.value = String(project.wireWidthPower);
+  psWControl.value = String(project.wireWidthControl);
   psInfo.textContent = `Листов: ${project.pages.length}`;
   psDialog.showModal();
   if (focusName) {
@@ -74,10 +80,11 @@ function openProjectSettings(focusName: boolean): void {
 psDialog.addEventListener("close", () => {
   if (psDialog.returnValue === "ok") {
     const name = psName.value.trim();
-    if (name && name !== project.name) {
-      project.name = name;
-      projectPanel.refresh();
-    }
+    if (name) project.name = name;
+    project.wireWidthPower = Number(psWPower.value);
+    project.wireWidthControl = Number(psWControl.value);
+    view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
+    projectPanel.refresh();
   }
 });
 
@@ -87,26 +94,46 @@ const wsType = document.getElementById("ws-type") as HTMLSelectElement;
 const wsSection = document.getElementById("ws-section") as HTMLSelectElement;
 const wsColor = document.getElementById("ws-color") as HTMLInputElement;
 let editingWire: Wire | null = null;
+let wireOrig: { type: Wire["type"]; section?: string; color?: string } | null = null;
 
 function openWireSettings(wire: Wire): void {
   editingWire = wire;
+  wireOrig = { type: wire.type, section: wire.section, color: wire.color };
   wsType.value = wire.type;
   wsSection.value = wire.section ?? "";
   wsColor.value = wire.color ?? "#1a1a1a";
   wsDialog.showModal();
 }
 
+// живое превью цвета на канвасе
+wsColor.addEventListener("input", () => {
+  if (editingWire) {
+    editingWire.color = wsColor.value;
+    view.rerenderWires();
+  }
+});
+
 wsDialog.addEventListener("close", () => {
-  if (wsDialog.returnValue === "ok" && editingWire) {
+  const wire = editingWire;
+  const orig = wireOrig;
+  editingWire = null;
+  wireOrig = null;
+  if (!wire || !orig) return;
+  // вернуть исходные значения (чтобы команда корректно записала «до»)
+  wire.type = orig.type;
+  wire.section = orig.section;
+  wire.color = orig.color;
+  if (wsDialog.returnValue === "ok") {
     stack.execute(
-      new EditWireCommand(editingWire, {
+      new EditWireCommand(wire, {
         type: wsType.value as Wire["type"],
         section: wsSection.value || undefined,
         color: wsColor.value,
       }),
     );
+  } else {
+    view.rerenderWires(); // откатить превью
   }
-  editingWire = null;
 });
 
 // обмен боковых панелей местами (с запоминанием)

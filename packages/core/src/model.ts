@@ -98,11 +98,26 @@ export interface Project {
   pages: Page[];
   /** id активного (показываемого) листа. */
   activePageId: Id;
+  /** Визуальная толщина силовых проводов, мм (на весь проект). */
+  wireWidthPower: number;
+  /** Визуальная толщина проводов управления, мм. */
+  wireWidthControl: number;
 }
+
+/** Толщина проводов по умолчанию, мм. */
+export const DEFAULT_WIRE_WIDTH_POWER = 0.3;
+export const DEFAULT_WIRE_WIDTH_CONTROL = 0.2;
 
 export function createProject(opts: CreatePageOptions = {}): Project {
   const page = createPage(opts);
-  return { id: newId(), name: "Без имени", pages: [page], activePageId: page.id };
+  return {
+    id: newId(),
+    name: "Без имени",
+    pages: [page],
+    activePageId: page.id,
+    wireWidthPower: DEFAULT_WIRE_WIDTH_POWER,
+    wireWidthControl: DEFAULT_WIRE_WIDTH_CONTROL,
+  };
 }
 
 /** Активный лист проекта. */

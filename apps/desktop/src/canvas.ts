@@ -20,6 +20,8 @@ import {
   AddWiresCommand,
   RemoveWireCommand,
   computeJunctions,
+  DEFAULT_WIRE_WIDTH_POWER,
+  DEFAULT_WIRE_WIDTH_CONTROL,
   type Page,
   type Wire,
   type Point,
@@ -138,6 +140,9 @@ export class CanvasView {
   private wireStart: Point | null = null;
   /** Число полюсов провода: 1 (1-Wire) или 3 (3-Wire, шаг 5 мм). */
   private wirePoles: 1 | 3 = 1;
+  /** Визуальная толщина проводов, мм (на весь проект): раздельно силовые/управление. */
+  private wireWidthPower = DEFAULT_WIRE_WIDTH_POWER;
+  private wireWidthControl = DEFAULT_WIRE_WIDTH_CONTROL;
   /** Текущее перетаскивание инстанса. */
   private dragging: {
     inst: SymbolInstance;
@@ -250,6 +255,18 @@ export class CanvasView {
 
   get gridStepMm(): number {
     return this.page.gridStep;
+  }
+
+  /** Толщина проводов (мм): раздельно силовые/управление. */
+  setWireWidths(power: number, control: number): void {
+    this.wireWidthPower = power;
+    this.wireWidthControl = control;
+    this.renderWires();
+  }
+
+  /** Перерисовать слой проводов (живое превью свойств провода). */
+  rerenderWires(): void {
+    this.renderWires();
   }
 
   /** id текущего показываемого листа. */
@@ -552,7 +569,7 @@ export class CanvasView {
     for (const w of this.page.wires) {
       if (w.points.length < 2) continue;
       const d = w.points.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" ");
-      const width = w.type === "power" ? 0.5 : 0.3;
+      const width = w.type === "power" ? this.wireWidthPower : this.wireWidthControl;
       // подсветка выбранного провода (ореол под линией)
       if (this.selectedWire?.id === w.id) {
         this.wiresG.append(
@@ -578,9 +595,10 @@ export class CanvasView {
         }),
       );
     }
-    // узлы соединения (жирные точки на Т-ответвлениях)
+    // узлы соединения (жирные точки на Т-ответвлениях) — заметнее толщины провода
+    const dotR = Math.max(1.2, this.wireWidthPower * 4);
     for (const j of computeJunctions(this.page)) {
-      this.wiresG.append(el("circle", { cx: j.x, cy: j.y, r: 0.9, fill: "#1a1a1a" }));
+      this.wiresG.append(el("circle", { cx: j.x, cy: j.y, r: dotR, fill: "#1a1a1a" }));
     }
   }
 
