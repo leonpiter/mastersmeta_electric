@@ -724,6 +724,28 @@ body.resizing #canvas {
   color: var(--text);
 }
 
+/* пресеты потенциалов (L1/L2/L3/N/PE) в свойствах провода */
+.prop-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.prop-presets button {
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 0;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.prop-presets button:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
 .prop-actions {
   display: flex;
   justify-content: flex-end;

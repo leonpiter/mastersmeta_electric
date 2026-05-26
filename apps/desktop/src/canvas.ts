@@ -22,10 +22,13 @@ import {
   SplitWireCommand,
   MacroCommand,
   MoveWireEndpointCommand,
+  AutoNumberCommand,
+  ClearNumbersCommand,
   computeJunctions,
   computeNets,
   instancePins,
   pointOnSegment,
+  type AutoNumberOptions,
   DEFAULT_WIRE_WIDTH_POWER,
   DEFAULT_WIRE_WIDTH_CONTROL,
   type Command,
@@ -274,6 +277,29 @@ export class CanvasView {
   /** Перерисовать слой проводов (живое превью свойств провода). */
   rerenderWires(): void {
     this.renderWires();
+  }
+
+  /** Автонумерация цепей (ГОСТ 2.709): по потенциалам или по проводам. Обратима. */
+  autoNumber(opts: AutoNumberOptions = {}): void {
+    this.stack.execute(new AutoNumberCommand(this.page, this.library, opts));
+  }
+
+  /** Очистить номера: «all» — все провода листа; «selected» — цепь выбранного провода. */
+  clearNumbers(scope: "all" | "selected"): void {
+    if (scope === "selected") {
+      const sel = this.selectedWire;
+      if (!sel) return;
+      const net = computeNets(this.page, this.library).find((n) => n.wireIds.includes(sel.id));
+      const wires = net ? this.page.wires.filter((w) => net.wireIds.includes(w.id)) : [sel];
+      this.stack.execute(new ClearNumbersCommand(this.page, wires));
+    } else {
+      this.stack.execute(new ClearNumbersCommand(this.page));
+    }
+  }
+
+  /** Есть ли выбранный провод (для доступности «Очистить выбранное»). */
+  get hasSelectedWire(): boolean {
+    return this.selectedWire !== null;
   }
 
   /** id текущего показываемого листа. */
@@ -608,6 +634,21 @@ export class CanvasView {
           "stroke-linejoin": "round",
         }),
       );
+      // номер цепи у середины первого сегмента, со смещением перпендикулярно проводу:
+      // над горизонтальным участком, слева от вертикального — чтобы не попадал «под провод»
+      if (w.number) {
+        const a = w.points[0];
+        const b = w.points[1];
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const off = 1.6;
+        const vertical = Math.abs(b.y - a.y) >= Math.abs(b.x - a.x);
+        const t = vertical
+          ? this.text(w.number, mx - off, my, 2.6, "end")
+          : this.text(w.number, mx, my - off, 2.6, "middle");
+        t.setAttribute("fill", "#1257a0");
+        this.wiresG.append(t);
+      }
     }
 
     // узлы соединения (жирные точки на Т-ответвлениях) — заметнее толщины провода

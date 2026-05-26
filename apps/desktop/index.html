@@ -96,6 +96,22 @@
             </div>
             <div class="rgroup-cap">Соединения</div>
           </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button
+                id="numbering"
+                type="button"
+                title="Нумерация цепей (ГОСТ 2.709): сгенерировать / очистить"
+              >
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 5H14M2 11H14" />
+                  <path d="M5 2 4 5M9 2 8 5M7 11 6 14M11 11 10 14" />
+                </svg>
+                <span>Нумерация</span>
+              </button>
+            </div>
+            <div class="rgroup-cap">Нумерация</div>
+          </div>
         </div>
 
         <div class="rpage" data-tab="view" hidden>
@@ -175,6 +191,13 @@
       <button class="dd-item" type="button" data-step="2.5">2,5 мм</button>
       <button class="dd-item" type="button" data-step="5">5 мм</button>
       <button class="dd-item" type="button" data-step="10">10 мм</button>
+    </div>
+
+    <div id="number-menu" class="dropdown" hidden>
+      <button class="dd-item" id="num-generate" type="button">Сгенерировать…</button>
+      <div class="dd-sep"></div>
+      <button class="dd-item" id="num-clear-all" type="button">Очистить всё</button>
+      <button class="dd-item" id="num-clear-sel" type="button">Очистить выбранное</button>
     </div>
 
     <dialog id="props">
@@ -265,9 +288,51 @@
           <label for="ws-color">Цвет</label>
           <input id="ws-color" type="color" value="#1a1a1a" />
         </div>
+        <div class="prop-row">
+          <label for="ws-number">Номер цепи</label>
+          <input id="ws-number" type="text" autocomplete="off" placeholder="авто" />
+        </div>
+        <div class="prop-presets" id="ws-presets">
+          <button type="button" data-pot="L1">L1</button>
+          <button type="button" data-pot="L2">L2</button>
+          <button type="button" data-pot="L3">L3</button>
+          <button type="button" data-pot="N">N</button>
+          <button type="button" data-pot="PE">PE</button>
+        </div>
+        <label class="prop-check">
+          <input id="ws-locked" type="checkbox" /> Зафиксировать (не перенумеровывать)
+        </label>
         <div class="prop-actions">
           <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
           <button value="ok" type="submit">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="number-settings">
+      <form method="dialog" class="modal-form">
+        <h3>Нумерация цепей</h3>
+        <div class="prop-row">
+          <label for="ns-mode">Метод</label>
+          <select id="ns-mode">
+            <option value="potential">По потенциалам (цепь = один номер)</option>
+            <option value="unique">По проводам (каждый уникален)</option>
+          </select>
+        </div>
+        <div class="prop-row">
+          <label for="ns-start">Начальный номер</label>
+          <input id="ns-start" type="number" min="0" step="1" value="1" />
+        </div>
+        <div class="prop-row">
+          <label for="ns-step">Шаг</label>
+          <input id="ns-step" type="number" min="1" step="1" value="1" />
+        </div>
+        <label class="prop-check">
+          <input id="ns-relock" type="checkbox" /> Перенумеровать заблокированные
+        </label>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit">Сгенерировать</button>
         </div>
       </form>
     </dialog>

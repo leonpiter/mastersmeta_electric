@@ -96,17 +96,42 @@ const wsDialog = document.getElementById("wire-settings") as HTMLDialogElement;
 const wsType = document.getElementById("ws-type") as HTMLSelectElement;
 const wsSection = document.getElementById("ws-section") as HTMLSelectElement;
 const wsColor = document.getElementById("ws-color") as HTMLInputElement;
+const wsNumber = document.getElementById("ws-number") as HTMLInputElement;
+const wsLocked = document.getElementById("ws-locked") as HTMLInputElement;
+const wsPresets = document.getElementById("ws-presets")!;
 let editingWire: Wire | null = null;
-let wireOrig: { type: Wire["type"]; section?: string; color?: string } | null = null;
+let wireOrig: {
+  type: Wire["type"];
+  section?: string;
+  color?: string;
+  number?: string;
+  locked?: boolean;
+} | null = null;
 
 function openWireSettings(wire: Wire): void {
   editingWire = wire;
-  wireOrig = { type: wire.type, section: wire.section, color: wire.color };
+  wireOrig = {
+    type: wire.type,
+    section: wire.section,
+    color: wire.color,
+    number: wire.number,
+    locked: wire.locked,
+  };
   wsType.value = wire.type;
   wsSection.value = wire.section ?? "";
   wsColor.value = wire.color ?? "#1a1a1a";
+  wsNumber.value = wire.number ?? "";
+  wsLocked.checked = !!wire.locked;
   wsDialog.showModal();
 }
+
+// пресет потенциала (L1/L2/L3/N/PE): задаёт номер и фиксирует от автонумерации
+wsPresets.addEventListener("click", (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-pot]");
+  if (!btn) return;
+  wsNumber.value = btn.dataset.pot ?? "";
+  wsLocked.checked = true;
+});
 
 // живое превью цвета на канвасе
 wsColor.addEventListener("input", () => {
@@ -126,12 +151,16 @@ wsDialog.addEventListener("close", () => {
   wire.type = orig.type;
   wire.section = orig.section;
   wire.color = orig.color;
+  wire.number = orig.number;
+  wire.locked = orig.locked;
   if (wsDialog.returnValue === "ok") {
     stack.execute(
       new EditWireCommand(wire, {
         type: wsType.value as Wire["type"],
         section: wsSection.value || undefined,
         color: wsColor.value,
+        number: wsNumber.value.trim() || undefined,
+        locked: wsLocked.checked,
       }),
     );
   } else {
@@ -317,6 +346,59 @@ const wire3Btn = document.getElementById("wire-3") as HTMLButtonElement;
 wireBtn.addEventListener("click", () => view.armWire(1));
 wire3Btn.addEventListener("click", () => view.armWire(3));
 
+// ----- меню «Нумерация» (вкладка Соединения) -----
+const numberingBtn = document.getElementById("numbering") as HTMLButtonElement;
+const numberMenu = document.getElementById("number-menu")!;
+const nsDialog = document.getElementById("number-settings") as HTMLDialogElement;
+const nsMode = document.getElementById("ns-mode") as HTMLSelectElement;
+const nsStart = document.getElementById("ns-start") as HTMLInputElement;
+const nsStep = document.getElementById("ns-step") as HTMLInputElement;
+const nsRelock = document.getElementById("ns-relock") as HTMLInputElement;
+const numClearSel = document.getElementById("num-clear-sel") as HTMLButtonElement;
+
+const closeNumberMenu = (): void => {
+  numberMenu.hidden = true;
+};
+
+numberingBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  closeFileMenu();
+  closeGridMenu();
+  if (numberMenu.hidden) {
+    numClearSel.disabled = !view.hasSelectedWire;
+    const r = numberingBtn.getBoundingClientRect();
+    numberMenu.style.left = `${r.left}px`;
+    numberMenu.style.top = `${r.bottom + 2}px`;
+    numberMenu.hidden = false;
+  } else {
+    closeNumberMenu();
+  }
+});
+numberMenu.addEventListener("click", (e) => e.stopPropagation());
+
+(document.getElementById("num-generate") as HTMLButtonElement).addEventListener("click", () => {
+  closeNumberMenu();
+  nsDialog.showModal();
+});
+(document.getElementById("num-clear-all") as HTMLButtonElement).addEventListener("click", () => {
+  view.clearNumbers("all");
+  closeNumberMenu();
+});
+numClearSel.addEventListener("click", () => {
+  view.clearNumbers("selected");
+  closeNumberMenu();
+});
+
+nsDialog.addEventListener("close", () => {
+  if (nsDialog.returnValue !== "ok") return;
+  view.autoNumber({
+    mode: nsMode.value as "potential" | "unique",
+    start: Number(nsStart.value) || 1,
+    step: Number(nsStep.value) || 1,
+    renumberLocked: nsRelock.checked,
+  });
+});
+
 // ----- меню сетки (показать/скрыть + шаг) -----
 const gridBtn = document.getElementById("grid") as HTMLButtonElement;
 const gridMenu = document.getElementById("grid-menu")!;
@@ -343,6 +425,7 @@ const closeGridMenu = (): void => {
 gridBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   closeFileMenu();
+  closeNumberMenu();
   if (gridMenu.hidden) {
     const r = gridBtn.getBoundingClientRect();
     gridMenu.style.left = `${r.left}px`;
@@ -378,6 +461,7 @@ stepItems.forEach((b) =>
 document.addEventListener("click", () => {
   closeGridMenu();
   closeFileMenu();
+  closeNumberMenu();
 });
 
 // лента: вкладки-страницы + вкладка-меню «Файл»
@@ -388,6 +472,7 @@ ribbonTabs.forEach((tab) => {
     if (tab.dataset.menu === "file") {
       e.stopPropagation();
       closeGridMenu();
+      closeNumberMenu();
       if (fileMenu.hidden) {
         const r = tab.getBoundingClientRect();
         fileMenu.style.left = `${r.left}px`;
@@ -400,6 +485,7 @@ ribbonTabs.forEach((tab) => {
     }
     const name = tab.dataset.tab;
     closeFileMenu();
+    closeNumberMenu();
     ribbonTabs.forEach((t) => t.classList.toggle("active", t === tab));
     ribbonPages.forEach((p) => {
       p.hidden = p.dataset.tab !== name;
