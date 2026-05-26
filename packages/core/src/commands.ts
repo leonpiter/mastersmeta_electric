@@ -10,7 +10,8 @@ import {
   type SymbolInstance,
   type Wire,
 } from "./model";
-import { type Rotation, type SymbolDef, nextDesignation } from "./symbol";
+import { type Rotation, type SymbolDef, type SymbolLibrary, nextDesignation } from "./symbol";
+import { computeNets } from "./connectivity";
 
 /** Поставить узел на листе (координаты уже привязаны к сетке вызывающим кодом). */
 export class AddNodeCommand implements Command {
@@ -446,5 +447,71 @@ export class SplitWireCommand implements Command {
   undo(): void {
     if (!this.parts || this.index < 0) return;
     this.page.wires.splice(this.index, 2, this.wire);
+  }
+}
+
+/**
+ * Авто-нумерация проводов по цепям (ГОСТ 2.709): каждой цепи — номер; провода
+ * цепи получают её номер. Заблокированные (`locked`) сохраняют ручной номер, и он
+ * становится номером всей своей цепи. Обратима.
+ */
+export class AutoNumberCommand implements Command {
+  readonly type = "auto-number";
+  private readonly changes: { wire: Wire; from?: string; to: string }[] = [];
+
+  constructor(page: Page, library: SymbolLibrary) {
+    const byId = new Map(page.wires.map((w) => [w.id, w]));
+    const used = new Set<string>();
+    for (const w of page.wires) if (w.locked && w.number) used.add(w.number);
+
+    let next = 1;
+    for (const net of computeNets(page, library)) {
+      const wires = net.wireIds.map((id) => byId.get(id)!).filter((w) => w.points.length >= 2);
+      if (wires.length === 0) continue;
+      // номер цепи: от заблокированного провода, иначе следующий свободный
+      let num = wires.find((w) => w.locked && w.number)?.number;
+      if (num === undefined) {
+        while (used.has(String(next))) next++;
+        num = String(next);
+        used.add(num);
+        next++;
+      }
+      for (const w of wires) {
+        if (w.locked) continue;
+        if (w.number !== num) this.changes.push({ wire: w, from: w.number, to: num });
+      }
+    }
+  }
+
+  do(): void {
+    for (const c of this.changes) c.wire.number = c.to;
+  }
+
+  undo(): void {
+    for (const c of this.changes) c.wire.number = c.from;
+  }
+}
+
+/** Задать провода ручной номер/потенциал (L1/PE/…) и заблокировать от автонумерации. Обратима. */
+export class SetWireNumberCommand implements Command {
+  readonly type = "set-wire-number";
+  private readonly before: { number?: string; locked?: boolean };
+
+  constructor(
+    private readonly wire: Wire,
+    private readonly number: string | undefined,
+    private readonly locked: boolean,
+  ) {
+    this.before = { number: wire.number, locked: wire.locked };
+  }
+
+  do(): void {
+    this.wire.number = this.number;
+    this.wire.locked = this.locked;
+  }
+
+  undo(): void {
+    this.wire.number = this.before.number;
+    this.wire.locked = this.before.locked;
   }
 }

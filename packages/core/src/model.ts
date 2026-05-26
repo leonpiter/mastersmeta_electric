@@ -54,6 +54,10 @@ export interface Wire {
   section?: string;
   /** Цвет жилы (CSS-цвет; по умолчанию чёрный). */
   color?: string;
+  /** Номер цепи / потенциал (ГОСТ 2.709; напр. «1», «L1», «PE»). */
+  number?: string;
+  /** Ручной номер — автонумерация не перезаписывает. */
+  locked?: boolean;
 }
 
 export interface Page {
