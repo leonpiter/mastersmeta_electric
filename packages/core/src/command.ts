@@ -43,6 +43,13 @@ export class CommandStack {
     this.notify();
   }
 
+  /** Очистить историю (при открытии/создании проекта). */
+  clear(): void {
+    this.past.length = 0;
+    this.future.length = 0;
+    this.notify();
+  }
+
   canUndo(): boolean {
     return this.past.length > 0;
   }

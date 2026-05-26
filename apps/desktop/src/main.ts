@@ -9,8 +9,11 @@ import {
   EditWireCommand,
   AddPageCommand,
   RemovePageCommand,
+  serializeProject,
+  deserializeProject,
   type SymbolInstance,
   type Wire,
+  type Project,
 } from "@see/core";
 import { CanvasView } from "./canvas";
 import { LibraryPanel } from "./library-panel";
@@ -237,6 +240,66 @@ const closeFileMenu = (): void => {
   fileMenu.hidden = true;
 };
 fileMenu.addEventListener("click", (e) => e.stopPropagation());
+
+// ----- сохранение/открытие проекта (.seeproj) -----
+function applyProject(loaded: Project): void {
+  project.id = loaded.id;
+  project.name = loaded.name;
+  project.pages = loaded.pages;
+  project.activePageId = loaded.activePageId;
+  project.wireWidthPower = loaded.wireWidthPower;
+  project.wireWidthControl = loaded.wireWidthControl;
+  stack.clear();
+  view.setWireWidths(project.wireWidthPower, project.wireWidthControl);
+  view.setPage(activePage(project));
+  projectPanel.refresh();
+}
+
+function saveProject(): void {
+  const blob = new Blob([serializeProject(project)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${project.name || "project"}.seeproj`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const fileInput = document.createElement("input");
+fileInput.type = "file";
+fileInput.accept = ".seeproj,application/json";
+fileInput.style.display = "none";
+document.body.append(fileInput);
+fileInput.addEventListener("change", () => {
+  const f = fileInput.files?.[0];
+  fileInput.value = "";
+  if (!f) return;
+  void f.text().then((text) => {
+    try {
+      applyProject(deserializeProject(text));
+    } catch (e) {
+      window.alert("Не удалось открыть файл: " + (e instanceof Error ? e.message : String(e)));
+    }
+  });
+});
+
+const saveHandler = (): void => {
+  saveProject();
+  closeFileMenu();
+};
+(document.getElementById("file-new") as HTMLButtonElement).addEventListener("click", () => {
+  applyProject(createProject());
+  closeFileMenu();
+});
+(document.getElementById("file-open") as HTMLButtonElement).addEventListener("click", () => {
+  fileInput.click();
+  closeFileMenu();
+});
+(document.getElementById("file-save") as HTMLButtonElement).addEventListener("click", saveHandler);
+(document.getElementById("file-saveas") as HTMLButtonElement).addEventListener(
+  "click",
+  saveHandler,
+);
 
 undoBtn.addEventListener("click", () => stack.undo());
 redoBtn.addEventListener("click", () => stack.redo());
