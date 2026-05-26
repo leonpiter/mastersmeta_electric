@@ -40,12 +40,38 @@ const projectPanel = new ProjectPanel(projectEl, project, {
   },
   onAdd: () => stack.execute(new AddPageCommand(project)),
   onRemove: (id) => stack.execute(new RemovePageCommand(project, id)),
+  onSettings: (focusName) => openProjectSettings(focusName),
 });
 
 // синхронизация дерева и вида при изменениях стека (в т.ч. add/remove листа)
 stack.subscribe(() => {
   projectPanel.refresh();
   if (view.currentPageId !== project.activePageId) view.setPage(activePage(project));
+});
+
+// ----- настройки проекта (ПКМ на корне → модальное окно) -----
+const psDialog = document.getElementById("project-settings") as HTMLDialogElement;
+const psName = document.getElementById("ps-name") as HTMLInputElement;
+const psInfo = document.getElementById("ps-info")!;
+
+function openProjectSettings(focusName: boolean): void {
+  psName.value = project.name;
+  psInfo.textContent = `Листов: ${project.pages.length}`;
+  psDialog.showModal();
+  if (focusName) {
+    psName.focus();
+    psName.select();
+  }
+}
+
+psDialog.addEventListener("close", () => {
+  if (psDialog.returnValue === "ok") {
+    const name = psName.value.trim();
+    if (name && name !== project.name) {
+      project.name = name;
+      projectPanel.refresh();
+    }
+  }
 });
 
 // обмен боковых панелей местами (с запоминанием)
@@ -264,7 +290,7 @@ window.addEventListener("keydown", (e) => {
   const typing =
     !!target &&
     (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
-  if (typing || dialog.open) return;
+  if (typing || document.querySelector("dialog[open]")) return;
 
   const k = e.key.toLowerCase();
   const mod = e.ctrlKey || e.metaKey;

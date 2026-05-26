@@ -172,6 +172,25 @@
       </form>
     </dialog>
 
+    <dialog id="project-settings">
+      <form method="dialog" class="modal-form">
+        <h3>Настройки проекта</h3>
+        <div class="prop-row">
+          <label for="ps-name">Наименование проекта</label>
+          <input id="ps-name" type="text" autocomplete="off" />
+        </div>
+        <div class="prop-row">
+          <label for="ps-standard">Стандарт оформления</label>
+          <input id="ps-standard" type="text" value="ГОСТ ЕСКД" disabled />
+        </div>
+        <div class="prop-type" id="ps-info"></div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit">OK</button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

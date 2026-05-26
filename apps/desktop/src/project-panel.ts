@@ -11,6 +11,8 @@ export interface ProjectPanelHandlers {
   onSelect: (pageId: string) => void;
   onAdd: () => void;
   onRemove: (pageId: string) => void;
+  /** Открыть настройки проекта (focusName — сразу фокус на поле имени, для «Переименовать»). */
+  onSettings: (focusName: boolean) => void;
 }
 
 function svgEl(tag: string, attrs: Record<string, string>): SVGElement {
@@ -86,6 +88,7 @@ export class ProjectPanel {
   private readonly treeEl: HTMLElement;
   private readonly ctxMenu: HTMLElement;
   private readonly ctxDel: HTMLButtonElement;
+  private readonly rootCtxMenu: HTMLElement;
   private ctxTarget: string | null = null;
 
   constructor(
@@ -129,6 +132,39 @@ export class ProjectPanel {
     this.ctxMenu.append(ctxAdd, sep, this.ctxDel);
     this.ctxMenu.addEventListener("click", (e) => e.stopPropagation());
     document.body.append(this.ctxMenu);
+
+    // контекстное меню корневого проекта (ПКМ)
+    this.rootCtxMenu = document.createElement("div");
+    this.rootCtxMenu.className = "dropdown";
+    this.rootCtxMenu.hidden = true;
+    const item = (text: string, onClick?: () => void): HTMLButtonElement => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "dd-item";
+      b.textContent = text;
+      if (onClick) {
+        b.addEventListener("click", () => {
+          onClick();
+          this.closeCtx();
+        });
+      } else {
+        b.disabled = true;
+        b.title = "Будет в следующих версиях";
+      }
+      return b;
+    };
+    const rootSep = document.createElement("div");
+    rootSep.className = "dd-sep";
+    this.rootCtxMenu.append(
+      item("Копировать"),
+      item("Удалить"),
+      item("Переименовать", () => this.handlers.onSettings(true)),
+      rootSep,
+      item("Настройки", () => this.handlers.onSettings(false)),
+    );
+    this.rootCtxMenu.addEventListener("click", (e) => e.stopPropagation());
+    document.body.append(this.rootCtxMenu);
+
     document.addEventListener("click", () => this.closeCtx());
 
     this.render();
@@ -142,8 +178,15 @@ export class ProjectPanel {
     this.ctxMenu.hidden = false;
   }
 
+  private showRootCtx(x: number, y: number): void {
+    this.rootCtxMenu.style.left = `${x}px`;
+    this.rootCtxMenu.style.top = `${y}px`;
+    this.rootCtxMenu.hidden = false;
+  }
+
   private closeCtx(): void {
     this.ctxMenu.hidden = true;
+    this.rootCtxMenu.hidden = true;
     this.ctxTarget = null;
   }
 
@@ -155,7 +198,15 @@ export class ProjectPanel {
   private render(): void {
     this.treeEl.replaceChildren();
 
-    const root = this.folder(this.treeEl, `Проект «${this.project.name}»`, 0, true, groupIcon());
+    const root = this.folder(
+      this.treeEl,
+      `Проект «${this.project.name}»`,
+      0,
+      true,
+      groupIcon(),
+      false,
+      (e) => this.showRootCtx(e.clientX, e.clientY),
+    );
     const doc = this.folder(root, "Схема электрическая", 1, true, groupIcon());
 
     this.project.pages.forEach((page, i) => {
@@ -176,10 +227,17 @@ export class ProjectPanel {
     expanded: boolean,
     icon: SVGSVGElement,
     dim = false,
+    onContext?: (e: MouseEvent) => void,
   ): HTMLElement {
     const node = document.createElement("div");
     node.className = "tree-node folder" + (dim ? " dim" : "");
     node.style.paddingLeft = `${4 + depth * 12}px`;
+    if (onContext) {
+      node.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        onContext(e);
+      });
+    }
 
     const tw = document.createElement("span");
     tw.className = "tree-exp";

@@ -619,8 +619,39 @@ body.resizing #canvas {
   color: var(--text);
 }
 
-#props::backdrop {
+#props::backdrop,
+#project-settings::backdrop {
   background: rgb(20 26 35 / 32%);
+}
+
+#project-settings {
+  border: 1px solid var(--border);
+  padding: 0;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 28%);
+  min-width: 300px;
+  color: var(--text);
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.modal-form h3 {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.prop-row input:disabled {
+  color: var(--text-dim);
+  background: var(--panel);
 }
 
 #props-form {
