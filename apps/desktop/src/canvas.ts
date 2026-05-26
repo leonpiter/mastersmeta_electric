@@ -16,6 +16,7 @@ import {
   MirrorInstanceCommand,
   RemoveInstanceCommand,
   MoveInstanceCommand,
+  AddWireCommand,
   type Page,
   type Point,
   type Rect,
@@ -36,6 +37,8 @@ export interface CanvasHooks {
   onArmedChange?: (symbolId: string | null) => void;
   /** Запрос на редактирование свойств инстанса (двойной клик). */
   onRequestEdit?: (inst: SymbolInstance) => void;
+  /** Включён/выключен инструмент «Провод». */
+  onWireModeChange?: (active: boolean) => void;
 }
 
 function el<K extends keyof SVGElementTagNameMap>(
@@ -71,6 +74,7 @@ export class CanvasView {
   private readonly gridPath: SVGPathElement;
   private readonly content: SVGGElement;
   private readonly sheetG: SVGGElement;
+  private readonly wiresG: SVGGElement;
   private readonly instancesG: SVGGElement;
   private readonly overlayG: SVGGElement;
   private readonly nodesG: SVGGElement;
@@ -88,6 +92,9 @@ export class CanvasView {
   /** Ориентация для следующей вставки. */
   private pendingRotation: Rotation = 0;
   private pendingMirror = false;
+  /** Режим рисования провода и его текущая стартовая точка (цепочка). */
+  private wireMode = false;
+  private wireStart: Point | null = null;
   /** Текущее перетаскивание инстанса. */
   private dragging: {
     inst: SymbolInstance;
@@ -130,6 +137,7 @@ export class CanvasView {
 
     this.content = el("g");
     this.sheetG = el("g");
+    this.wiresG = el("g");
     this.instancesG = el("g");
     this.overlayG = el("g");
     this.nodesG = el("g");
@@ -141,9 +149,10 @@ export class CanvasView {
       "stroke-width": 0.4,
       visibility: "hidden",
     });
-    // снизу вверх: лист → символы → выделение/подписи → узлы → курсор → «призрак»
+    // снизу вверх: лист → провода → символы → выделение/подписи → узлы → курсор → «призрак»
     this.content.append(
       this.sheetG,
+      this.wiresG,
       this.instancesG,
       this.overlayG,
       this.nodesG,
@@ -156,9 +165,11 @@ export class CanvasView {
     this.installEvents();
     this.renderSheet();
     this.resetView();
+    this.renderWires();
     this.renderInstances();
     this.renderNodes();
     this.stack.subscribe(() => {
+      this.renderWires();
       this.renderInstances();
       this.renderNodes();
       this.updateHud();
@@ -205,11 +216,13 @@ export class CanvasView {
 
   /** Переключить показываемый лист: перерисовать и вписать в окно. */
   setPage(page: Page): void {
+    this.exitWireMode();
     this.page = page;
     this.selected = null;
     this.armed = null;
     this.hooks.onArmedChange?.(null);
     this.renderSheet();
+    this.renderWires();
     this.renderInstances();
     this.renderNodes();
     this.resetView();
@@ -490,6 +503,24 @@ export class CanvasView {
     }
   }
 
+  private renderWires(): void {
+    this.wiresG.replaceChildren();
+    for (const w of this.page.wires) {
+      if (w.points.length < 2) continue;
+      const d = w.points.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" ");
+      this.wiresG.append(
+        el("path", {
+          d,
+          fill: "none",
+          stroke: "#1a1a1a",
+          "stroke-width": w.type === "power" ? 0.5 : 0.3,
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+        }),
+      );
+    }
+  }
+
   // ----- расстановка символов (S2) -----
 
   /** SVG-трансформ инстанса: совпадает с `transformLocalPoint` (зеркало→поворот→сдвиг). */
@@ -559,6 +590,22 @@ export class CanvasView {
 
   private renderGhost(): void {
     this.ghostG.replaceChildren();
+    if (this.wireMode) {
+      if (!this.wireStart) return;
+      const p = snapPoint(this.last, this.page.gridStep);
+      this.ghostG.append(
+        el("line", {
+          x1: this.wireStart.x,
+          y1: this.wireStart.y,
+          x2: p.x,
+          y2: p.y,
+          stroke: "#1b6fc4",
+          "stroke-width": 0.5,
+          "stroke-dasharray": "1.5 1",
+        }),
+      );
+      return;
+    }
     if (!this.armed) return;
     const p = snapPoint(this.last, this.page.gridStep);
     const g = symbolToSvg(this.armed, { stroke: "#1b6fc4", pins: true, opacity: 0.5 });
@@ -590,6 +637,7 @@ export class CanvasView {
 
   /** Взвести символ для вставки (режим вставки). */
   arm(sym: SymbolDef): void {
+    this.exitWireMode();
     this.armed = sym;
     this.selected = null;
     this.pendingRotation = 0;
@@ -607,6 +655,30 @@ export class CanvasView {
     this.svg.style.cursor = "";
     this.ghostG.replaceChildren();
     this.hooks.onArmedChange?.(null);
+    this.updateHud();
+  }
+
+  /** Включить инструмент «Провод» (1-Wide): клики задают точки полилинии. */
+  armWire(): void {
+    this.armed = null;
+    this.selected = null;
+    this.wireMode = true;
+    this.wireStart = null;
+    this.svg.style.cursor = "crosshair";
+    this.hooks.onArmedChange?.(null);
+    this.hooks.onWireModeChange?.(true);
+    this.renderInstances();
+    this.ghostG.replaceChildren();
+    this.updateHud();
+  }
+
+  private exitWireMode(): void {
+    if (!this.wireMode) return;
+    this.wireMode = false;
+    this.wireStart = null;
+    this.svg.style.cursor = "";
+    this.ghostG.replaceChildren();
+    this.hooks.onWireModeChange?.(false);
     this.updateHud();
   }
 
@@ -640,8 +712,18 @@ export class CanvasView {
     this.stack.execute(new RemoveInstanceCommand(this.page, inst));
   }
 
-  /** Esc — выйти из вставки, иначе снять выделение. */
+  /** Esc — завершить/прервать провод, выйти из вставки, иначе снять выделение. */
   cancelPlacement(): void {
+    if (this.wireMode) {
+      if (this.wireStart) {
+        this.wireStart = null; // завершить текущую цепочку, остаться в режиме
+        this.renderGhost();
+        this.updateHud();
+      } else {
+        this.exitWireMode();
+      }
+      return;
+    }
     if (this.armed) this.disarm();
     else this.select(null);
   }
@@ -656,11 +738,15 @@ export class CanvasView {
 
   private updateHud(): void {
     const fmt = (v: number): string => v.toFixed(1);
-    const mode = this.armed
-      ? `Вставка: ${this.armed.componentCode}${this.pendingMirror ? " ↔" : ""}${this.pendingRotation ? ` ${this.pendingRotation}°` : ""}`
-      : this.selected
-        ? `Выбран: ${this.selected.designation}`
-        : "Выбор";
+    const mode = this.wireMode
+      ? this.wireStart
+        ? "Провод: укажите конец (Esc — завершить)"
+        : "Провод: укажите начало"
+      : this.armed
+        ? `Вставка: ${this.armed.componentCode}${this.pendingMirror ? " ↔" : ""}${this.pendingRotation ? ` ${this.pendingRotation}°` : ""}`
+        : this.selected
+          ? `Выбран: ${this.selected.designation}`
+          : "Выбор";
     this.hud.textContent =
       `${this.page.format.name}  ·  Zoom ${Math.round(this.zoom * 100)}%  ·  ` +
       `Курсор ${fmt(this.last.x)}, ${fmt(this.last.y)} мм  ·  ` +
@@ -674,8 +760,8 @@ export class CanvasView {
       svg.setPointerCapture(e.pointerId);
       this.down = { x: e.clientX, y: e.clientY, button: e.button, moved: false };
 
-      // ЛКМ по существующему символу (вне режима вставки) — выбрать и готовить перетаскивание
-      if (!this.armed && e.button === 0) {
+      // ЛКМ по существующему символу (вне вставки/провода) — выбрать и готовить перетаскивание
+      if (!this.armed && !this.wireMode && e.button === 0) {
         const r = svg.getBoundingClientRect();
         this.last = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
         const hit = this.hitTest(this.last);
@@ -739,7 +825,16 @@ export class CanvasView {
       }
 
       if (this.down?.button === 0 && !this.down.moved) {
-        if (this.armed) {
+        if (this.wireMode) {
+          const p = snapPoint(this.last, this.page.gridStep);
+          if (!this.wireStart) {
+            this.wireStart = p;
+          } else if (p.x !== this.wireStart.x || p.y !== this.wireStart.y) {
+            this.stack.execute(new AddWireCommand(this.page, [this.wireStart, p], "power"));
+            this.wireStart = p; // продолжаем цепочку от конца
+          }
+          this.renderGhost();
+        } else if (this.armed) {
           const p = snapPoint(this.last, this.page.gridStep);
           const cmd = new AddSymbolInstanceCommand(this.page, this.armed, p.x, p.y, {
             rotation: this.pendingRotation,

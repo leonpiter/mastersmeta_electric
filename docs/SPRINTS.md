@@ -7,7 +7,7 @@
 
 | | | | |
 |---|---|---|---|
-| [S0 ✅](sprints/archive/S00-skeleton.md) | [S1 ✅](sprints/archive/S01-sheet-titleblock.md) | [S2 🚧](sprints/S02-symbols-library.md) | [S3](sprints/S03-wires-connectivity.md) |
+| [S0 ✅](sprints/archive/S00-skeleton.md) | [S1 ✅](sprints/archive/S01-sheet-titleblock.md) | [S2 🚧](sprints/S02-symbols-library.md) | [S3 🚧](sprints/S03-wires-connectivity.md) |
 | [S4](sprints/S04-wire-numbering.md) | [S5](sprints/S05-master-slave-xref.md) | [S6](sprints/S06-catalog.md) | [S7](sprints/S07-reports.md) |
 | [S8](sprints/S08-terminals-connectors.md) | [S9](sprints/S09-symbol-editor.md) | [S10](sprints/S10-cabinet-layout.md) | [S11](sprints/S11-shell-autoupdate.md) |
 | [S12](sprints/S12-open-formats-packs.md) | [S13](sprints/S13-community-registry.md) | [S14](sprints/S14-core-api.md) | [S15](sprints/S15-skills.md) |

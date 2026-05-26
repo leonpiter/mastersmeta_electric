@@ -27,6 +27,7 @@ let panel: LibraryPanel | undefined;
 const view = new CanvasView(svg, activePage(project), stack, hud, library, {
   onArmedChange: (id) => panel?.setActive(id),
   onRequestEdit: (inst) => openProps(inst),
+  onWireModeChange: (active) => wireBtn.classList.toggle("on", active),
 });
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
 
@@ -186,6 +187,9 @@ pdfBtn.addEventListener("click", () => {
 rotateBtn.addEventListener("click", () => view.rotateSelectedOrPending());
 mirrorBtn.addEventListener("click", () => view.mirrorSelectedOrPending());
 deleteBtn.addEventListener("click", () => view.deleteSelected());
+
+const wireBtn = document.getElementById("wire-1") as HTMLButtonElement;
+wireBtn.addEventListener("click", () => view.armWire());
 
 // ----- меню сетки (показать/скрыть + шаг) -----
 const gridBtn = document.getElementById("grid") as HTMLButtonElement;
