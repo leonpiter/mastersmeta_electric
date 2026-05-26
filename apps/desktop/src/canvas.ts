@@ -322,6 +322,14 @@ export class CanvasView {
     this.renderWires();
   }
 
+  /** Полная перерисовка слоёв (напр. после правки символа в библиотеке, S9). */
+  rerender(): void {
+    this.renderWires();
+    this.renderInstances();
+    this.renderAnnotations();
+    this.renderNodes();
+  }
+
   /** Автонумерация цепей (ГОСТ 2.709): по потенциалам или по проводам. Обратима. */
   autoNumber(opts: AutoNumberOptions = {}): void {
     this.stack.execute(new AutoNumberCommand(this.page, this.library, opts));

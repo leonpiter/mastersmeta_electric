@@ -22,6 +22,7 @@ import {
   Catalog,
   BUILTIN_PARTS,
   partLabel,
+  type SymbolDef,
   type SymbolInstance,
   type Wire,
   type Project,
@@ -29,6 +30,8 @@ import {
 import { CanvasView } from "./canvas";
 import { LibraryPanel } from "./library-panel";
 import { ProjectPanel } from "./project-panel";
+import { SymbolEditor } from "./symbol-editor";
+import { loadUserSymbols, upsertUserSymbol, removeUserSymbol, userSymbolIds } from "./user-symbols";
 
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
 const hud = document.getElementById("hud-info")!;
@@ -39,6 +42,11 @@ const project = createProject(); // 1 лист A3
 const stack = new CommandStack();
 const library = new SymbolLibrary(GOST_SYMBOLS);
 const catalog = new Catalog(BUILTIN_PARTS);
+
+// пользовательские УГО (S9): перекрывают системные по id
+const GOST_IDS = new Set(GOST_SYMBOLS.map((s) => s.id));
+for (const s of loadUserSymbols()) library.add(s);
+let userIds = userSymbolIds();
 
 let panel: LibraryPanel | undefined;
 const view = new CanvasView(svg, activePage(project), stack, hud, library, {
@@ -66,7 +74,40 @@ const view = new CanvasView(svg, activePage(project), stack, hud, library, {
     tdInput.focus();
   },
 });
-panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym));
+// редактор УГО (S9): сохранение в пользовательскую библиотеку (override по id)
+function applyUserSymbol(sym: SymbolDef): void {
+  upsertUserSymbol(sym);
+  library.add(sym);
+  userIds = userSymbolIds();
+  panel?.refresh();
+  view.rerender();
+}
+const symbolEditor = new SymbolEditor(applyUserSymbol);
+
+panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
+  onCreate: () => symbolEditor.open(),
+  onEdit: (sym) => symbolEditor.open(sym),
+  onDuplicate: (sym) => symbolEditor.open(sym, { asCopy: true }),
+  onReset: (id) => {
+    removeUserSymbol(id);
+    const orig = GOST_SYMBOLS.find((s) => s.id === id);
+    if (orig) library.add(orig);
+    else library.remove(id);
+    userIds = userSymbolIds();
+    panel?.refresh();
+    view.rerender();
+  },
+  onDelete: (id) => {
+    removeUserSymbol(id);
+    library.remove(id);
+    userIds = userSymbolIds();
+    panel?.refresh();
+    view.rerender();
+  },
+  isUser: (id) => userIds.has(id),
+  canReset: (id) => GOST_IDS.has(id) && userIds.has(id),
+  canDelete: (id) => userIds.has(id) && !GOST_IDS.has(id),
+});
 
 const projectPanel = new ProjectPanel(projectEl, project, {
   onSelect: (id) => {

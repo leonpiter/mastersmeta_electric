@@ -490,6 +490,64 @@
       </form>
     </dialog>
 
+    <dialog id="symbol-editor">
+      <form method="dialog" class="modal-form modal-wide">
+        <h3 id="se-title">Редактор символа</h3>
+        <div class="se-layout">
+          <div class="se-fields">
+            <div class="prop-row">
+              <label for="se-name">Название</label>
+              <input id="se-name" type="text" autocomplete="off" />
+            </div>
+            <div class="prop-row">
+              <label for="se-code">Код ГОСТ (префикс сиглы)</label>
+              <input id="se-code" type="text" autocomplete="off" placeholder="QF / KM / …" />
+            </div>
+            <div class="prop-row">
+              <label for="se-cat">Категория</label>
+              <input id="se-cat" type="text" autocomplete="off" placeholder="Коммутация" />
+            </div>
+            <div class="prop-row">
+              <label for="se-kind">Поведение</label>
+              <select id="se-kind">
+                <option value="component">Компонент (уникальная сигла)</option>
+                <option value="component-aux">Компонент + контакты (автомат)</option>
+                <option value="coil">Катушка (master)</option>
+                <option value="contact-no">Контакт НО</option>
+                <option value="contact-nc">Контакт НЗ</option>
+                <option value="terminal">Клемма</option>
+                <option value="connector">Разъём</option>
+                <option value="black-box">Прочее</option>
+              </select>
+            </div>
+            <div class="prop-row">
+              <label>Инструмент</label>
+              <div class="se-tools">
+                <button type="button" data-tool="line" class="on">Линия</button>
+                <button type="button" data-tool="rect">Прямоуг.</button>
+                <button type="button" data-tool="circle">Окружн.</button>
+                <button type="button" data-tool="pin">Вывод</button>
+              </div>
+            </div>
+            <div class="prop-row">
+              <label for="se-pinname">Имя вывода (для инструмента «Вывод»)</label>
+              <input id="se-pinname" type="text" value="1" autocomplete="off" />
+            </div>
+            <div class="se-tools">
+              <button type="button" id="se-undo" class="btn-secondary">Убрать последнее</button>
+              <button type="button" id="se-clear" class="btn-secondary">Очистить</button>
+            </div>
+            <div id="se-hint" class="prop-type"></div>
+          </div>
+          <svg id="se-canvas"></svg>
+        </div>
+        <div class="prop-actions">
+          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
+          <button type="button" id="se-save">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="text-dialog">
       <form method="dialog" class="modal-form">
         <h3>Текст</h3>

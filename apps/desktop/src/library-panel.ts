@@ -9,6 +9,21 @@ import { symbolIcon } from "./symbol-render";
 const FAV_KEY = "see.favorites";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+/** Колбэки панели библиотеки для редактора УГО (S9). */
+export interface LibraryHandlers {
+  onCreate?: () => void;
+  onEdit?: (sym: SymbolDef) => void;
+  onDuplicate?: (sym: SymbolDef) => void;
+  onReset?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  /** id пользовательских символов (бейдж «мой»). */
+  isUser?: (id: string) => boolean;
+  /** системный УГО с override → доступен «сброс к системному». */
+  canReset?: (id: string) => boolean;
+  /** пользовательский УГО → доступно удаление. */
+  canDelete?: (id: string) => boolean;
+}
+
 function loadFavorites(): Set<string> {
   try {
     const raw = localStorage.getItem(FAV_KEY);
@@ -48,18 +63,40 @@ export class LibraryPanel {
   private readonly favorites: Set<string>;
   private readonly listEl: HTMLElement;
 
+  private readonly ctxMenu: HTMLElement;
+
   constructor(
     container: HTMLElement,
     private readonly library: SymbolLibrary,
     private readonly onPick: (sym: SymbolDef) => void,
+    private readonly handlers: LibraryHandlers = {},
   ) {
     this.favorites = loadFavorites();
     container.replaceChildren();
 
     const header = document.createElement("div");
     header.className = "panel-header";
-    header.textContent = "Символы";
+    const title = document.createElement("span");
+    title.textContent = "Символы";
+    header.append(title);
+    if (handlers.onCreate) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "panel-header-btn";
+      add.textContent = "＋";
+      add.title = "Создать символ (УГО)";
+      add.addEventListener("click", () => handlers.onCreate?.());
+      header.append(add);
+    }
     container.append(header);
+
+    // контекстное меню символа (правка/дубль/сброс/удаление)
+    this.ctxMenu = document.createElement("div");
+    this.ctxMenu.className = "dropdown";
+    this.ctxMenu.hidden = true;
+    this.ctxMenu.addEventListener("click", (e) => e.stopPropagation());
+    document.body.append(this.ctxMenu);
+    document.addEventListener("click", () => (this.ctxMenu.hidden = true));
 
     const filterRow = document.createElement("div");
     filterRow.className = "lib-filter";
@@ -172,6 +209,13 @@ export class LibraryPanel {
     const nm = document.createElement("span");
     nm.className = "nm";
     nm.textContent = sym.name;
+    if (this.handlers.isUser?.(sym.id)) {
+      const badge = document.createElement("span");
+      badge.className = "lib-badge";
+      badge.textContent = "мой";
+      badge.title = "Пользовательский символ / override";
+      nm.append(" ", badge);
+    }
 
     const star = document.createElement("span");
     star.className = "star" + (this.favorites.has(sym.id) ? " on" : "");
@@ -187,7 +231,41 @@ export class LibraryPanel {
 
     row.append(ico, nm, star);
     row.addEventListener("click", () => this.onPick(sym));
+    row.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.openCtx(sym, e.clientX, e.clientY);
+    });
     return row;
+  }
+
+  /** Контекстное меню символа: правка / дубль / сброс / удаление (S9). */
+  private openCtx(sym: SymbolDef, x: number, y: number): void {
+    const h = this.handlers;
+    if (!h.onEdit && !h.onDuplicate && !h.onReset && !h.onDelete) return;
+    this.ctxMenu.replaceChildren();
+    const item = (label: string, fn: () => void): void => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "dd-item";
+      b.textContent = label;
+      b.addEventListener("click", () => {
+        this.ctxMenu.hidden = true;
+        fn();
+      });
+      this.ctxMenu.append(b);
+    };
+    if (h.onEdit) item("Редактировать…", () => h.onEdit?.(sym));
+    if (h.onDuplicate) item("Дублировать…", () => h.onDuplicate?.(sym));
+    if (h.canReset?.(sym.id) && h.onReset) item("Сбросить к системному", () => h.onReset?.(sym.id));
+    if (h.canDelete?.(sym.id) && h.onDelete) item("Удалить", () => h.onDelete?.(sym.id));
+    this.ctxMenu.style.left = `${x}px`;
+    this.ctxMenu.style.top = `${y}px`;
+    this.ctxMenu.hidden = false;
+  }
+
+  /** Перерисовать список (после изменения библиотеки). */
+  refresh(): void {
+    this.renderList();
   }
 
   private markActive(id: string): void {

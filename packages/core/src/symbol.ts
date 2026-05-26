@@ -254,6 +254,15 @@ export class SymbolLibrary {
     this.map.set(sym.id, sym);
   }
 
+  /** Удалить символ из библиотеки (S9: удаление пользовательского УГО). */
+  remove(id: string): void {
+    this.map.delete(id);
+  }
+
+  has(id: string): boolean {
+    return this.map.has(id);
+  }
+
   get(id: string): SymbolDef | undefined {
     return this.map.get(id);
   }

@@ -105,6 +105,7 @@ body.resizing #canvas {
   height: 23px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 8px;
   background: linear-gradient(var(--header-1), var(--header-2));
   border-bottom: 1px solid var(--border);
@@ -873,6 +874,73 @@ body.resizing #canvas {
   font-size: 12px;
   color: var(--text-dim);
   padding: 8px;
+}
+
+/* ---- редактор УГО (S9) ---- */
+.se-layout {
+  display: flex;
+  gap: 14px;
+}
+
+.se-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 280px;
+}
+
+.se-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.se-tools button {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.se-tools button.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+#se-canvas {
+  width: 360px;
+  height: 360px;
+  border: 1px solid var(--border);
+  background: #fff;
+  touch-action: none;
+}
+
+.panel-header-btn {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.panel-header-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.lib-badge {
+  font-size: 9px;
+  padding: 0 4px;
+  border: 1px solid #5a9b6f;
+  color: #2e7d4f;
+  border-radius: 0;
 }
 
 /* ---- перечень элементов (ГОСТ 2.701) ---- */
