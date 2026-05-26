@@ -27,6 +27,17 @@ describe("каталог изделий", () => {
     const codes = BUILTIN_PARTS.map((p) => p.code);
     expect(new Set(codes).size).toBe(codes.length);
   });
+
+  it("двухуровневый выбор: производители по коду + фильтр по марке", () => {
+    const cat = new Catalog(BUILTIN_PARTS);
+    const makers = cat.manufacturers("QF");
+    expect(makers).toContain("IEK");
+    expect(makers).toContain("ABB");
+    expect(makers).toEqual([...makers].sort((a, b) => a.localeCompare(b, "ru"))); // отсортированы
+    const abbQf = cat.byCodeAndManufacturer("QF", "ABB");
+    expect(abbQf.length).toBeGreaterThan(0);
+    expect(abbQf.every((p) => p.manufacturer === "ABB" && p.componentCode === "QF")).toBe(true);
+  });
 });
 
 describe("артикул устройства (Device.catalogCode)", () => {

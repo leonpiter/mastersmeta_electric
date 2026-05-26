@@ -242,41 +242,55 @@ const desigInput = document.getElementById("prop-desig") as HTMLInputElement;
 const typeEl = document.getElementById("prop-type")!;
 const showLabelsInput = document.getElementById("prop-showlabels") as HTMLInputElement;
 const partSelect = document.getElementById("prop-part") as HTMLSelectElement;
+const makerSelect = document.getElementById("prop-maker") as HTMLSelectElement;
 let editing: SymbolInstance | null = null;
+let editingCode = ""; // ГОСТ-код редактируемого инстанса (для перефильтра по марке)
 
-/** Наполнить выпадающий список изделий по ГОСТ-коду; current — текущая привязка. */
-function fillParts(componentCode: string, current?: string): void {
-  partSelect.replaceChildren();
-  const none = document.createElement("option");
-  none.value = "";
-  none.textContent = "— без привязки —";
-  partSelect.append(none);
+function opt(value: string, text: string): HTMLOptionElement {
+  const o = document.createElement("option");
+  o.value = value;
+  o.textContent = text;
+  return o;
+}
 
-  const applicable = catalog.byComponentCode(componentCode);
-  for (const p of applicable) {
-    const o = document.createElement("option");
-    o.value = p.code;
-    o.textContent = `${p.code} · ${partLabel(p)}`;
-    partSelect.append(o);
-  }
-  // текущий код из другой группы — добавить, чтобы не потерять привязку
+/** Наполнить список производителей по ГОСТ-коду; current — текущая марка. */
+function fillMakers(componentCode: string, current: string): void {
+  makerSelect.replaceChildren(opt("", "— любой —"));
+  for (const m of catalog.manufacturers(componentCode)) makerSelect.append(opt(m, m));
+  makerSelect.value = current;
+}
+
+/**
+ * Наполнить список изделий по ГОСТ-коду и марке (пустая марка = все производители).
+ * current — текущая привязка (сохраняется, даже если из другой группы).
+ */
+function fillParts(componentCode: string, maker: string, current?: string): void {
+  partSelect.replaceChildren(opt("", "— без привязки —"));
+  const applicable = maker
+    ? catalog.byCodeAndManufacturer(componentCode, maker)
+    : catalog.byComponentCode(componentCode);
+  for (const p of applicable) partSelect.append(opt(p.code, `${p.code} · ${partLabel(p)}`));
+  // текущий код вне выборки — добавить, чтобы не потерять привязку
   if (current && !applicable.some((p) => p.code === current)) {
     const part = catalog.get(current);
-    const o = document.createElement("option");
-    o.value = current;
-    o.textContent = part ? `${current} · ${partLabel(part)}` : current;
-    partSelect.append(o);
+    partSelect.append(opt(current, part ? `${current} · ${partLabel(part)}` : current));
   }
   partSelect.value = current ?? "";
 }
 
+// смена производителя — перефильтровать изделия (сбросить выбор на «без привязки»)
+makerSelect.addEventListener("change", () => fillParts(editingCode, makerSelect.value));
+
 function openProps(inst: SymbolInstance): void {
   editing = inst;
+  editingCode = inst.componentCode;
   desigInput.value = inst.designation;
   showLabelsInput.checked = inst.showLabels;
   const sym = library.get(inst.symbolId);
   typeEl.textContent = sym ? `${sym.name} · ${sym.componentCode}` : inst.symbolId;
-  fillParts(inst.componentCode, inst.catalogCode);
+  const currentMaker = inst.catalogCode ? (catalog.get(inst.catalogCode)?.manufacturer ?? "") : "";
+  fillMakers(inst.componentCode, currentMaker);
+  fillParts(inst.componentCode, currentMaker, inst.catalogCode);
   dialog.showModal();
   desigInput.focus();
   desigInput.select();

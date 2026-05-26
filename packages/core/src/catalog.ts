@@ -48,6 +48,17 @@ export class Catalog {
   byComponentCode(code: string): CatalogPart[] {
     return this.all().filter((p) => p.componentCode === code);
   }
+
+  /** Изделия по ГОСТ-коду и производителю (двухуровневый выбор в свойствах). */
+  byCodeAndManufacturer(code: string, manufacturer: string): CatalogPart[] {
+    return this.byComponentCode(code).filter((p) => p.manufacturer === manufacturer);
+  }
+
+  /** Производители, у которых есть изделия для ГОСТ-кода (по алфавиту). */
+  manufacturers(code: string): string[] {
+    const set = new Set(this.byComponentCode(code).map((p) => p.manufacturer));
+    return [...set].sort((a, b) => a.localeCompare(b, "ru"));
+  }
 }
 
 /** Короткая строка изделия для подписи: «производитель тип номинал». */
