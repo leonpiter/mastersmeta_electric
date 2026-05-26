@@ -147,6 +147,19 @@
                 </svg>
                 <span>Перечень</span>
               </button>
+              <button
+                id="report-conn"
+                type="button"
+                title="Таблица соединений (ГОСТ 2.701): экспорт CSV / печать"
+              >
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <circle cx="3.5" cy="4" r="1.3" fill="currentColor" />
+                  <circle cx="3.5" cy="12" r="1.3" fill="currentColor" />
+                  <circle cx="12.5" cy="8" r="1.3" fill="currentColor" />
+                  <path d="M3.5 4H8a4 4 0 0 1 4 4M3.5 12H8a4 4 0 0 0 4-4" />
+                </svg>
+                <span>Соединения</span>
+              </button>
             </div>
             <div class="rgroup-cap">Отчёты</div>
           </div>
@@ -485,6 +498,18 @@
         <div class="prop-actions">
           <button value="csv" type="button" id="bom-csv" class="btn-secondary">Экспорт CSV</button>
           <button value="print" type="button" id="bom-print" class="btn-secondary">Печать…</button>
+          <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="conn-dialog">
+      <form method="dialog" class="modal-form modal-wide">
+        <h3>Таблица соединений</h3>
+        <div id="conn-body" class="bom-body"></div>
+        <div class="prop-actions">
+          <button value="csv" type="button" id="conn-csv" class="btn-secondary">Экспорт CSV</button>
+          <button value="print" type="button" id="conn-print" class="btn-secondary">Печать…</button>
           <button value="ok" type="submit">Закрыть</button>
         </div>
       </form>

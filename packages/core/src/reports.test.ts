@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeBom, bomToCsv } from "./reports";
+import { computeBom, bomToCsv, computeConnections, connectionsToCsv } from "./reports";
 import { Catalog } from "./catalog";
 import { createProject, type Project, type SymbolInstance } from "./model";
 import { SymbolLibrary, type SymbolDef } from "./symbol";
@@ -85,5 +85,84 @@ describe("перечень элементов (BOM)", () => {
     const lines = csv.split("\r\n");
     expect(lines[0]).toBe("Поз. обозначение;Наименование;Кол.;Примечание");
     expect(lines[1]).toBe('QF1;"Авт; «ВА»";1;X'); // запятая→кавычки из-за ;
+  });
+});
+
+describe("таблица соединений", () => {
+  const coil2: SymbolDef = {
+    id: "t.coil2",
+    name: "Катушка",
+    category: "c",
+    componentCode: "KM",
+    kind: "coil",
+    pins: [
+      { name: "A1", x: 0, y: 0 },
+      { name: "A2", x: 0, y: 15 },
+    ],
+    graphics: [],
+  };
+  const brk2: SymbolDef = {
+    id: "t.brk2",
+    name: "Автомат",
+    category: "c",
+    componentCode: "QF",
+    kind: "component-aux",
+    pins: [
+      { name: "1", x: 0, y: 0 },
+      { name: "2", x: 0, y: 15 },
+    ],
+    graphics: [],
+  };
+  const lib2 = new SymbolLibrary([coil2, brk2]);
+
+  function instAt(sym: SymbolDef, designation: string, x: number, y: number): SymbolInstance {
+    return {
+      id: newId(),
+      symbolId: sym.id,
+      designation,
+      componentCode: sym.componentCode,
+      x,
+      y,
+      rotation: 0,
+      mirror: false,
+      showLabels: true,
+    };
+  }
+
+  it("цепь с двумя выводами → строка соединения", () => {
+    const p = createProject();
+    p.pages[0].instances.push(instAt(coil2, "KM1", 0, 0), instAt(brk2, "QF1", 10, 0));
+    // провод соединяет KM1:A1 (0,0) и QF1:1 (10,0)
+    p.pages[0].wires.push({
+      id: newId(),
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+      type: "power",
+      number: "1",
+      section: "2.5",
+    });
+    const rows = computeConnections(p, lib2);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].net).toBe("1");
+    expect(rows[0].pins).toBe("KM1:A1 · QF1:1"); // отсортировано
+    expect(rows[0].wire).toBe("силовой · 2.5 мм²");
+    expect(rows[0].sheet).toBe("1");
+  });
+
+  it("висящие выводы (цепь из одного вывода) не попадают", () => {
+    const p = createProject();
+    p.pages[0].instances.push(instAt(coil2, "KM1", 0, 0));
+    expect(computeConnections(p, lib2)).toHaveLength(0);
+  });
+
+  it("connectionsToCsv: заголовок и поля", () => {
+    const csv = connectionsToCsv([
+      { net: "1", pins: "KM1:A1 · QF1:1", wire: "силовой", sheet: "1" },
+    ]);
+    const lines = csv.split("\r\n");
+    expect(lines[0]).toBe("Цепь;Соединяемые выводы;Провод;Лист");
+    expect(lines[1]).toBe("1;KM1:A1 · QF1:1;силовой;1");
   });
 });

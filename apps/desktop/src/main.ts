@@ -15,10 +15,11 @@ import {
   findUnlinked,
   computeBom,
   bomToCsv,
+  computeConnections,
+  connectionsToCsv,
   Catalog,
   BUILTIN_PARTS,
   partLabel,
-  type BomRow,
   type SymbolInstance,
   type Wire,
   type Project,
@@ -560,25 +561,13 @@ devicesBtn.addEventListener("click", () => {
   dlDialog.showModal();
 });
 
-// ----- перечень элементов (вкладка «Схема» → «Перечень», ГОСТ 2.701) -----
-const reportBomBtn = document.getElementById("report-bom") as HTMLButtonElement;
-const bomDialog = document.getElementById("bom-dialog") as HTMLDialogElement;
-const bomBody = document.getElementById("bom-body")!;
-const BOM_HEADERS = ["Поз. обозначение", "Наименование", "Кол.", "Примечание"];
-
-const currentBom = (): BomRow[] => computeBom(project, library, catalog);
-
-function renderBom(rows: BomRow[]): void {
-  bomBody.replaceChildren();
-  if (rows.length === 0) {
-    bomBody.append(dlLine("dl-empty", "На листах нет устройств."));
-    return;
-  }
+// ----- отчёты (вкладка «Схема» → «Отчёты», ГОСТ 2.701) -----
+function buildTable(headers: string[], rows: string[][]): HTMLTableElement {
   const table = document.createElement("table");
   table.className = "bom-table";
   const thead = document.createElement("thead");
   const htr = document.createElement("tr");
-  for (const h of BOM_HEADERS) {
+  for (const h of headers) {
     const th = document.createElement("th");
     th.textContent = h;
     htr.append(th);
@@ -587,7 +576,7 @@ function renderBom(rows: BomRow[]): void {
   const tbody = document.createElement("tbody");
   for (const r of rows) {
     const tr = document.createElement("tr");
-    for (const v of [r.designation, r.name, String(r.quantity), r.note]) {
+    for (const v of r) {
       const td = document.createElement("td");
       td.textContent = v;
       tr.append(td);
@@ -595,55 +584,93 @@ function renderBom(rows: BomRow[]): void {
     tbody.append(tr);
   }
   table.append(thead, tbody);
-  bomBody.append(table);
+  return table;
 }
 
-reportBomBtn.addEventListener("click", () => {
-  renderBom(currentBom());
-  bomDialog.showModal();
-});
+function showReport(
+  dialog: HTMLDialogElement,
+  body: HTMLElement,
+  headers: string[],
+  rows: string[][],
+  empty: string,
+): void {
+  body.replaceChildren(rows.length ? buildTable(headers, rows) : dlLine("dl-empty", empty));
+  dialog.showModal();
+}
 
-(document.getElementById("bom-csv") as HTMLButtonElement).addEventListener("click", () => {
+const projName = (): string => project.name || "project";
+
+function downloadCsv(filename: string, csv: string): void {
   // BOM (U+FEFF) в начале — чтобы Excel открыл кириллицу как UTF-8
-  const blob = new Blob(["﻿" + bomToCsv(currentBom())], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${project.name || "project"}-перечень.csv`;
+  a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
+}
 
-(document.getElementById("bom-print") as HTMLButtonElement).addEventListener("click", () => {
-  const rows = currentBom();
+function printReport(title: string, headers: string[], rows: string[][]): void {
   const esc = (s: string): string =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const title = `Перечень элементов — ${esc(project.name || "Проект")}`;
-  const head = `<tr>${BOM_HEADERS.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>`;
-  const body = rows
-    .map(
-      (r) =>
-        `<tr><td>${esc(r.designation)}</td><td class="nm">${esc(r.name)}</td>` +
-        `<td>${r.quantity}</td><td>${esc(r.note)}</td></tr>`,
-    )
-    .join("");
+  const head = `<tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>`;
+  const body = rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("");
   const css =
     "@page{size:A4;margin:15mm}body{font-family:sans-serif;font-size:11pt;color:#000}" +
     "h1{font-size:13pt}table{border-collapse:collapse;width:100%}" +
-    "th,td{border:1px solid #000;padding:3px 6px;text-align:left}" +
-    "th:nth-child(3),td:nth-child(3){text-align:center;width:14mm}" +
-    "th:first-child,td:first-child{width:34mm}";
+    "th,td{border:1px solid #000;padding:3px 6px;text-align:left}";
   const printJs = "window.onload=function(){window.focus();window.print();};";
   const html =
-    `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${title}</title>` +
-    `<style>${css}</style></head><body><h1>${title}</h1>` +
+    `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${esc(title)}</title>` +
+    `<style>${css}</style></head><body><h1>${esc(title)}</h1>` +
     `<table>${head}${body}</table><script>${printJs}</` +
     `script></body></html>`;
   const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
   const win = window.open(url, "_blank");
-  if (!win) window.alert("Разрешите всплывающие окна, чтобы напечатать перечень.");
+  if (!win) window.alert("Разрешите всплывающие окна для печати отчёта.");
   setTimeout(() => URL.revokeObjectURL(url), 60000);
-});
+}
+
+// перечень элементов
+const BOM_HEADERS = ["Поз. обозначение", "Наименование", "Кол.", "Примечание"];
+const bomRows = (): string[][] =>
+  computeBom(project, library, catalog).map((r) => [
+    r.designation,
+    r.name,
+    String(r.quantity),
+    r.note,
+  ]);
+const bomDialog = document.getElementById("bom-dialog") as HTMLDialogElement;
+const bomBody = document.getElementById("bom-body")!;
+(document.getElementById("report-bom") as HTMLButtonElement).addEventListener("click", () =>
+  showReport(bomDialog, bomBody, BOM_HEADERS, bomRows(), "На листах нет устройств."),
+);
+(document.getElementById("bom-csv") as HTMLButtonElement).addEventListener("click", () =>
+  downloadCsv(`${projName()}-перечень.csv`, bomToCsv(computeBom(project, library, catalog))),
+);
+(document.getElementById("bom-print") as HTMLButtonElement).addEventListener("click", () =>
+  printReport(`Перечень элементов — ${projName()}`, BOM_HEADERS, bomRows()),
+);
+
+// таблица соединений
+const CONN_HEADERS = ["Цепь", "Соединяемые выводы", "Провод", "Лист"];
+const connRows = (): string[][] =>
+  computeConnections(project, library).map((r) => [r.net, r.pins, r.wire, r.sheet]);
+const connDialog = document.getElementById("conn-dialog") as HTMLDialogElement;
+const connBody = document.getElementById("conn-body")!;
+(document.getElementById("report-conn") as HTMLButtonElement).addEventListener("click", () =>
+  showReport(connDialog, connBody, CONN_HEADERS, connRows(), "Нет соединений между устройствами."),
+);
+(document.getElementById("conn-csv") as HTMLButtonElement).addEventListener("click", () =>
+  downloadCsv(
+    `${projName()}-соединения.csv`,
+    connectionsToCsv(computeConnections(project, library)),
+  ),
+);
+(document.getElementById("conn-print") as HTMLButtonElement).addEventListener("click", () =>
+  printReport(`Таблица соединений — ${projName()}`, CONN_HEADERS, connRows()),
+);
 
 // ----- меню сетки (показать/скрыть + шаг) -----
 const gridBtn = document.getElementById("grid") as HTMLButtonElement;
