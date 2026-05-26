@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mastermeta.electro/schemas/part.schema.json",
+  "title": "CatalogPart",
+  "description": "Открытый формат изделия каталога *.part.json (Мастермета Электро). Одна позиция спецификации.",
+  "type": "object",
+  "required": ["code", "manufacturer", "type"],
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Артикул / код заказа — уникальный ключ, напр. «MVA40-1-016-C»."
+    },
+    "manufacturer": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "minLength": 1, "description": "Тип / серия, напр. «ВА47-29»." },
+    "rating": { "type": "string", "description": "Номинал / характеристика, напр. «C16»." },
+    "description": { "type": "string" },
+    "componentCode": {
+      "type": "string",
+      "description": "ГОСТ-код сиглы, к которому применимо изделие (QF/KM/K/…)."
+    }
+  }
+}
