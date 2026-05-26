@@ -65,6 +65,8 @@ body {
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
+  overflow-y: hidden; /* без вертикального спиннера (overflow-x:auto иначе делает y:auto) */
+  scrollbar-width: thin;
 }
 
 .ptab {
@@ -1061,14 +1063,6 @@ body.resizing #canvas {
 .panel-header-btn:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
-}
-
-.lib-badge {
-  font-size: 9px;
-  padding: 0 4px;
-  border: 1px solid #5a9b6f;
-  color: #2e7d4f;
-  border-radius: 0;
 }
 
 /* ---- перечень элементов (ГОСТ 2.701) ---- */

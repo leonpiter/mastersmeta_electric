@@ -110,7 +110,6 @@ panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
     panel?.refresh();
     view.rerender();
   },
-  isUser: (id) => userIds.has(id),
   canReset: (id) => GOST_IDS.has(id) && userIds.has(id),
   canDelete: (id) => userIds.has(id) && !GOST_IDS.has(id),
 });

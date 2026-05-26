@@ -16,8 +16,6 @@ export interface LibraryHandlers {
   onDuplicate?: (sym: SymbolDef) => void;
   onReset?: (id: string) => void;
   onDelete?: (id: string) => void;
-  /** id пользовательских символов (бейдж «мой»). */
-  isUser?: (id: string) => boolean;
   /** системный УГО с override → доступен «сброс к системному». */
   canReset?: (id: string) => boolean;
   /** пользовательский УГО → доступно удаление. */
@@ -209,13 +207,6 @@ export class LibraryPanel {
     const nm = document.createElement("span");
     nm.className = "nm";
     nm.textContent = sym.name;
-    if (this.handlers.isUser?.(sym.id)) {
-      const badge = document.createElement("span");
-      badge.className = "lib-badge";
-      badge.textContent = "мой";
-      badge.title = "Пользовательский символ / override";
-      nm.append(" ", badge);
-    }
 
     const star = document.createElement("span");
     star.className = "star" + (this.favorites.has(sym.id) ? " on" : "");
