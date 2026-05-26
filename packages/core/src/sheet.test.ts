@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FORMATS, frameRect, zoneGrid, TITLE_BLOCK_SIZE } from "./sheet";
+import { FORMATS, frameRect, zoneGrid, zoneOf, TITLE_BLOCK_SIZE } from "./sheet";
 
 describe("рамка (ГОСТ 2.301)", () => {
   it("A3: поля 20/5/5/5", () => {
@@ -19,6 +19,18 @@ describe("зонная сетка (ГОСТ 2.104)", () => {
     expect(zg.rowY).toHaveLength(7);
     expect(zg.colX[0]).toBe(20);
     expect(zg.colX[zg.cols]).toBeCloseTo(415);
+  });
+});
+
+describe("зона точки (zoneOf)", () => {
+  it("A3: верхний-левый угол рамки → 1A", () => {
+    expect(zoneOf(FORMATS.A3, { x: 21, y: 6 })).toBe("1A");
+  });
+  it("A3: за правым-нижним краем → последняя колонка/строка (8F)", () => {
+    expect(zoneOf(FORMATS.A3, { x: 410, y: 290 })).toBe("8F");
+  });
+  it("точка вне рамки слева/сверху → 1A (клампинг)", () => {
+    expect(zoneOf(FORMATS.A3, { x: 0, y: 0 })).toBe("1A");
   });
 });
 

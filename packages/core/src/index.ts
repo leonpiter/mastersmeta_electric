@@ -9,4 +9,5 @@ export * from "./command";
 export * from "./model";
 export * from "./commands";
 export * from "./connectivity";
+export * from "./devices";
 export * from "./persistence";

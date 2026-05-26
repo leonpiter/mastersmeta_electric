@@ -60,6 +60,25 @@ export function zoneGrid(format: SheetFormat, targetZone = 50): ZoneGrid {
   return { cols, rows, colX, rowY };
 }
 
+/** Индекс полосы (0..count-1), в которую попадает `v` по границам `edges` (длина count+1). */
+function bandIndex(edges: number[], v: number, count: number): number {
+  for (let i = count - 1; i >= 0; i--) {
+    if (v >= edges[i]) return i;
+  }
+  return 0;
+}
+
+/**
+ * Зона точки на листе (ГОСТ 2.104): номер колонки + буква строки, напр. «3B».
+ * Используется для кросс-референсов master/slave (S5): адрес «лист.зона».
+ */
+export function zoneOf(format: SheetFormat, p: { x: number; y: number }): string {
+  const zg = zoneGrid(format);
+  const col = bandIndex(zg.colX, p.x, zg.cols);
+  const row = bandIndex(zg.rowY, p.y, zg.rows);
+  return `${col + 1}${String.fromCharCode(65 + row)}`;
+}
+
 /** Размер основной надписи (ГОСТ 2.104, Форма 1), мм. */
 export const TITLE_BLOCK_SIZE = { width: 185, height: 55 } as const;
 
