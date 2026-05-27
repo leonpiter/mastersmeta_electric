@@ -127,6 +127,7 @@ const symbolEditor = new SymbolEditor(
     upsertUserCategory(cat);
     rebuildRegistry();
   },
+  (active) => setSymbolEditorRibbon(active),
 );
 
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
@@ -1393,15 +1394,36 @@ ribbonTabs.forEach((tab) => {
       }
       return;
     }
-    const name = tab.dataset.tab;
     closeFileMenu();
     closeNumberMenu();
-    ribbonTabs.forEach((t) => t.classList.toggle("active", t === tab));
-    ribbonPages.forEach((p) => {
-      p.hidden = p.dataset.tab !== name;
-    });
+    selectRibbonTab(tab);
   });
 });
+
+/** Активировать вкладку ленты: подсветить и показать её страницу. */
+function selectRibbonTab(tab: HTMLButtonElement): void {
+  ribbonTabs.forEach((t) => t.classList.toggle("active", t === tab));
+  ribbonPages.forEach((p) => {
+    p.hidden = p.dataset.tab !== tab.dataset.tab;
+  });
+}
+
+// режим редактора УГО (S28): показать/скрыть вкладку «Редактор УГО» и переключить ленту
+const symbolTab = document.querySelector<HTMLButtonElement>('.rtab[data-tab="symbol"]');
+let prevRibbonTab: HTMLButtonElement | null = null;
+function setSymbolEditorRibbon(active: boolean): void {
+  if (!symbolTab) return;
+  if (active) {
+    prevRibbonTab = document.querySelector<HTMLButtonElement>(".rtab.active");
+    symbolTab.hidden = false;
+    selectRibbonTab(symbolTab);
+  } else {
+    symbolTab.hidden = true;
+    const back =
+      prevRibbonTab ?? document.querySelector<HTMLButtonElement>('.rtab[data-tab="edit"]');
+    if (back) selectRibbonTab(back);
+  }
+}
 
 const refresh = (): void => {
   undoBtn.disabled = !stack.canUndo();
@@ -1416,7 +1438,13 @@ window.addEventListener("keydown", (e) => {
   const typing =
     !!target &&
     (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
-  if (typing || document.querySelector("dialog[open]")) return;
+  // в режиме редактора УГО схемные горячие клавиши не работают (их обрабатывает редактор)
+  if (
+    typing ||
+    document.querySelector("dialog[open]") ||
+    document.body.classList.contains("editing-symbol")
+  )
+    return;
 
   const k = e.key.toLowerCase();
   const mod = e.ctrlKey || e.metaKey;

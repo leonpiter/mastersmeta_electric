@@ -52,6 +52,9 @@
         <button class="rtab" type="button" data-tab="schema">Схема</button>
         <button class="rtab" type="button" data-tab="draw">Оформление</button>
         <button class="rtab" type="button" data-tab="view">Вид</button>
+        <button class="rtab rtab-symbol" type="button" data-tab="symbol" hidden>
+          Редактор УГО
+        </button>
       </div>
       <div id="ribbon-body">
         <div class="rpage" data-tab="edit">
@@ -371,6 +374,115 @@
             <div class="rgroup-cap">Панели</div>
           </div>
         </div>
+
+        <div class="rpage" data-tab="symbol" hidden id="se-ribbon">
+          <div class="rgroup">
+            <div class="rgroup-tools se-fields">
+              <input id="se-name" type="text" autocomplete="off" placeholder="Название" />
+              <select id="se-cat" title="Категория (класс оборудования)"></select>
+              <input
+                id="se-code"
+                type="text"
+                autocomplete="off"
+                placeholder="Код ГОСТ"
+                title="Задаётся категорией; вручную только для «Прочее»"
+              />
+              <select id="se-kind" title="Поведение">
+                <option value="component">Компонент (уникальная сигла)</option>
+                <option value="component-aux">Компонент + контакты (автомат)</option>
+                <option value="coil">Катушка (master)</option>
+                <option value="contact-no">Контакт НО</option>
+                <option value="contact-nc">Контакт НЗ</option>
+                <option value="terminal">Клемма</option>
+                <option value="connector">Разъём</option>
+                <option value="black-box">Прочее</option>
+              </select>
+            </div>
+            <div class="rgroup-cap">Свойства</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button type="button" data-tool="select" class="on" title="Выбрать / переместить">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M3 2l9 5-3.8 1.1 2 3.9-1.6.9-2-3.9L3 12z"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                </svg>
+                <span>Выбрать</span>
+              </button>
+              <button type="button" data-tool="line" title="Линия">
+                <svg class="ic" viewBox="0 0 16 16" fill="none"><path d="M3 13 13 3" /></svg>
+                <span>Линия</span>
+              </button>
+              <button type="button" data-tool="rect" title="Прямоугольник">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <rect x="2.5" y="4.5" width="11" height="7" />
+                </svg>
+                <span>Прямоуг.</span>
+              </button>
+              <button type="button" data-tool="circle" title="Окружность">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="5.5" />
+                </svg>
+                <span>Окружн.</span>
+              </button>
+              <button type="button" data-tool="pin" title="Вывод (контакт)">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 2.5v7" />
+                  <circle cx="8" cy="11.6" r="1.8" fill="currentColor" stroke="none" />
+                </svg>
+                <span>Вывод</span>
+              </button>
+              <button type="button" data-tool="text" title="Текст">
+                <svg class="ic" viewBox="0 0 16 16" fill="none"><path d="M4.5 4h7M8 4v8.5" /></svg>
+                <span>Текст</span>
+              </button>
+            </div>
+            <div class="rgroup-cap">Инструмент</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools se-fields">
+              <input id="se-pinname" type="text" value="1" autocomplete="off" title="Имя вывода" />
+              <input id="se-text" type="text" autocomplete="off" placeholder="Текст" />
+              <input
+                id="se-textsize"
+                type="number"
+                min="1"
+                step="0.5"
+                value="4"
+                title="Кегль текста, мм"
+              />
+            </div>
+            <div class="rgroup-cap">Параметры</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <select id="se-grid" title="Шаг сетки, мм">
+                <option value="1">1 мм</option>
+                <option value="2.5">2,5 мм</option>
+                <option value="5" selected>5 мм</option>
+                <option value="10">10 мм</option>
+              </select>
+            </div>
+            <div class="rgroup-cap">Сетка</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button type="button" id="se-fit" class="btn-secondary">Вписать</button>
+              <span id="se-zoom" class="se-zoom">100%</span>
+            </div>
+            <div class="rgroup-cap">Вид</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button type="button" id="se-undo" class="btn-secondary">Убрать последнее</button>
+              <button type="button" id="se-clear" class="btn-secondary">Очистить</button>
+            </div>
+            <div class="rgroup-cap">Правка</div>
+          </div>
+        </div>
       </div>
     </div>
     <div id="pagetabs"></div>
@@ -580,89 +692,19 @@
       </form>
     </dialog>
 
-    <dialog id="symbol-editor">
-      <form method="dialog" class="modal-form modal-wide">
-        <h3 id="se-title">Редактор символа</h3>
-        <div class="se-layout">
-          <div class="se-fields">
-            <div class="prop-row">
-              <label for="se-name">Название</label>
-              <input id="se-name" type="text" autocomplete="off" />
-            </div>
-            <div class="prop-row">
-              <label for="se-cat">Категория (класс оборудования)</label>
-              <select id="se-cat"></select>
-            </div>
-            <div class="prop-row">
-              <label for="se-code">Код ГОСТ (префикс сиглы)</label>
-              <input
-                id="se-code"
-                type="text"
-                autocomplete="off"
-                placeholder="QF / KM / …"
-                title="Задаётся категорией; вводится вручную только для «Прочее»"
-              />
-            </div>
-            <div class="prop-row">
-              <label for="se-kind">Поведение</label>
-              <select id="se-kind">
-                <option value="component">Компонент (уникальная сигла)</option>
-                <option value="component-aux">Компонент + контакты (автомат)</option>
-                <option value="coil">Катушка (master)</option>
-                <option value="contact-no">Контакт НО</option>
-                <option value="contact-nc">Контакт НЗ</option>
-                <option value="terminal">Клемма</option>
-                <option value="connector">Разъём</option>
-                <option value="black-box">Прочее</option>
-              </select>
-            </div>
-            <div class="prop-row">
-              <label>Инструмент</label>
-              <div class="se-tools">
-                <button type="button" data-tool="select" class="on">Выбрать</button>
-                <button type="button" data-tool="line">Линия</button>
-                <button type="button" data-tool="rect">Прямоуг.</button>
-                <button type="button" data-tool="circle">Окружн.</button>
-                <button type="button" data-tool="pin">Вывод</button>
-                <button type="button" data-tool="text">Текст</button>
-              </div>
-            </div>
-            <div class="prop-row">
-              <label for="se-pinname">Имя вывода (для инструмента «Вывод»)</label>
-              <input id="se-pinname" type="text" value="1" autocomplete="off" />
-            </div>
-            <div class="prop-row">
-              <label for="se-text">Текст (для инструмента «Текст»)</label>
-              <div class="se-tools">
-                <input id="se-text" type="text" autocomplete="off" placeholder="напр. PLC" />
-                <input
-                  id="se-textsize"
-                  type="number"
-                  min="1"
-                  step="0.5"
-                  value="4"
-                  title="кегль, мм"
-                />
-              </div>
-            </div>
-            <div class="se-tools">
-              <button type="button" id="se-fit" class="btn-secondary">Вписать</button>
-              <button type="button" id="se-undo" class="btn-secondary">Убрать последнее</button>
-              <button type="button" id="se-clear" class="btn-secondary">Очистить</button>
-              <span id="se-zoom" class="se-zoom">100%</span>
-            </div>
-            <div id="se-hint" class="prop-type">
-              Колесо — масштаб; средняя кнопка или Space+перетаскивание — панорама.
-            </div>
-          </div>
-          <svg id="se-canvas"></svg>
-        </div>
-        <div class="prop-actions">
-          <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
-          <button type="button" id="se-save">Сохранить</button>
-        </div>
-      </form>
-    </dialog>
+    <!-- Редактор УГО (S28): режим на всю область канваса; инструменты — в ленте (вкладка «Редактор УГО») -->
+    <div id="symbol-editor">
+      <div id="se-banner">
+        <span id="se-title">Редактор УГО</span>
+        <span id="se-hint"
+          >Колесо — масштаб; средняя кнопка / Space — панорама; Esc — отмена действия.</span
+        >
+        <span class="se-banner-spacer"></span>
+        <button type="button" id="se-cancel" class="btn-secondary">Отмена</button>
+        <button type="button" id="se-save">Сохранить</button>
+      </div>
+      <svg id="se-canvas"></svg>
+    </div>
 
     <dialog id="category-dialog">
       <form method="dialog" class="modal-form">

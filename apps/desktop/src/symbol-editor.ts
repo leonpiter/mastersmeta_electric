@@ -100,7 +100,8 @@ type Tool = "select" | "line" | "rect" | "circle" | "pin" | "text";
 type Sel = { kind: "g" | "p"; index: number } | null;
 
 export class SymbolEditor {
-  private readonly dialog = document.getElementById("symbol-editor") as HTMLDialogElement;
+  // S28: редактор — режим на всю область канваса (был модальный <dialog>);
+  // видимость через класс body.editing-symbol, лента — через onModeChange.
   private readonly svg = document.getElementById("se-canvas") as unknown as SVGSVGElement;
   private readonly nameEl = document.getElementById("se-name") as HTMLInputElement;
   private readonly codeEl = document.getElementById("se-code") as HTMLInputElement;
@@ -109,11 +110,12 @@ export class SymbolEditor {
   private readonly pinNameEl = document.getElementById("se-pinname") as HTMLInputElement;
   private readonly textEl = document.getElementById("se-text") as HTMLInputElement | null;
   private readonly textSizeEl = document.getElementById("se-textsize") as HTMLInputElement | null;
+  private readonly gridEl = document.getElementById("se-grid") as HTMLSelectElement;
   private readonly zoomEl = document.getElementById("se-zoom");
   private readonly hintEl = document.getElementById("se-hint")!;
-  private readonly toolBtns = document.querySelectorAll<HTMLButtonElement>(
-    "#symbol-editor [data-tool]",
-  );
+  // инструменты рисования теперь в ленте (вкладка «Редактор УГО»)
+  private readonly toolBtns =
+    document.querySelectorAll<HTMLButtonElement>("#se-ribbon [data-tool]");
 
   // диалог «Новая категория»
   private readonly catDialog = document.getElementById("category-dialog") as HTMLDialogElement;
@@ -134,6 +136,10 @@ export class SymbolEditor {
   private panX = 0;
   private panY = 0;
   private zoom = 1;
+  /** Шаг сетки/привязки, мм (S28: меняется в ленте). */
+  private gridStep = 5;
+  /** Открыт ли редактор (для гейта клавиш). */
+  private isOpen = false;
   private get scalePx(): number {
     return PX_PER_MM * this.zoom;
   }
@@ -159,6 +165,10 @@ export class SymbolEditor {
     /** Сохранить новую пользовательскую категорию (мёрж в реестр). */
     private readonly onCreateCategory: (cat: EquipmentCategory) => void = () => {
       /* по умолчанию не сохраняем */
+    },
+    /** Вход/выход режима редактора УГО (для переключения ленты в main.ts). */
+    private readonly onModeChange: (active: boolean) => void = () => {
+      /* по умолчанию — ничего */
     },
   ) {
     this.svg.removeAttribute("viewBox"); // координаты = экранные px, контент трансформируется
@@ -206,6 +216,21 @@ export class SymbolEditor {
     (document.getElementById("se-save") as HTMLButtonElement).addEventListener("click", () =>
       this.save(),
     );
+    (document.getElementById("se-cancel") as HTMLButtonElement).addEventListener("click", () =>
+      this.exit(),
+    );
+    this.gridEl.addEventListener("change", () => {
+      const step = Number(this.gridEl.value);
+      if (step > 0) {
+        this.gridStep = step;
+        try {
+          localStorage.setItem("see.ugoGridStep", String(step));
+        } catch {
+          /* недоступно — игнор */
+        }
+        this.updateView();
+      }
+    });
 
     // строгие категории: выбор задаёт код + ограничивает поведение; «+ Новая категория…»
     this.catEl.addEventListener("change", () => {
@@ -237,17 +262,34 @@ export class SymbolEditor {
     this.applyCategory(seed?.kind ?? "component");
     this.pinNameEl.value = "1";
     this.hintEl.textContent = this.editId
-      ? "Правка системного УГО сохранится как пользовательский override."
-      : "";
-    document.getElementById("se-title")!.textContent = seed
-      ? opts.asCopy
-        ? "Дублировать символ"
-        : "Правка символа"
-      : "Новый символ";
-    this.dialog.showModal();
+      ? "Правка системного УГО — сохранится как пользовательский override."
+      : "Колесо — масштаб; средняя кнопка / Space — панорама; Esc — отмена действия.";
+    const mode = seed ? (opts.asCopy ? "Копия" : "Правка") : "Новый символ";
+    const titleName = seed ? `${mode}: ${this.nameEl.value}` : mode;
+    document.getElementById("se-title")!.textContent = `Редактор УГО — ${titleName}`;
+
+    // шаг сетки (из localStorage)
+    const savedStep = Number(localStorage.getItem("see.ugoGridStep"));
+    this.gridStep = savedStep > 0 ? savedStep : 5;
+    this.gridEl.value = String(this.gridStep);
+
+    // вход в режим редактора: подсветка + переключение ленты на вкладку «Редактор УГО»
+    this.isOpen = true;
+    document.body.classList.add("editing-symbol");
+    this.onModeChange(true);
     this.nameEl.focus();
-    // у svg нет размера до showModal — вписать после открытия
+    // у svg нет размера до показа — вписать после раскладки
     requestAnimationFrame(() => this.fit());
+  }
+
+  /** Выйти из режима редактора (Отмена или после Сохранить). */
+  private exit(): void {
+    this.isOpen = false;
+    this.selected = null;
+    this.start = null;
+    this.down = null;
+    document.body.classList.remove("editing-symbol");
+    this.onModeChange(false);
   }
 
   // ----- категории (строгая типизация) -----
@@ -407,7 +449,7 @@ export class SymbolEditor {
     this.gridRect.setAttribute("width", String(w));
     this.gridRect.setAttribute("height", String(h));
 
-    let step = 5;
+    let step = this.gridStep;
     let tile = step * s;
     while (tile < 8) {
       step *= 2;
@@ -452,18 +494,26 @@ export class SymbolEditor {
 
   private installCanvas(): void {
     const svg = this.svg;
-    this.dialog.addEventListener("keydown", (e) => {
-      if (document.activeElement?.tagName === "INPUT") return;
+    // клавиши работают только в режиме редактора и не в полях ввода
+    document.addEventListener("keydown", (e) => {
+      if (!this.isOpen || document.activeElement?.tagName === "INPUT") return;
       if (e.key === " ") {
         this.space = true;
         e.preventDefault();
+      } else if (e.key === "Escape") {
+        // Esc НЕ закрывает редактор — только прерывает текущее действие / снимает выделение
+        e.preventDefault();
+        this.start = null;
+        this.selected = null;
+        this.dragOrig = null;
+        this.render();
       } else if ((e.key === "Delete" || e.key === "Backspace") && this.selected) {
         e.preventDefault();
         this.deleteSelected();
       }
     });
-    this.dialog.addEventListener("keyup", (e) => {
-      if (e.key === " ") this.space = false;
+    document.addEventListener("keyup", (e) => {
+      if (this.isOpen && e.key === " ") this.space = false;
     });
 
     svg.addEventListener("pointerdown", (e) => {
@@ -475,7 +525,7 @@ export class SymbolEditor {
       if (this.tool === "select") {
         this.selected = this.hitAt(this.last);
         if (this.selected) {
-          const step = this.selected.kind === "p" ? 5 : 1;
+          const step = this.gridStep;
           this.dragOrig = {
             sx: snap(this.last.x, step),
             sy: snap(this.last.y, step),
@@ -487,7 +537,7 @@ export class SymbolEditor {
         return;
       }
       if (this.tool === "pin") {
-        const at = { x: snap(this.last.x, 5), y: snap(this.last.y, 5) };
+        const at = { x: snap(this.last.x, this.gridStep), y: snap(this.last.y, this.gridStep) };
         const name = this.pinNameEl.value.trim() || String(this.pins.length + 1);
         this.pins.push({ name, x: at.x, y: at.y });
         this.lastWasPin = true;
@@ -501,8 +551,8 @@ export class SymbolEditor {
           const size = Number(this.textSizeEl?.value) || 4;
           this.graphics.push({
             type: "text",
-            x: snap(this.last.x, 1),
-            y: snap(this.last.y, 1),
+            x: snap(this.last.x, this.gridStep),
+            y: snap(this.last.y, this.gridStep),
             text,
             size,
             anchor: "middle",
@@ -512,7 +562,7 @@ export class SymbolEditor {
         }
         return;
       }
-      this.start = { x: snap(this.last.x, 1), y: snap(this.last.y, 1) };
+      this.start = { x: snap(this.last.x, this.gridStep), y: snap(this.last.y, this.gridStep) };
     });
 
     svg.addEventListener("pointermove", (e) => {
@@ -528,14 +578,14 @@ export class SymbolEditor {
       } else if (this.selected && this.dragOrig) {
         this.dragSelected();
       } else if (this.start) {
-        const end = { x: snap(this.last.x, 1), y: snap(this.last.y, 1) };
+        const end = { x: snap(this.last.x, this.gridStep), y: snap(this.last.y, this.gridStep) };
         this.render(this.shapeFrom(this.start, end));
       }
     });
 
     svg.addEventListener("pointerup", () => {
       if (this.start) {
-        const end = { x: snap(this.last.x, 1), y: snap(this.last.y, 1) };
+        const end = { x: snap(this.last.x, this.gridStep), y: snap(this.last.y, this.gridStep) };
         const shape = this.shapeFrom(this.start, end);
         this.start = null;
         if (shape) {
@@ -623,7 +673,7 @@ export class SymbolEditor {
     const sel = this.selected;
     const orig = this.dragOrig;
     if (!sel || !orig) return;
-    const step = sel.kind === "p" ? 5 : 1;
+    const step = this.gridStep;
     const dx = snap(this.last.x, step) - orig.sx;
     const dy = snap(this.last.y, step) - orig.sy;
     if (sel.kind === "g" && orig.g) this.graphics[sel.index] = movedGraphic(orig.g, dx, dy);
@@ -734,6 +784,6 @@ export class SymbolEditor {
       return;
     }
     this.onSave(v.symbol);
-    this.dialog.close();
+    this.exit();
   }
 }
