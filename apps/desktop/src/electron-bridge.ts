@@ -7,6 +7,11 @@ interface DesktopBridge {
   isElectron: boolean;
   version: () => Promise<string>;
   win: { minimize: () => void; toggleMaximize: () => void; close: () => void };
+  /** Нативные файловые диалоги (вместо браузерных download / input[type=file]). */
+  fs: {
+    save: (defaultName: string, content: string) => Promise<boolean>;
+    open: (extensions: string[]) => Promise<{ name: string; text: string } | null>;
+  };
   onUpdate: (
     cb: (e: { type: "available" | "downloaded" | "error"; payload: string }) => void,
   ) => void;
@@ -16,6 +21,11 @@ declare global {
   interface Window {
     desktop?: DesktopBridge;
   }
+}
+
+/** Десктоп-мост, если запущены в Electron (иначе undefined → веб-поведение). */
+export function desktop(): DesktopBridge | undefined {
+  return window.desktop?.isElectron ? window.desktop : undefined;
 }
 
 /** Включить интеграцию с десктоп-оболочкой (вызывать один раз при старте). */

@@ -11,6 +11,11 @@ contextBridge.exposeInMainWorld("desktop", {
     toggleMaximize: () => ipcRenderer.send("win:toggle-maximize"),
     close: () => ipcRenderer.send("win:close"),
   },
+  // нативные файловые диалоги
+  fs: {
+    save: (defaultName, content) => ipcRenderer.invoke("file:save", { defaultName, content }),
+    open: (extensions) => ipcRenderer.invoke("file:open", { extensions }),
+  },
   /** @param {(e: { type: "available" | "downloaded" | "error"; payload: string }) => void} cb */
   onUpdate: (cb) => {
     ipcRenderer.on("update:available", (_e, v) => cb({ type: "available", payload: v }));

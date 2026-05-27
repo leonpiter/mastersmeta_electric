@@ -49,7 +49,7 @@ import { loadUserSymbols, upsertUserSymbol, removeUserSymbol, userSymbolIds } fr
 import { loadUserCategories, upsertUserCategory, removeUserCategory } from "./user-categories";
 import { loadUserBlocks, upsertUserBlock, removeUserBlock } from "./user-blocks";
 import { renderTerminalStrips } from "./terminal-strip";
-import { initDesktopShell } from "./electron-bridge";
+import { initDesktopShell, desktop } from "./electron-bridge";
 
 initDesktopShell(); // нативная оболочка: свои кнопки окна (frame:false), если Electron
 
@@ -812,13 +812,37 @@ function syncTitle(): void {
 }
 
 function saveProject(): void {
-  const blob = new Blob([serializeProject(project)], { type: "application/json" });
+  const content = serializeProject(project);
+  const name = `${project.name || "project"}.esch`;
+  const d = desktop();
+  if (d) {
+    void d.fs.save(name, content); // нативный диалог «Сохранить» (Electron)
+    return;
+  }
+  const blob = new Blob([content], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${project.name || "project"}.esch`;
+  a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Открыть проект: нативный диалог в Electron, иначе браузерный input[type=file]. */
+function openProject(): void {
+  const d = desktop();
+  if (d) {
+    void d.fs.open(["esch"]).then((res) => {
+      if (!res) return;
+      try {
+        addProject(deserializeProject(res.text));
+      } catch (e) {
+        window.alert("Не удалось открыть файл: " + (e instanceof Error ? e.message : String(e)));
+      }
+    });
+    return;
+  }
+  fileInput.click();
 }
 
 const fileInput = document.createElement("input");
@@ -848,7 +872,7 @@ const saveHandler = (): void => {
   closeFileMenu();
 });
 (document.getElementById("file-open") as HTMLButtonElement).addEventListener("click", () => {
-  fileInput.click();
+  openProject();
   closeFileMenu();
 });
 (document.getElementById("file-save") as HTMLButtonElement).addEventListener("click", saveHandler);

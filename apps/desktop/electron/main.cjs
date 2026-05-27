@@ -2,7 +2,7 @@
 // Принцип 7: UI не зависит от оболочки; здесь только окно, авто-обновление и
 // открытие внешних ссылок. Файловый I/O пока через браузерные механизмы рендерера
 // (download / <input type=file>), нативные диалоги — отдельной задачей.
-const { app, BrowserWindow, ipcMain, shell, Notification } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Notification } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 
@@ -95,3 +95,27 @@ ipcMain.on("win:toggle-maximize", () => {
   else win.maximize();
 });
 ipcMain.on("win:close", () => win?.close());
+
+// нативные файловые диалоги (Сохранить/Открыть) — заменяют браузерные в Electron
+ipcMain.handle("file:save", async (_e, { defaultName, content }) => {
+  const res = await dialog.showSaveDialog(win ?? undefined, {
+    defaultPath: defaultName,
+    filters: [{ name: "Схема Мастермета (*.esch)", extensions: ["esch"] }],
+  });
+  if (res.canceled || !res.filePath) return false;
+  await fs.promises.writeFile(res.filePath, content, "utf8");
+  return true;
+});
+ipcMain.handle("file:open", async (_e, { extensions }) => {
+  const res = await dialog.showOpenDialog(win ?? undefined, {
+    properties: ["openFile"],
+    filters: [
+      { name: "Схема Мастермета", extensions: extensions ?? ["esch"] },
+      { name: "Все файлы", extensions: ["*"] },
+    ],
+  });
+  if (res.canceled || res.filePaths.length === 0) return null;
+  const file = res.filePaths[0];
+  const text = await fs.promises.readFile(file, "utf8");
+  return { name: path.basename(file), text };
+});
