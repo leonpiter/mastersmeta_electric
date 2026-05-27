@@ -184,6 +184,10 @@ interface SelItem {
   index: number;
 }
 type Sel = SelItem | null;
+/** Поле панели «Геометрия»: числовое (geom) или строковое (имя вывода / текст). */
+type PropField =
+  | { label: string; kind: "num"; value: number; min?: number; apply: (v: number) => void }
+  | { label: string; kind: "str"; value: string; apply: (v: string) => void };
 /** Ручка трансформации: id (угол/сторона/конец) + позиция в мм. */
 interface Handle {
   id: string;
@@ -291,6 +295,11 @@ export class SymbolEditor {
   private propInputs: HTMLInputElement[] = [];
   private readonly undoBtn = document.getElementById("se-undo") as HTMLButtonElement;
   private readonly redoBtn = document.getElementById("se-redo") as HTMLButtonElement | null;
+  // статус-строка (S28 Ф6)
+  private readonly statusCur = document.getElementById("se-status-cur");
+  private readonly statusZoom = document.getElementById("se-status-zoom");
+  private readonly statusGrid = document.getElementById("se-status-grid");
+  private readonly statusSel = document.getElementById("se-status-sel");
 
   constructor(
     private readonly onSave: (sym: SymbolDef) => void,
@@ -642,6 +651,7 @@ export class SymbolEditor {
     this.renderHandles();
     this.renderRulers();
     this.renderGuides();
+    this.updateStatus();
   }
 
   /**
@@ -945,6 +955,7 @@ export class SymbolEditor {
 
     svg.addEventListener("pointermove", (e) => {
       this.last = this.clientToWorld(e.clientX, e.clientY);
+      this.setCursor(this.last);
       if (!this.down) return;
       if (!this.down.moved && Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > 3)
         this.down.moved = true;
@@ -1226,6 +1237,40 @@ export class SymbolEditor {
     if (this.redoBtn) this.redoBtn.disabled = this.redoStack.length === 0;
   }
 
+  // ----- статус-строка (S28 Ф6) -----
+
+  /** Краткое описание одиночного выделения для статус-строки. */
+  private selDesc(sel: SelItem): string {
+    if (sel.kind === "p") return `вывод «${this.pins[sel.index]?.name ?? "?"}»`;
+    const labels: Record<GraphicPrimitive["type"], string> = {
+      line: "линия",
+      rect: "прямоугольник",
+      circle: "окружность",
+      arc: "дуга",
+      text: "текст",
+    };
+    return labels[this.graphics[sel.index]?.type ?? "line"];
+  }
+
+  private updateStatus(): void {
+    if (this.statusZoom) this.statusZoom.textContent = `Масштаб: ${Math.round(this.zoom * 100)}%`;
+    if (this.statusGrid) this.statusGrid.textContent = `Сетка: ${this.gridStep} мм`;
+    if (this.statusSel) {
+      const n = this.selection.length;
+      const first = this.selection[0];
+      this.statusSel.textContent =
+        n === 0
+          ? "Выбор: —"
+          : n === 1 && first
+            ? `Выбор: ${this.selDesc(first)}`
+            : `Выбор: ${n} элем.`;
+    }
+  }
+
+  private setCursor(p: Pt): void {
+    if (this.statusCur) this.statusCur.textContent = `Курсор: ${round1(p.x)}; ${round1(p.y)} мм`;
+  }
+
   // ----- поворот / зеркало / сдвиг / буфер выделения (S28 Ф5) -----
 
   /** Габарит выделения (мм) — графика + выводы. */
@@ -1366,11 +1411,11 @@ export class SymbolEditor {
   // ----- числовые свойства выделенного (панель «Геометрия», S28 Ф5) -----
 
   /**
-   * Описание редактируемых числовых полей выделенного элемента.
+   * Описание редактируемых полей выделенного элемента (числовые + строковые).
    * `apply` всегда перечитывает текущий элемент (без захвата устаревшего снимка),
    * чтобы последовательные правки разных полей не затирали друг друга.
    */
-  private propsFor(): { label: string; value: number; min?: number; apply: (v: number) => void }[] {
+  private propsFor(): PropField[] {
     const sel = this.selected;
     if (!sel) return [];
     if (sel.kind === "p") {
@@ -1381,8 +1426,9 @@ export class SymbolEditor {
         if (c) this.pins[sel.index] = { ...c, ...patch };
       };
       return [
-        { label: "x", value: p.x, apply: (v) => patchP({ x: v }) },
-        { label: "y", value: p.y, apply: (v) => patchP({ y: v }) },
+        { label: "имя", kind: "str", value: p.name, apply: (v) => patchP({ name: v }) },
+        { label: "x", kind: "num", value: p.x, apply: (v) => patchP({ x: v }) },
+        { label: "y", kind: "num", value: p.y, apply: (v) => patchP({ y: v }) },
       ];
     }
     const g = this.graphics[sel.index];
@@ -1394,37 +1440,47 @@ export class SymbolEditor {
     const pos = (v: number): number => Math.max(0.1, v);
     if (g.type === "rect")
       return [
-        { label: "x", value: g.x, apply: (v) => patchG({ x: v }) },
-        { label: "y", value: g.y, apply: (v) => patchG({ y: v }) },
-        { label: "ш", value: g.w, min: 0.1, apply: (v) => patchG({ w: pos(v) }) },
-        { label: "в", value: g.h, min: 0.1, apply: (v) => patchG({ h: pos(v) }) },
+        { label: "x", kind: "num", value: g.x, apply: (v) => patchG({ x: v }) },
+        { label: "y", kind: "num", value: g.y, apply: (v) => patchG({ y: v }) },
+        { label: "ш", kind: "num", value: g.w, min: 0.1, apply: (v) => patchG({ w: pos(v) }) },
+        { label: "в", kind: "num", value: g.h, min: 0.1, apply: (v) => patchG({ h: pos(v) }) },
       ];
     if (g.type === "circle")
       return [
-        { label: "cx", value: g.cx, apply: (v) => patchG({ cx: v }) },
-        { label: "cy", value: g.cy, apply: (v) => patchG({ cy: v }) },
-        { label: "r", value: g.r, min: 0.1, apply: (v) => patchG({ r: pos(v) }) },
+        { label: "cx", kind: "num", value: g.cx, apply: (v) => patchG({ cx: v }) },
+        { label: "cy", kind: "num", value: g.cy, apply: (v) => patchG({ cy: v }) },
+        { label: "r", kind: "num", value: g.r, min: 0.1, apply: (v) => patchG({ r: pos(v) }) },
       ];
     if (g.type === "arc")
       return [
-        { label: "cx", value: g.cx, apply: (v) => patchG({ cx: v }) },
-        { label: "cy", value: g.cy, apply: (v) => patchG({ cy: v }) },
-        { label: "r", value: g.r, min: 0.1, apply: (v) => patchG({ r: pos(v) }) },
-        { label: "a0", value: g.a0, apply: (v) => patchG({ a0: v }) },
-        { label: "a1", value: g.a1, apply: (v) => patchG({ a1: v }) },
+        { label: "cx", kind: "num", value: g.cx, apply: (v) => patchG({ cx: v }) },
+        { label: "cy", kind: "num", value: g.cy, apply: (v) => patchG({ cy: v }) },
+        { label: "r", kind: "num", value: g.r, min: 0.1, apply: (v) => patchG({ r: pos(v) }) },
+        { label: "a0", kind: "num", value: g.a0, apply: (v) => patchG({ a0: v }) },
+        { label: "a1", kind: "num", value: g.a1, apply: (v) => patchG({ a1: v }) },
       ];
     if (g.type === "line")
       return [
-        { label: "x1", value: g.x1, apply: (v) => patchG({ x1: v }) },
-        { label: "y1", value: g.y1, apply: (v) => patchG({ y1: v }) },
-        { label: "x2", value: g.x2, apply: (v) => patchG({ x2: v }) },
-        { label: "y2", value: g.y2, apply: (v) => patchG({ y2: v }) },
+        { label: "x1", kind: "num", value: g.x1, apply: (v) => patchG({ x1: v }) },
+        { label: "y1", kind: "num", value: g.y1, apply: (v) => patchG({ y1: v }) },
+        { label: "x2", kind: "num", value: g.x2, apply: (v) => patchG({ x2: v }) },
+        { label: "y2", kind: "num", value: g.y2, apply: (v) => patchG({ y2: v }) },
       ];
     return [
-      { label: "x", value: g.x, apply: (v) => patchG({ x: v }) },
-      { label: "y", value: g.y, apply: (v) => patchG({ y: v }) },
+      {
+        label: "текст",
+        kind: "str",
+        value: g.text,
+        apply: (v) => {
+          const c = this.graphics[sel.index];
+          if (c?.type === "text") this.graphics[sel.index] = { ...c, text: v };
+        },
+      },
+      { label: "x", kind: "num", value: g.x, apply: (v) => patchG({ x: v }) },
+      { label: "y", kind: "num", value: g.y, apply: (v) => patchG({ y: v }) },
       {
         label: "кегль",
+        kind: "num",
         value: g.size ?? 4,
         min: 0.5,
         apply: (v) => patchG({ size: Math.max(0.5, v) }),
@@ -1459,21 +1515,31 @@ export class SymbolEditor {
     }
     for (const f of fields) {
       const wrap = document.createElement("label");
-      wrap.className = "se-prop";
+      wrap.className = f.kind === "str" ? "se-prop se-prop-str" : "se-prop";
       const span = document.createElement("span");
       span.textContent = f.label;
       const inp = document.createElement("input");
-      inp.type = "number";
-      inp.step = "0.1";
-      if (f.min !== undefined) inp.min = String(f.min);
-      inp.value = String(round1(f.value));
-      inp.addEventListener("change", () => {
-        const v = Number(inp.value);
-        if (!Number.isFinite(v)) return;
-        this.pushUndo();
-        f.apply(v);
-        this.render();
-      });
+      if (f.kind === "num") {
+        inp.type = "number";
+        inp.step = "0.1";
+        if (f.min !== undefined) inp.min = String(f.min);
+        inp.value = String(round1(f.value));
+        inp.addEventListener("change", () => {
+          const v = Number(inp.value);
+          if (!Number.isFinite(v)) return;
+          this.pushUndo();
+          f.apply(v);
+          this.render();
+        });
+      } else {
+        inp.type = "text";
+        inp.value = f.value;
+        inp.addEventListener("change", () => {
+          this.pushUndo();
+          f.apply(inp.value);
+          this.render();
+        });
+      }
       wrap.append(span, inp);
       host.append(wrap);
       this.propInputs.push(inp);
@@ -1492,7 +1558,8 @@ export class SymbolEditor {
     const fields = this.propsFor();
     fields.forEach((f, i) => {
       const inp = this.propInputs[i];
-      if (inp && inp !== active) inp.value = String(round1(f.value));
+      if (!inp || inp === active) return;
+      inp.value = f.kind === "num" ? String(round1(f.value)) : f.value;
     });
   }
 
@@ -1646,6 +1713,7 @@ export class SymbolEditor {
     });
     this.renderHandles();
     this.syncProps();
+    this.updateStatus();
   }
 
   private drawShape(g: GraphicPrimitive, color: string): void {
