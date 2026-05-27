@@ -8,7 +8,7 @@ import type { Project, Wire } from "./model";
 import type { SymbolLibrary } from "./symbol";
 import { type Catalog, partLabel } from "./catalog";
 import { computeDevices } from "./devices";
-import { computeNets } from "./connectivity";
+import { computeNets, computeProjectNets } from "./connectivity";
 
 /** Строка перечня элементов (ГОСТ 2.701). */
 export interface BomRow {
@@ -86,31 +86,56 @@ function wireLabel(w: Wire | undefined): string {
 }
 
 /**
- * Таблица соединений из проекта: по цепям (потенциалам). Каждая цепь с ≥2 выводами —
- * строка со списком соединяемых выводов «сигла:вывод» и данными провода. По листам.
+ * Таблица соединений из проекта: по **сквозным** цепям (потенциалам). Соединители страниц
+ * (S29) с общей меткой объединяют цепи разных листов в одну строку; их выводы-стрелки
+ * в список не попадают. Каждая цепь с ≥2 выводами реальных устройств — строка со списком
+ * «сигла:вывод», данными провода и листами цепи.
  */
 export function computeConnections(project: Project, library: SymbolLibrary): ConnectionRow[] {
+  const local = project.pages.map((p) => computeNets(p, library));
+  const desigOf = project.pages.map((p) => new Map(p.instances.map((i) => [i.id, i.designation])));
+  const wireById = project.pages.map((p) => new Map(p.wires.map((w) => [w.id, w])));
+  const connectorIds = project.pages.map(
+    (p) =>
+      new Set(
+        p.instances
+          .filter((i) => library.get(i.symbolId)?.kind === "page-connector")
+          .map((i) => i.id),
+      ),
+  );
+
   const rows: ConnectionRow[] = [];
+  for (const gnet of computeProjectNets(project.pages, library)) {
+    // выводы реальных устройств (соединители страниц — служебные, в список не идут)
+    const labels = gnet.pins
+      .filter((p) => !connectorIds[p.pageIndex].has(p.instanceId))
+      .map((p) => `${desigOf[p.pageIndex].get(p.instanceId) ?? "?"}:${p.pinName}`)
+      .sort((a, b) => a.localeCompare(b, "ru"));
+    if (labels.length < 2) continue;
 
-  project.pages.forEach((page, pageIndex) => {
-    const desigOf = new Map(page.instances.map((i) => [i.id, i.designation]));
-    const wireById = new Map(page.wires.map((w) => [w.id, w]));
-
-    for (const net of computeNets(page, library)) {
-      if (net.pins.length < 2) continue;
-      const labels = net.pins
-        .map((p) => `${desigOf.get(p.instanceId) ?? "?"}:${p.pinName}`)
-        .sort((a, b) => a.localeCompare(b, "ru"));
-      const numbered = net.wireIds.map((id) => wireById.get(id)).find((w) => w?.number);
-      const anyWire = net.wireIds.length ? wireById.get(net.wireIds[0]) : undefined;
-      rows.push({
-        net: numbered?.number ?? "—",
-        pins: labels.join(" · "),
-        wire: wireLabel(anyWire),
-        sheet: String(pageIndex + 1),
-      });
+    // номер цепи + данные провода — первый нумерованный/любой провод среди долей цепи
+    let number: string | undefined;
+    let anyWire: Wire | undefined;
+    for (const m of gnet.members) {
+      for (const id of local[m.pageIndex][m.localNetId].wireIds) {
+        const w = wireById[m.pageIndex].get(id);
+        if (w && !anyWire) anyWire = w;
+        if (w?.number) {
+          number = w.number;
+          break;
+        }
+      }
+      if (number) break;
     }
-  });
+
+    const sheets = [...new Set(gnet.members.map((m) => m.pageIndex + 1))].sort((a, b) => a - b);
+    rows.push({
+      net: number ?? gnet.signals[0] ?? "—",
+      pins: labels.join(" · "),
+      wire: wireLabel(anyWire),
+      sheet: sheets.join(", "),
+    });
+  }
 
   rows.sort(
     (a, b) =>

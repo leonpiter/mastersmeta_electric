@@ -11,7 +11,7 @@ import {
   connectorsToCsv,
 } from "./reports";
 import { Catalog } from "./catalog";
-import { createProject, type Project, type SymbolInstance } from "./model";
+import { createProject, createPage, type Project, type SymbolInstance } from "./model";
 import { SymbolLibrary, type SymbolDef } from "./symbol";
 import { newId } from "./ids";
 
@@ -165,6 +165,59 @@ describe("таблица соединений", () => {
     const p = createProject();
     p.pages[0].instances.push(instAt(coil2, "KM1", 0, 0));
     expect(computeConnections(p, lib2)).toHaveLength(0);
+  });
+
+  it("соединители страниц объединяют цепь через листы в одну строку (S29)", () => {
+    const conn: SymbolDef = {
+      id: "t.conn",
+      name: "Соединитель",
+      category: "Служебные",
+      componentCode: "W",
+      kind: "page-connector",
+      pins: [{ name: "1", x: 0, y: 0 }],
+      graphics: [],
+    };
+    const lib3 = new SymbolLibrary([coil2, brk2, conn]);
+    const p = createProject();
+    p.pages.push(createPage());
+
+    // лист 1: KM1:A1 (0,0) ── провод ── соединитель L1 (10,0)
+    p.pages[0].instances.push(instAt(coil2, "KM1", 0, 0));
+    const c1 = instAt(conn, "W1", 10, 0);
+    c1.signal = "L1";
+    c1.showLabels = false;
+    p.pages[0].instances.push(c1);
+    p.pages[0].wires.push({
+      id: newId(),
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+      type: "power",
+      number: "1",
+    });
+
+    // лист 2: соединитель L1 (0,0) ── провод ── QF1:1 (10,0)
+    const c2 = instAt(conn, "W2", 0, 0);
+    c2.signal = "L1";
+    c2.showLabels = false;
+    p.pages[1].instances.push(c2, instAt(brk2, "QF1", 10, 0));
+    p.pages[1].wires.push({
+      id: newId(),
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+      type: "power",
+    });
+
+    const rows = computeConnections(p, lib3);
+    const through = rows.find((r) => r.pins.includes("KM1:A1") && r.pins.includes("QF1:1"));
+    expect(through, "сквозная цепь KM1:A1 ↔ QF1:1").toBeDefined();
+    expect(through?.sheet).toBe("1, 2"); // оба листа
+    expect(through?.net).toBe("1"); // номер унаследован от провода
+    expect(through?.pins).not.toContain("W1"); // выводы соединителей не показываются
+    expect(through?.pins).not.toContain("W2");
   });
 
   it("connectionsToCsv: заголовок и поля", () => {
