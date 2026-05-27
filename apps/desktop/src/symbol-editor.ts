@@ -179,7 +179,11 @@ function nextPinName(name: string): string {
 
 type Tool = "select" | "resize" | "line" | "rect" | "circle" | "arc" | "pin" | "text";
 /** Выбранный элемент редактора: графика или вывод по индексу. */
-type Sel = { kind: "g" | "p"; index: number } | null;
+interface SelItem {
+  kind: "g" | "p";
+  index: number;
+}
+type Sel = SelItem | null;
 /** Ручка трансформации: id (угол/сторона/конец) + позиция в мм. */
 interface Handle {
   id: string;
@@ -247,9 +251,29 @@ export class SymbolEditor {
   private down: { x: number; y: number; button: number; moved: boolean } | null = null;
   private space = false;
   private editId: string | null = null;
-  // выделение и перетаскивание элемента (инструмент «Выбрать»)
-  private selected: Sel = null;
-  private dragOrig: { sx: number; sy: number; g?: GraphicPrimitive; p?: Pin } | null = null;
+  // выделение и перетаскивание элементов (инструмент «Выбрать») — множественное (S28 Ф5b)
+  private selection: SelItem[] = [];
+  /**
+   * Одиночное выделение: ручки трансформации и числовые свойства активны только
+   * когда выбран ровно один элемент (для группы getter вернёт null — они скрыты).
+   */
+  private get selected(): Sel {
+    return this.selection.length === 1 ? this.selection[0] : null;
+  }
+  private set selected(v: Sel) {
+    this.selection = v ? [v] : [];
+  }
+  /** Исходные позиции всех перетаскиваемых элементов (групповое перемещение). */
+  private dragOrig: {
+    sx: number;
+    sy: number;
+    items: { kind: "g" | "p"; index: number; g?: GraphicPrimitive; p?: Pin }[];
+  } | null = null;
+  // рамка выделения (marquee, мировые мм) + был ли Shift при её старте
+  private marquee: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  private marqueeAdd = false;
+  /** Буфер обмена редактора (копирование/вставка/дублирование). */
+  private clipboard: { graphics: GraphicPrimitive[]; pins: Pin[] } | null = null;
   // трансформация ручкой (инструмент «Размер»): id ручки + исходная графика
   private resizing: { handle: string; orig: GraphicPrimitive } | null = null;
   // направляющие (Visio): вертикальные (по X, мм) и горизонтальные (по Y, мм), только в редакторе
@@ -313,8 +337,9 @@ export class SymbolEditor {
         this.tool = b.dataset.tool as Tool;
         this.toolBtns.forEach((x) => x.classList.toggle("on", x === b));
         // выделение сохраняем между «Выбрать» и «Размер», сбрасываем для рисующих инструментов
-        if (this.tool !== "select" && this.tool !== "resize") this.selected = null;
+        if (this.tool !== "select" && this.tool !== "resize") this.selection = [];
         this.resizing = null;
+        this.marquee = null;
         this.render();
       }),
     );
@@ -372,9 +397,10 @@ export class SymbolEditor {
   open(seed?: SymbolDef, opts: { asCopy?: boolean } = {}): void {
     this.graphics = seed ? seed.graphics.map((g) => ({ ...g })) : [];
     this.pins = seed ? seed.pins.map((p) => ({ ...p })) : [];
-    this.selected = null;
+    this.selection = [];
     this.dragOrig = null;
     this.resizing = null;
+    this.marquee = null;
     this.guidesX = [];
     this.guidesY = [];
     this.guideDrag = null;
@@ -413,7 +439,8 @@ export class SymbolEditor {
   /** Выйти из режима редактора (Отмена или после Сохранить). */
   private exit(): void {
     this.isOpen = false;
-    this.selected = null;
+    this.selection = [];
+    this.marquee = null;
     this.start = null;
     this.down = null;
     document.body.classList.remove("editing-symbol");
@@ -790,9 +817,22 @@ export class SymbolEditor {
         } else if (k === "y") {
           e.preventDefault();
           this.redo();
+        } else if (k === "c") {
+          e.preventDefault();
+          this.copySelection();
+        } else if (k === "v") {
+          e.preventDefault();
+          this.pasteClipboard();
+        } else if (k === "d") {
+          e.preventDefault();
+          this.duplicateSelection();
+        } else if (k === "a") {
+          e.preventDefault();
+          this.selectAll();
         }
         return;
       }
+      const hasSel = this.selection.length > 0;
       if (e.key === " ") {
         this.space = true;
         e.preventDefault();
@@ -800,19 +840,20 @@ export class SymbolEditor {
         // Esc НЕ закрывает редактор — только прерывает текущее действие / снимает выделение
         e.preventDefault();
         this.start = null;
-        this.selected = null;
+        this.selection = [];
         this.dragOrig = null;
+        this.marquee = null;
         this.render();
-      } else if ((e.key === "Delete" || e.key === "Backspace") && this.selected) {
+      } else if ((e.key === "Delete" || e.key === "Backspace") && hasSel) {
         e.preventDefault();
         this.deleteSelected();
-      } else if ((e.key === "r" || e.key === "R") && this.selected) {
+      } else if ((e.key === "r" || e.key === "R") && hasSel) {
         e.preventDefault();
         this.rotateSelected();
-      } else if ((e.key === "m" || e.key === "M") && this.selected) {
+      } else if ((e.key === "m" || e.key === "M") && hasSel) {
         e.preventDefault();
         this.mirrorSelected();
-      } else if (e.key.startsWith("Arrow") && this.selected) {
+      } else if (e.key.startsWith("Arrow") && hasSel) {
         e.preventDefault();
         this.nudgeSelected(e.key, e.shiftKey);
       }
@@ -834,7 +875,7 @@ export class SymbolEditor {
           this.guideDrag = gh;
           return;
         }
-        // в режиме «Размер» сначала пробуем схватить ручку трансформации выделенной графики
+        // в режиме «Размер» сначала пробуем схватить ручку трансформации (одиночное выделение)
         if (this.tool === "resize" && this.selected?.kind === "g") {
           const g = this.graphics[this.selected.index];
           const h = this.hitHandle(g, this.last);
@@ -844,16 +885,30 @@ export class SymbolEditor {
             return;
           }
         }
-        this.selected = this.hitAt(this.last);
-        if (this.selected) {
-          const step = this.gridStep;
-          this.dragOrig = {
-            sx: snap(this.last.x, step),
-            sy: snap(this.last.y, step),
-            g: this.selected.kind === "g" ? { ...this.graphics[this.selected.index] } : undefined,
-            p: this.selected.kind === "p" ? { ...this.pins[this.selected.index] } : undefined,
-          };
+        const hit = this.hitAt(this.last);
+        if (hit) {
+          const inSel = this.inSelection(hit);
+          if (e.shiftKey) {
+            if (inSel) {
+              // Shift-клик по выбранному — убрать из выделения, без перетаскивания
+              this.selection = this.selection.filter(
+                (s) => !(s.kind === hit.kind && s.index === hit.index),
+              );
+              this.render();
+              return;
+            }
+            this.selection.push(hit); // добавить к выделению
+          } else if (!inSel) {
+            this.selection = [hit]; // заменить выделение
+          }
+          // иначе (клик по уже выбранному без Shift) — сохранить группу для перемещения
+          this.beginDrag();
           this.beginGesture();
+        } else {
+          // пустое место — рамка выделения (marquee); без Shift очищаем выделение
+          this.marquee = { x0: this.last.x, y0: this.last.y, x1: this.last.x, y1: this.last.y };
+          this.marqueeAdd = e.shiftKey;
+          if (!e.shiftKey) this.selection = [];
         }
         this.render();
         return;
@@ -905,8 +960,12 @@ export class SymbolEditor {
         this.updateView();
       } else if (this.resizing) {
         this.resizeSelected();
-      } else if (this.selected && this.dragOrig) {
+      } else if (this.dragOrig) {
         this.dragSelected();
+      } else if (this.marquee) {
+        this.marquee.x1 = this.last.x;
+        this.marquee.y1 = this.last.y;
+        this.renderHandles();
       } else if (this.start) {
         const end = { x: snap(this.last.x, this.gridStep), y: snap(this.last.y, this.gridStep) };
         this.render(this.shapeFrom(this.start, end));
@@ -944,6 +1003,16 @@ export class SymbolEditor {
         if (this.down?.moved) this.commitGesture();
         else this.cancelGesture();
         if (this.down?.moved) this.render();
+      } else if (this.marquee) {
+        // рамка выделения: добавить (Shift) или заменить выбор пересечёнными элементами
+        if (this.down?.moved) {
+          const hits = this.elemsInRect(this.marquee);
+          if (this.marqueeAdd) {
+            for (const h of hits) if (!this.inSelection(h)) this.selection.push(h);
+          } else this.selection = hits;
+        }
+        this.marquee = null;
+        this.render();
       }
       this.dragOrig = null;
       this.resizing = null;
@@ -1039,26 +1108,55 @@ export class SymbolEditor {
     return p.x >= x0 - tol && p.x <= x0 + w + tol && p.y >= g.y - s - tol && p.y <= g.y + tol;
   }
 
+  /** Входит ли элемент в текущее выделение. */
+  private inSelection(item: SelItem): boolean {
+    return this.selection.some((s) => s.kind === item.kind && s.index === item.index);
+  }
+
+  /** Запомнить исходные позиции всех выбранных элементов для группового перемещения. */
+  private beginDrag(): void {
+    const step = this.gridStep;
+    this.dragOrig = {
+      sx: snap(this.last.x, step),
+      sy: snap(this.last.y, step),
+      items: this.selection.map((s) => ({
+        kind: s.kind,
+        index: s.index,
+        g: s.kind === "g" ? { ...this.graphics[s.index] } : undefined,
+        p: s.kind === "p" ? { ...this.pins[s.index] } : undefined,
+      })),
+    };
+  }
+
   private dragSelected(): void {
-    const sel = this.selected;
     const orig = this.dragOrig;
-    if (!sel || !orig) return;
+    if (!orig) return;
     const step = this.gridStep;
     const dx = snap(this.last.x, step) - orig.sx;
     const dy = snap(this.last.y, step) - orig.sy;
-    if (sel.kind === "g" && orig.g) this.graphics[sel.index] = movedGraphic(orig.g, dx, dy);
-    else if (sel.kind === "p" && orig.p)
-      this.pins[sel.index] = { ...orig.p, x: orig.p.x + dx, y: orig.p.y + dy };
+    for (const it of orig.items) {
+      if (it.kind === "g" && it.g) this.graphics[it.index] = movedGraphic(it.g, dx, dy);
+      else if (it.kind === "p" && it.p)
+        this.pins[it.index] = { ...it.p, x: it.p.x + dx, y: it.p.y + dy };
+    }
     this.render();
   }
 
   private deleteSelected(): void {
-    const sel = this.selected;
-    if (!sel) return;
+    if (this.selection.length === 0) return;
     this.pushUndo();
-    if (sel.kind === "g") this.graphics.splice(sel.index, 1);
-    else this.pins.splice(sel.index, 1);
-    this.selected = null;
+    // удаляем по убыванию индексов отдельно для графики и выводов (индексы не «съезжают»)
+    const gIdx = this.selection
+      .filter((s) => s.kind === "g")
+      .map((s) => s.index)
+      .sort((a, b) => b - a);
+    const pIdx = this.selection
+      .filter((s) => s.kind === "p")
+      .map((s) => s.index)
+      .sort((a, b) => b - a);
+    for (const i of gIdx) this.graphics.splice(i, 1);
+    for (const i of pIdx) this.pins.splice(i, 1);
+    this.selection = [];
     this.dragOrig = null;
     this.resizing = null;
     this.render();
@@ -1128,57 +1226,141 @@ export class SymbolEditor {
     if (this.redoBtn) this.redoBtn.disabled = this.redoStack.length === 0;
   }
 
-  // ----- поворот / зеркало / сдвиг выделения (S28 Ф5) -----
+  // ----- поворот / зеркало / сдвиг / буфер выделения (S28 Ф5) -----
 
-  /** Центр габарита выделенного элемента (мм) — ось поворота/зеркала. */
+  /** Габарит выделения (мм) — графика + выводы. */
+  private selBBox(): { x: number; y: number; w: number; h: number } | null {
+    if (this.selection.length === 0) return null;
+    const gs = this.selection.filter((s) => s.kind === "g").map((s) => this.graphics[s.index]);
+    const ps = this.selection.filter((s) => s.kind === "p").map((s) => this.pins[s.index]);
+    return symbolBounds({ graphics: gs, pins: ps } as SymbolDef);
+  }
+
+  /** Центр габарита выделения — ось поворота/зеркала. */
   private selPivot(): Pt | null {
-    const sel = this.selected;
-    if (sel?.kind === "g") {
-      const g = this.graphics[sel.index];
-      if (!g) return null;
-      const b = symbolBounds({ graphics: [g], pins: [] } as unknown as SymbolDef);
-      return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-    }
-    if (sel?.kind === "p") {
-      const p = this.pins[sel.index];
-      return p ? { x: p.x, y: p.y } : null;
-    }
-    return null;
+    const b = this.selBBox();
+    return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : null;
   }
 
   private rotateSelected(): void {
-    const sel = this.selected;
     const c = this.selPivot();
-    if (sel?.kind !== "g" || !c) return; // вывод-точку поворачивать незачем
+    if (this.selection.length === 0 || !c) return;
     this.pushUndo();
-    this.graphics[sel.index] = rotateGraphic90(this.graphics[sel.index], c.x, c.y);
+    for (const s of this.selection) {
+      if (s.kind === "g")
+        this.graphics[s.index] = rotateGraphic90(this.graphics[s.index], c.x, c.y);
+      else {
+        const p = this.pins[s.index];
+        this.pins[s.index] = { ...p, x: c.x - (p.y - c.y), y: c.y + (p.x - c.x) };
+      }
+    }
     this.render();
   }
 
   private mirrorSelected(): void {
-    const sel = this.selected;
     const c = this.selPivot();
-    if (sel?.kind !== "g" || !c) return;
+    if (this.selection.length === 0 || !c) return;
     this.pushUndo();
-    this.graphics[sel.index] = mirrorGraphicX(this.graphics[sel.index], c.x);
+    for (const s of this.selection) {
+      if (s.kind === "g") this.graphics[s.index] = mirrorGraphicX(this.graphics[s.index], c.x);
+      else {
+        const p = this.pins[s.index];
+        this.pins[s.index] = { ...p, x: 2 * c.x - p.x };
+      }
+    }
     this.render();
   }
 
   /** Сдвиг выделения стрелками: шаг сетки, Shift — ×10. */
   private nudgeSelected(key: string, big: boolean): void {
-    const sel = this.selected;
-    if (!sel) return;
+    if (this.selection.length === 0) return;
     const d = this.gridStep * (big ? 10 : 1);
     const dx = key === "ArrowLeft" ? -d : key === "ArrowRight" ? d : 0;
     const dy = key === "ArrowUp" ? -d : key === "ArrowDown" ? d : 0;
     if (dx === 0 && dy === 0) return;
     this.pushUndo();
-    if (sel.kind === "g") this.graphics[sel.index] = movedGraphic(this.graphics[sel.index], dx, dy);
-    else {
-      const p = this.pins[sel.index];
-      this.pins[sel.index] = { ...p, x: p.x + dx, y: p.y + dy };
+    for (const s of this.selection) {
+      if (s.kind === "g") this.graphics[s.index] = movedGraphic(this.graphics[s.index], dx, dy);
+      else {
+        const p = this.pins[s.index];
+        this.pins[s.index] = { ...p, x: p.x + dx, y: p.y + dy };
+      }
     }
     this.render();
+  }
+
+  // ----- буфер (копирование / вставка / дублирование) -----
+
+  private selectAll(): void {
+    this.selection = [
+      ...this.graphics.map((_, i) => ({ kind: "g" as const, index: i })),
+      ...this.pins.map((_, i) => ({ kind: "p" as const, index: i })),
+    ];
+    this.render();
+  }
+
+  private copySelection(): void {
+    if (this.selection.length === 0) return;
+    this.clipboard = {
+      graphics: this.selection
+        .filter((s) => s.kind === "g")
+        .map((s) => ({ ...this.graphics[s.index] })),
+      pins: this.selection.filter((s) => s.kind === "p").map((s) => ({ ...this.pins[s.index] })),
+    };
+  }
+
+  /** Вставить клонов со сдвигом на шаг и выделить их. */
+  private pasteClipboard(): void {
+    if (
+      !this.clipboard ||
+      (this.clipboard.graphics.length === 0 && this.clipboard.pins.length === 0)
+    )
+      return;
+    this.pushUndo();
+    this.addClones(this.clipboard.graphics, this.clipboard.pins);
+    this.render();
+  }
+
+  private duplicateSelection(): void {
+    if (this.selection.length === 0) return;
+    const gs = this.selection.filter((s) => s.kind === "g").map((s) => this.graphics[s.index]);
+    const ps = this.selection.filter((s) => s.kind === "p").map((s) => this.pins[s.index]);
+    this.pushUndo();
+    this.addClones(gs, ps);
+    this.render();
+  }
+
+  /** Добавить копии графики/выводов со сдвигом на шаг и сделать их новым выделением. */
+  private addClones(gs: GraphicPrimitive[], ps: Pin[]): void {
+    const off = this.gridStep;
+    const sel: SelItem[] = [];
+    for (const g of gs) {
+      this.graphics.push(movedGraphic(g, off, off));
+      sel.push({ kind: "g", index: this.graphics.length - 1 });
+    }
+    for (const p of ps) {
+      this.pins.push({ ...p, x: p.x + off, y: p.y + off });
+      sel.push({ kind: "p", index: this.pins.length - 1 });
+    }
+    this.selection = sel;
+  }
+
+  /** Все элементы, пересекающиеся с прямоугольником (мм) — для рамки выделения. */
+  private elemsInRect(r: { x0: number; y0: number; x1: number; y1: number }): SelItem[] {
+    const x = Math.min(r.x0, r.x1);
+    const y = Math.min(r.y0, r.y1);
+    const w = Math.abs(r.x1 - r.x0);
+    const h = Math.abs(r.y1 - r.y0);
+    const out: SelItem[] = [];
+    this.graphics.forEach((g, i) => {
+      const b = symbolBounds({ graphics: [g], pins: [] as Pin[] } as SymbolDef);
+      if (b.x <= x + w && b.x + b.w >= x && b.y <= y + h && b.y + b.h >= y)
+        out.push({ kind: "g", index: i });
+    });
+    this.pins.forEach((p, i) => {
+      if (p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h) out.push({ kind: "p", index: i });
+    });
+    return out;
   }
 
   // ----- числовые свойства выделенного (панель «Геометрия», S28 Ф5) -----
@@ -1252,6 +1434,7 @@ export class SymbolEditor {
 
   /** Текущая сигнатура выделения (для решения «перестроить или обновить значения»). */
   private selSig(): string {
+    if (this.selection.length > 1) return `multi:${this.selection.length}`;
     const sel = this.selected;
     if (!sel) return "none";
     const t = sel.kind === "g" ? (this.graphics[sel.index]?.type ?? "?") : "pin";
@@ -1269,7 +1452,8 @@ export class SymbolEditor {
     if (fields.length === 0) {
       const span = document.createElement("span");
       span.className = "se-props-empty";
-      span.textContent = "выберите элемент";
+      span.textContent =
+        this.selection.length > 1 ? `${this.selection.length} элем.` : "выберите элемент";
       host.append(span);
       return;
     }
@@ -1380,9 +1564,28 @@ export class SymbolEditor {
     this.render();
   }
 
-  /** Нарисовать ручки выделенной графики (экранные px) — только в режиме «Размер». */
+  /** Рамка выделения + ручки выделенной графики (экранные px). */
   private renderHandles(): void {
     this.handlesG.replaceChildren();
+    // рамка выделения (marquee)
+    if (this.marquee) {
+      const s = this.scalePx;
+      const x = this.panX + Math.min(this.marquee.x0, this.marquee.x1) * s;
+      const y = this.panY + Math.min(this.marquee.y0, this.marquee.y1) * s;
+      this.handlesG.append(
+        el("rect", {
+          x,
+          y,
+          width: Math.abs(this.marquee.x1 - this.marquee.x0) * s,
+          height: Math.abs(this.marquee.y1 - this.marquee.y0) * s,
+          fill: "rgba(27,111,196,0.08)",
+          stroke: "#1b6fc4",
+          "stroke-width": 1,
+          "stroke-dasharray": "4 3",
+        }),
+      );
+    }
+    // ручки трансформации — только в режиме «Размер» при одиночном выделении графики
     if (this.tool !== "resize" || this.selected?.kind !== "g") return;
     const g = this.graphics[this.selected.index];
     if (!g) return;
@@ -1415,7 +1618,7 @@ export class SymbolEditor {
   }
 
   private isSel(kind: "g" | "p", i: number): boolean {
-    return this.selected?.kind === kind && this.selected.index === i;
+    return this.inSelection({ kind, index: i });
   }
 
   // ----- рендер контента (local mm) -----
