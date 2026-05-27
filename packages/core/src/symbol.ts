@@ -42,6 +42,7 @@ export type GraphicPrimitive =
   | { type: "line"; x1: number; y1: number; x2: number; y2: number }
   | { type: "rect"; x: number; y: number; w: number; h: number }
   | { type: "circle"; cx: number; cy: number; r: number }
+  | { type: "arc"; cx: number; cy: number; r: number; a0: number; a1: number }
   | {
       type: "text";
       x: number;
@@ -50,6 +51,21 @@ export type GraphicPrimitive =
       size?: number;
       anchor?: "start" | "middle" | "end";
     };
+
+/** Точка на окружности (мм) для угла в градусах (y вниз). */
+export function polarPoint(cx: number, cy: number, r: number, deg: number): Point {
+  const a = (deg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+}
+
+/** SVG-путь дуги (центр/радиус/углы в градусах) — общий для рендера и редактора. */
+export function arcPath(cx: number, cy: number, r: number, a0: number, a1: number): string {
+  const p0 = polarPoint(cx, cy, r, a0);
+  const p1 = polarPoint(cx, cy, r, a1);
+  const large = Math.abs(a1 - a0) > 180 ? 1 : 0;
+  const sweep = a1 >= a0 ? 1 : 0;
+  return `M ${p0.x} ${p0.y} A ${r} ${r} 0 ${large} ${sweep} ${p1.x} ${p1.y}`;
+}
 
 /** Вывод символа: имя (IEC: «A1», «13», «1») и положение в мм (на сетке 5 мм). */
 export interface Pin {
@@ -146,6 +162,8 @@ export function symbolBounds(sym: SymbolDef): Rect {
         acc(g.x + g.w, g.y + g.h);
         break;
       case "circle":
+      case "arc":
+        // дуга: габарит по описанной окружности (безопасная оценка)
         acc(g.cx - g.r, g.cy - g.r);
         acc(g.cx + g.r, g.cy + g.r);
         break;
@@ -233,6 +251,10 @@ function validateGraphic(g: unknown): string | null {
         : "rect requires x,y,w,h numbers";
     case "circle":
       return isNum(g.cx) && isNum(g.cy) && isNum(g.r) ? null : "circle requires cx,cy,r numbers";
+    case "arc":
+      return isNum(g.cx) && isNum(g.cy) && isNum(g.r) && isNum(g.a0) && isNum(g.a1)
+        ? null
+        : "arc requires cx,cy,r,a0,a1 numbers";
     case "text":
       return isNum(g.x) && isNum(g.y) && isStr(g.text)
         ? null

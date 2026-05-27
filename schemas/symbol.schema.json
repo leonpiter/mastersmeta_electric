@@ -52,6 +52,7 @@
         { "$ref": "#/definitions/line" },
         { "$ref": "#/definitions/rect" },
         { "$ref": "#/definitions/circle" },
+        { "$ref": "#/definitions/arc" },
         { "$ref": "#/definitions/text" }
       ]
     },
@@ -88,6 +89,19 @@
         "cx": { "type": "number" },
         "cy": { "type": "number" },
         "r": { "type": "number" }
+      }
+    },
+    "arc": {
+      "type": "object",
+      "required": ["type", "cx", "cy", "r", "a0", "a1"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "arc" },
+        "cx": { "type": "number" },
+        "cy": { "type": "number" },
+        "r": { "type": "number" },
+        "a0": { "type": "number", "description": "Начальный угол, градусы (y вниз)." },
+        "a1": { "type": "number", "description": "Конечный угол, градусы." }
       }
     },
     "text": {

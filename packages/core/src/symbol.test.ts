@@ -3,6 +3,7 @@ import {
   rotatePoint,
   transformLocalPoint,
   symbolBounds,
+  arcPath,
   nextDesignation,
   validateSymbol,
   SymbolLibrary,
@@ -95,6 +96,30 @@ describe("валидация *.symbol.json", () => {
   it("ловит битый графический примитив", () => {
     const bad = { ...sample, graphics: [{ type: "line", x1: 0 }] };
     const r = validateSymbol(bad);
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("дуга (arc, S28)", () => {
+  const arcSym = {
+    ...sample,
+    pins: [{ name: "1", x: 0, y: 0 }],
+    graphics: [{ type: "arc", cx: 0, cy: 0, r: 5, a0: 180, a1: 360 }],
+  };
+
+  it("валидируется; габарит — по описанной окружности", () => {
+    expect(validateSymbol(arcSym).ok).toBe(true);
+    expect(symbolBounds(arcSym as SymbolDef)).toEqual({ x: -5, y: -5, w: 10, h: 10 });
+  });
+
+  it("arcPath строит SVG-дугу (M … A r r …)", () => {
+    const d = arcPath(0, 0, 5, 0, 180);
+    expect(d.startsWith("M ")).toBe(true);
+    expect(d).toContain(" A 5 5 ");
+  });
+
+  it("ловит дугу без углов a0/a1", () => {
+    const r = validateSymbol({ ...sample, graphics: [{ type: "arc", cx: 0, cy: 0, r: 5 }] });
     expect(r.ok).toBe(false);
   });
 });

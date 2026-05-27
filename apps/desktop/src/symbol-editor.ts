@@ -7,6 +7,7 @@
 import {
   validateSymbol,
   symbolBounds,
+  arcPath,
   PX_PER_MM,
   SYMBOL_KINDS,
   CategoryRegistry,
@@ -83,7 +84,7 @@ function nearRectBorder(p: Pt, x: number, y: number, w: number, h: number, tol: 
 function movedGraphic(g: GraphicPrimitive, dx: number, dy: number): GraphicPrimitive {
   if (g.type === "line")
     return { ...g, x1: g.x1 + dx, y1: g.y1 + dy, x2: g.x2 + dx, y2: g.y2 + dy };
-  if (g.type === "circle") return { ...g, cx: g.cx + dx, cy: g.cy + dy };
+  if (g.type === "circle" || g.type === "arc") return { ...g, cx: g.cx + dx, cy: g.cy + dy };
   return { ...g, x: g.x + dx, y: g.y + dy }; // rect | text
 }
 
@@ -137,7 +138,7 @@ function nextPinName(name: string): string {
   return `${name.slice(0, i)}${Number.parseInt(name.slice(i), 10) + 1}`;
 }
 
-type Tool = "select" | "resize" | "line" | "rect" | "circle" | "pin" | "text";
+type Tool = "select" | "resize" | "line" | "rect" | "circle" | "arc" | "pin" | "text";
 /** Выбранный элемент редактора: графика или вывод по индексу. */
 type Sel = { kind: "g" | "p"; index: number } | null;
 /** Ручка трансформации: id (угол/сторона/конец) + позиция в мм. */
@@ -917,6 +918,13 @@ export class SymbolEditor {
       if (r === 0) return null;
       return { type: "circle", cx: a.x, cy: a.y, r };
     }
+    if (this.tool === "arc") {
+      // полукруг: центр = старт, радиус и ориентация — по направлению протяжки
+      const r = Math.round(Math.hypot(b.x - a.x, b.y - a.y));
+      if (r === 0) return null;
+      const th = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+      return { type: "arc", cx: a.x, cy: a.y, r, a0: th - 90, a1: th + 90 };
+    }
     return null;
   }
 
@@ -938,7 +946,8 @@ export class SymbolEditor {
   private onGraphic(g: GraphicPrimitive, p: Pt, tol: number): boolean {
     if (g.type === "line") return distSeg(p, { x: g.x1, y: g.y1 }, { x: g.x2, y: g.y2 }) <= tol;
     if (g.type === "rect") return nearRectBorder(p, g.x, g.y, g.w, g.h, tol);
-    if (g.type === "circle") return Math.abs(Math.hypot(p.x - g.cx, p.y - g.cy) - g.r) <= tol;
+    if (g.type === "circle" || g.type === "arc")
+      return Math.abs(Math.hypot(p.x - g.cx, p.y - g.cy) - g.r) <= tol;
     const s = g.size ?? 4;
     const w = Math.max(g.text.length * s * 0.6, 2);
     const x0 = g.anchor === "middle" ? g.x - w / 2 : g.anchor === "end" ? g.x - w : g.x;
@@ -986,7 +995,7 @@ export class SymbolEditor {
         { id: "w", x, y: y + h / 2 },
       ];
     }
-    if (g.type === "circle")
+    if (g.type === "circle" || g.type === "arc")
       return [
         { id: "n", x: g.cx, y: g.cy - g.r },
         { id: "e", x: g.cx + g.r, y: g.cy },
@@ -1020,7 +1029,7 @@ export class SymbolEditor {
     const g = rz.orig;
     let next: GraphicPrimitive = g;
     if (g.type === "rect") next = resizeRect(g, rz.handle, sx, sy, step);
-    else if (g.type === "circle") {
+    else if (g.type === "circle" || g.type === "arc") {
       const r =
         rz.handle === "e"
           ? sx - g.cx
@@ -1124,6 +1133,15 @@ export class SymbolEditor {
           cx: g.cx,
           cy: g.cy,
           r: g.r,
+          fill: "none",
+          stroke: color,
+          "stroke-width": 0.4,
+        }),
+      );
+    else if (g.type === "arc")
+      this.content.append(
+        el("path", {
+          d: arcPath(g.cx, g.cy, g.r, g.a0, g.a1),
           fill: "none",
           stroke: color,
           "stroke-width": 0.4,

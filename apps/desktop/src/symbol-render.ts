@@ -3,7 +3,7 @@
  * Инстанс позиционируется группой-обёрткой: translate(x y) rotate(deg) scale(mx,1)
  * — совпадает с `transformLocalPoint` в ядре (зеркало → поворот → сдвиг).
  */
-import { symbolBounds, type SymbolDef } from "@see/core";
+import { symbolBounds, arcPath, type SymbolDef } from "@see/core";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -69,6 +69,17 @@ export function symbolToSvg(sym: SymbolDef, opts: SymbolRenderOpts = {}): SVGGEl
             fill: "none",
             stroke,
             "stroke-width": sw,
+          }),
+        );
+        break;
+      case "arc":
+        g.append(
+          el("path", {
+            d: arcPath(prim.cx, prim.cy, prim.r, prim.a0, prim.a1),
+            fill: "none",
+            stroke,
+            "stroke-width": sw,
+            "stroke-linecap": "round",
           }),
         );
         break;
