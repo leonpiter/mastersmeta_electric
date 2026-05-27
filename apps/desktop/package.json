@@ -1,18 +1,27 @@
 {
   "name": "@see/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Мастермета Электро — офлайн ГОСТ-редактор электрических схем",
+  "author": "Leonid <leonpiter@gmail.com>",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "electron": "electron .",
+    "dist": "vite build && electron-builder",
+    "dist:publish": "vite build && electron-builder --publish always"
   },
   "dependencies": {
-    "@see/core": "workspace:*"
+    "@see/core": "workspace:*",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "^25.1.8",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"
   }

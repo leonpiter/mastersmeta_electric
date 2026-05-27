@@ -1,0 +1,32 @@
+appId: com.mastermeta.electro
+productName: Мастермета Электро
+executableName: MastermetaElectro
+copyright: © 2026 Leonid (MIT)
+
+directories:
+  output: release
+  buildResources: build
+
+# что кладём в asar: собранный рендерер + glue Electron + манифест
+files:
+  - dist/**
+  - electron/**
+  - package.json
+
+# публикация и фид авто-обновления — GitHub Releases (публичный репозиторий)
+publish:
+  provider: github
+  owner: leonpiter
+  repo: mastersmeta_electric
+
+win:
+  target:
+    - nsis
+  artifactName: MastermetaElectro-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Мастермета Электро
+  createDesktopShortcut: true

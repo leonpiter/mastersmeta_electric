@@ -1,0 +1,38 @@
+name: Release
+
+# Сборка Windows-инсталлятора и публикация в GitHub Releases.
+# Запуск: пуш тега вида v1.2.3 (или вручную через «Run workflow»).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write # создать релиз и залить .exe + latest.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # гейт качества перед релизом
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+      # сборка рендерера + инсталлятора, публикация (черновик релиза с ассетами)
+      - run: pnpm --filter @see/desktop run dist:publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

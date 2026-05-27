@@ -7,5 +7,8 @@ coverage/
 .vite/
 scripts/_*.png
 
+# вывод сборки Electron-инсталлятора (electron-builder)
+apps/desktop/release/
+
 # Локальные референс-мануалы (проприетарные IGE+XAO) — НЕ версионируем и НЕ публикуем
 docs/manual/
