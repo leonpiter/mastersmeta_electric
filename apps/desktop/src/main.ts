@@ -21,6 +21,8 @@ import {
   computeTerminals,
   terminalsToCsv,
   computeTerminalStrips,
+  computeConnectors,
+  connectorsToCsv,
   Catalog,
   BUILTIN_PARTS,
   partLabel,
@@ -1284,6 +1286,28 @@ function showStrips(): void {
   if (strips.length === 0) return;
   printSvg(`Клеммник — ${projName()}`, renderTerminalStrips(strips));
 });
+
+// таблица разъёмов (S8)
+const CONNECTOR_HEADERS = ["Разъём", "Контакт", "Подключение", "Лист"];
+const connectorRows = (): string[][] =>
+  computeConnectors(project, library).map((r) => [r.connector, r.pin, r.connection, r.sheet]);
+const connectorDialog = document.getElementById("connector-dialog") as HTMLDialogElement;
+const connectorBody = document.getElementById("connector-body")!;
+(document.getElementById("report-connector") as HTMLButtonElement).addEventListener("click", () =>
+  showReport(
+    connectorDialog,
+    connectorBody,
+    CONNECTOR_HEADERS,
+    connectorRows(),
+    "На листах нет разъёмов (XS).",
+  ),
+);
+(document.getElementById("connector-csv") as HTMLButtonElement).addEventListener("click", () =>
+  downloadCsv(`${projName()}-разъёмы.csv`, connectorsToCsv(computeConnectors(project, library))),
+);
+(document.getElementById("connector-print") as HTMLButtonElement).addEventListener("click", () =>
+  printReport(`Таблица разъёмов — ${projName()}`, CONNECTOR_HEADERS, connectorRows()),
+);
 
 // ----- меню сетки (показать/скрыть + шаг) -----
 const gridBtn = document.getElementById("grid") as HTMLButtonElement;

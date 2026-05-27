@@ -133,6 +133,13 @@ export const GOST_CATEGORIES: EquipmentCategory[] = [
     attributes: [txt("section", "Сечение, мм²")],
   },
   {
+    id: "connector",
+    name: "Разъёмы",
+    componentCode: "XS",
+    kinds: ["connector"],
+    attributes: [txt("pins", "Контактов"), txt("rating", "Ток / напряжение")],
+  },
+  {
     id: "misc",
     name: "Прочее",
     componentCode: "",

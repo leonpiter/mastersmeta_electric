@@ -7,6 +7,8 @@ import {
   computeTerminals,
   terminalsToCsv,
   computeTerminalStrips,
+  computeConnectors,
+  connectorsToCsv,
 } from "./reports";
 import { Catalog } from "./catalog";
 import { createProject, type Project, type SymbolInstance } from "./model";
@@ -263,5 +265,54 @@ describe("таблица клемм", () => {
     expect(strips.map((s) => s.name)).toEqual(["X", "XT"]);
     const xt = strips.find((s) => s.name === "XT")!;
     expect(xt.rows.map((r) => r.terminal)).toEqual(["XT1", "XT2", "XT10"]); // числовая сортировка
+  });
+});
+
+describe("таблица разъёмов", () => {
+  const conn: SymbolDef = {
+    id: "t.xs",
+    name: "Разъём",
+    category: "c",
+    componentCode: "XS",
+    kind: "connector",
+    pins: [
+      { name: "1", x: 0, y: 0 },
+      { name: "2", x: 0, y: 5 },
+    ],
+    graphics: [],
+  };
+  const coilC: SymbolDef = {
+    id: "t.coilc",
+    name: "Катушка",
+    category: "c",
+    componentCode: "KM",
+    kind: "coil",
+    pins: [{ name: "A1", x: 0, y: 0 }],
+    graphics: [],
+  };
+  const libC = new SymbolLibrary([conn, coilC]);
+  const mk = (sym: SymbolDef, designation: string, x: number, y: number): SymbolInstance => ({
+    id: newId(),
+    symbolId: sym.id,
+    designation,
+    componentCode: sym.componentCode,
+    x,
+    y,
+    rotation: 0,
+    mirror: false,
+    showLabels: true,
+  });
+
+  it("по строке на контакт; подключённый контакт показывает соседа, прочие — «—»", () => {
+    const p = createProject();
+    p.pages[0].instances.push(
+      mk(conn, "XS1", 0, 0), // контакт 1 в (0,0), контакт 2 в (0,5)
+      mk(coilC, "KM1", 0, 0), // A1 совпадает с XS1:1
+    );
+    const rows = computeConnectors(p, libC);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ connector: "XS1", pin: "1", connection: "KM1:A1" });
+    expect(rows[1]).toMatchObject({ connector: "XS1", pin: "2", connection: "—" });
+    expect(connectorsToCsv(rows).split("\r\n")[0]).toBe("Разъём;Контакт;Подключение;Лист");
   });
 });

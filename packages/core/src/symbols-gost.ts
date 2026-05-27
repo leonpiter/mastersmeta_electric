@@ -299,6 +299,32 @@ const XT: SymbolDef = {
   ],
 };
 
+/** Разъём 4-контактный (ГОСТ 2.755): розетка XS — контакты с полукруглыми гнёздами. */
+const XS: SymbolDef = {
+  id: "gost.xs",
+  name: "Разъём (розетка)",
+  category: "Разъёмы",
+  componentCode: "XS",
+  kind: "connector",
+  pins: [
+    { name: "1", x: 0, y: 0 },
+    { name: "2", x: 0, y: 5 },
+    { name: "3", x: 0, y: 10 },
+    { name: "4", x: 0, y: 15 },
+  ],
+  graphics: [
+    { type: "line", x1: 0, y1: 0, x2: 4, y2: 0 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 5 },
+    { type: "line", x1: 0, y1: 10, x2: 4, y2: 10 },
+    { type: "line", x1: 0, y1: 15, x2: 4, y2: 15 },
+    { type: "circle", cx: 5, cy: 0, r: 1 }, // гнездо контакта
+    { type: "circle", cx: 5, cy: 5, r: 1 },
+    { type: "circle", cx: 5, cy: 10, r: 1 },
+    { type: "circle", cx: 5, cy: 15, r: 1 },
+    { type: "line", x1: 7, y1: -2, x2: 7, y2: 17 }, // корпус разъёма
+  ],
+};
+
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
 export const GOST_SYMBOLS: SymbolDef[] = [
   QF,
@@ -316,4 +342,5 @@ export const GOST_SYMBOLS: SymbolDef[] = [
   M,
   T,
   XT,
+  XS,
 ];

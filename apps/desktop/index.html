@@ -243,6 +243,20 @@
                 </svg>
                 <span>Клеммник</span>
               </button>
+              <button
+                id="report-connector"
+                type="button"
+                title="Таблица разъёмов: экспорт CSV / печать"
+              >
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M10.5 3v10" />
+                  <path d="M3 5h5M3 8h5M3 11h5" />
+                  <circle cx="9.2" cy="5" r="0.9" fill="currentColor" />
+                  <circle cx="9.2" cy="8" r="0.9" fill="currentColor" />
+                  <circle cx="9.2" cy="11" r="0.9" fill="currentColor" />
+                </svg>
+                <span>Разъёмы</span>
+              </button>
             </div>
             <div class="rgroup-cap">Отчёты</div>
           </div>
@@ -810,6 +824,22 @@
         <div id="strip-body" class="strip-body"></div>
         <div class="prop-actions">
           <button value="print" type="button" id="strip-print" class="btn-secondary">
+            Печать…
+          </button>
+          <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="connector-dialog">
+      <form method="dialog" class="modal-form modal-wide">
+        <h3>Таблица разъёмов</h3>
+        <div id="connector-body" class="bom-body"></div>
+        <div class="prop-actions">
+          <button value="csv" type="button" id="connector-csv" class="btn-secondary">
+            Экспорт CSV
+          </button>
+          <button value="print" type="button" id="connector-print" class="btn-secondary">
             Печать…
           </button>
           <button value="ok" type="submit">Закрыть</button>

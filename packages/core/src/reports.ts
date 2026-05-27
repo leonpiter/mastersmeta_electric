@@ -239,6 +239,79 @@ export function terminalsToCsv(rows: TerminalRow[]): string {
   ]);
 }
 
+/** Строка таблицы разъёмов (ГОСТ 2.701): один контакт разъёма и его подключение. */
+export interface ConnectorRow {
+  /** Обозначение разъёма, напр. «XS1». */
+  connector: string;
+  /** Имя контакта, напр. «1». */
+  pin: string;
+  /** Подключение контакта: цепь и соседние выводы устройств. */
+  connection: string;
+  /** Номер листа. */
+  sheet: string;
+}
+
+/**
+ * Таблица разъёмов из проекта: для каждого символа-разъёма (`kind: "connector"`) —
+ * по строке на каждый контакт с его подключением (номер цепи + соседние выводы).
+ */
+export function computeConnectors(project: Project, library: SymbolLibrary): ConnectorRow[] {
+  const rows: ConnectorRow[] = [];
+
+  project.pages.forEach((page, pageIndex) => {
+    const nets = computeNets(page, library);
+    const desigOf = new Map(page.instances.map((i) => [i.id, i.designation]));
+    const wireById = new Map(page.wires.map((w) => [w.id, w]));
+
+    const connectionLabel = (instanceId: string, pinName: string): string => {
+      const net = nets.find((n) =>
+        n.pins.some((p) => p.instanceId === instanceId && p.pinName === pinName),
+      );
+      if (!net) return "—";
+      const others = net.pins
+        .filter((p) => p.instanceId !== instanceId)
+        .map((p) => `${desigOf.get(p.instanceId) ?? "?"}:${p.pinName}`)
+        .sort((a, b) => a.localeCompare(b, "ru"));
+      const num = net.wireIds.map((id) => wireById.get(id)).find((w) => w?.number)?.number;
+      const parts: string[] = [];
+      if (num) parts.push(`цепь ${num}`);
+      if (others.length) parts.push(others.join(", "));
+      return parts.join(" → ") || "—";
+    };
+
+    for (const inst of page.instances) {
+      const sym = library.get(inst.symbolId);
+      if (sym?.kind !== "connector") continue;
+      for (const pin of sym.pins) {
+        rows.push({
+          connector: inst.designation,
+          pin: pin.name,
+          connection: connectionLabel(inst.id, pin.name),
+          sheet: String(pageIndex + 1),
+        });
+      }
+    }
+  });
+
+  rows.sort(
+    (a, b) =>
+      a.sheet.localeCompare(b.sheet, undefined, { numeric: true }) ||
+      a.connector.localeCompare(b.connector, undefined, { numeric: true }) ||
+      a.pin.localeCompare(b.pin, undefined, { numeric: true }),
+  );
+  return rows;
+}
+
+/** Экспорт таблицы разъёмов в CSV. */
+export function connectorsToCsv(rows: ConnectorRow[]): string {
+  return toCsv(["Разъём", "Контакт", "Подключение", "Лист"], rows, (r) => [
+    r.connector,
+    r.pin,
+    r.connection,
+    r.sheet,
+  ]);
+}
+
 /** Общий сборщик CSV (разделитель «;», экранирование, для Excel). */
 function toCsv<T>(header: string[], rows: T[], cells: (row: T) => string[]): string {
   const esc = (s: string): string => (/[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
