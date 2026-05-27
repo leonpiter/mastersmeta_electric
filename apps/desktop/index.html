@@ -412,6 +412,32 @@
                 </svg>
                 <span>Выбрать</span>
               </button>
+              <button
+                type="button"
+                data-tool="resize"
+                title="Размер — тянуть за угол/сторону/конец"
+              >
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <rect x="3.5" y="3.5" width="9" height="9" />
+                  <rect
+                    x="1.4"
+                    y="1.4"
+                    width="2.8"
+                    height="2.8"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <rect
+                    x="11.8"
+                    y="11.8"
+                    width="2.8"
+                    height="2.8"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                </svg>
+                <span>Размер</span>
+              </button>
               <button type="button" data-tool="line" title="Линия">
                 <svg class="ic" viewBox="0 0 16 16" fill="none"><path d="M3 13 13 3" /></svg>
                 <span>Линия</span>
@@ -459,12 +485,21 @@
           </div>
           <div class="rgroup">
             <div class="rgroup-tools">
-              <select id="se-grid" title="Шаг сетки, мм">
-                <option value="1">1 мм</option>
-                <option value="2.5">2,5 мм</option>
-                <option value="5" selected>5 мм</option>
-                <option value="10">10 мм</option>
-              </select>
+              <input
+                id="se-grid"
+                type="number"
+                min="0.1"
+                step="0.1"
+                value="5"
+                list="se-grid-presets"
+                title="Шаг сетки/привязки, мм (любой кратно 0,1)"
+              />
+              <datalist id="se-grid-presets">
+                <option value="1"></option>
+                <option value="2.5"></option>
+                <option value="5"></option>
+                <option value="10"></option>
+              </datalist>
             </div>
             <div class="rgroup-cap">Сетка</div>
           </div>

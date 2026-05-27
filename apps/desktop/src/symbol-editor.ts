@@ -87,6 +87,48 @@ function movedGraphic(g: GraphicPrimitive, dx: number, dy: number): GraphicPrimi
   return { ...g, x: g.x + dx, y: g.y + dy }; // rect | text
 }
 
+/**
+ * Изменить прямоугольник ручкой (sx,sy — привязанный курсор; minW — мин. размер):
+ * угол (nw/ne/se/sw) → пропорционально (фикс. соотношение, противоположный угол закреплён);
+ * сторона (n/s/e/w) → одна ось (противоположная сторона закреплена).
+ */
+function resizeRect(
+  g: Extract<GraphicPrimitive, { type: "rect" }>,
+  handle: string,
+  sx: number,
+  sy: number,
+  minW: number,
+): GraphicPrimitive {
+  let { x, y, w, h } = g;
+  if (handle.length === 2) {
+    // угол — пропорционально; противоположный угол = якорь
+    const ratio = h > 0 ? w / h : 1;
+    const ax = handle.includes("w") ? x + w : x;
+    const ay = handle.includes("n") ? y + h : y;
+    const nh = Math.max(minW, Math.abs(sx - ax) / ratio);
+    const nw = nh * ratio;
+    return {
+      type: "rect",
+      x: handle.includes("w") ? ax - nw : ax,
+      y: handle.includes("n") ? ay - nh : ay,
+      w: nw,
+      h: nh,
+    };
+  }
+  if (handle === "e") w = Math.max(minW, sx - x);
+  else if (handle === "w") {
+    const right = x + w;
+    w = Math.max(minW, right - sx);
+    x = right - w;
+  } else if (handle === "s") h = Math.max(minW, sy - y);
+  else if (handle === "n") {
+    const bottom = y + h;
+    h = Math.max(minW, bottom - sy);
+    y = bottom - h;
+  }
+  return { type: "rect", x, y, w, h };
+}
+
 /** Авто-инкремент имени вывода: «13»→«14», «A1»→«A2», иначе без изменения (без regex). */
 function nextPinName(name: string): string {
   let i = name.length;
@@ -95,9 +137,15 @@ function nextPinName(name: string): string {
   return `${name.slice(0, i)}${Number.parseInt(name.slice(i), 10) + 1}`;
 }
 
-type Tool = "select" | "line" | "rect" | "circle" | "pin" | "text";
+type Tool = "select" | "resize" | "line" | "rect" | "circle" | "pin" | "text";
 /** Выбранный элемент редактора: графика или вывод по индексу. */
 type Sel = { kind: "g" | "p"; index: number } | null;
+/** Ручка трансформации: id (угол/сторона/конец) + позиция в мм. */
+interface Handle {
+  id: string;
+  x: number;
+  y: number;
+}
 
 export class SymbolEditor {
   // S28: редактор — режим на всю область канваса (был модальный <dialog>);
@@ -110,7 +158,7 @@ export class SymbolEditor {
   private readonly pinNameEl = document.getElementById("se-pinname") as HTMLInputElement;
   private readonly textEl = document.getElementById("se-text") as HTMLInputElement | null;
   private readonly textSizeEl = document.getElementById("se-textsize") as HTMLInputElement | null;
-  private readonly gridEl = document.getElementById("se-grid") as HTMLSelectElement;
+  private readonly gridEl = document.getElementById("se-grid") as HTMLInputElement;
   private readonly zoomEl = document.getElementById("se-zoom");
   private readonly hintEl = document.getElementById("se-hint")!;
   // инструменты рисования теперь в ленте (вкладка «Редактор УГО»)
@@ -132,6 +180,8 @@ export class SymbolEditor {
   private readonly gridRect: SVGRectElement;
   private readonly axes: SVGGElement;
   private readonly content: SVGGElement;
+  /** Слой ручек трансформации (экранные px, поверх контента). */
+  private readonly handlesG: SVGGElement;
 
   private panX = 0;
   private panY = 0;
@@ -156,6 +206,8 @@ export class SymbolEditor {
   // выделение и перетаскивание элемента (инструмент «Выбрать»)
   private selected: Sel = null;
   private dragOrig: { sx: number; sy: number; g?: GraphicPrimitive; p?: Pin } | null = null;
+  // трансформация ручкой (инструмент «Размер»): id ручки + исходная графика
+  private resizing: { handle: string; orig: GraphicPrimitive } | null = null;
 
   constructor(
     private readonly onSave: (sym: SymbolDef) => void,
@@ -192,13 +244,16 @@ export class SymbolEditor {
     this.gridRect = el("rect", { x: 0, y: 0, width: 1, height: 1, fill: "url(#se-grid-pattern)" });
     this.axes = el("g");
     this.content = el("g");
-    this.svg.append(defs, this.gridRect, this.axes, this.content);
+    this.handlesG = el("g");
+    this.svg.append(defs, this.gridRect, this.axes, this.content, this.handlesG);
 
     this.toolBtns.forEach((b) =>
       b.addEventListener("click", () => {
         this.tool = b.dataset.tool as Tool;
         this.toolBtns.forEach((x) => x.classList.toggle("on", x === b));
-        this.selected = null;
+        // выделение сохраняем между «Выбрать» и «Размер», сбрасываем для рисующих инструментов
+        if (this.tool !== "select" && this.tool !== "resize") this.selected = null;
+        this.resizing = null;
         this.render();
       }),
     );
@@ -220,16 +275,17 @@ export class SymbolEditor {
       this.exit(),
     );
     this.gridEl.addEventListener("change", () => {
-      const step = Number(this.gridEl.value);
-      if (step > 0) {
-        this.gridStep = step;
-        try {
-          localStorage.setItem("see.ugoGridStep", String(step));
-        } catch {
-          /* недоступно — игнор */
-        }
-        this.updateView();
+      // любой шаг кратно 0,1 мм (мин. 0,1) — пресеты 1/2.5/5/10 в datalist
+      let step = Math.round(Number(this.gridEl.value) * 10) / 10;
+      if (!(step >= 0.1)) step = 0.1;
+      this.gridStep = step;
+      this.gridEl.value = String(step);
+      try {
+        localStorage.setItem("see.ugoGridStep", String(step));
+      } catch {
+        /* недоступно — игнор */
       }
+      this.updateView();
     });
 
     // строгие категории: выбор задаёт код + ограничивает поведение; «+ Новая категория…»
@@ -488,6 +544,7 @@ export class SymbolEditor {
       );
 
     if (this.zoomEl) this.zoomEl.textContent = `${Math.round(this.zoom * 100)}%`;
+    this.renderHandles();
   }
 
   // ----- ввод -----
@@ -522,7 +579,16 @@ export class SymbolEditor {
       this.down = { x: e.clientX, y: e.clientY, button: e.button, moved: false };
       if (e.button === 1 || this.space) return; // пан
       if (e.button !== 0) return;
-      if (this.tool === "select") {
+      if (this.tool === "select" || this.tool === "resize") {
+        // в режиме «Размер» сначала пробуем схватить ручку трансформации выделенной графики
+        if (this.tool === "resize" && this.selected?.kind === "g") {
+          const g = this.graphics[this.selected.index];
+          const h = this.hitHandle(g, this.last);
+          if (h) {
+            this.resizing = { handle: h.id, orig: { ...g } };
+            return;
+          }
+        }
         this.selected = this.hitAt(this.last);
         if (this.selected) {
           const step = this.gridStep;
@@ -575,6 +641,8 @@ export class SymbolEditor {
         this.panX += e.movementX;
         this.panY += e.movementY;
         this.updateView();
+      } else if (this.resizing) {
+        this.resizeSelected();
       } else if (this.selected && this.dragOrig) {
         this.dragSelected();
       } else if (this.start) {
@@ -595,6 +663,7 @@ export class SymbolEditor {
         this.render();
       }
       this.dragOrig = null;
+      this.resizing = null;
       this.down = null;
     });
 
@@ -689,7 +758,110 @@ export class SymbolEditor {
     else this.pins.splice(sel.index, 1);
     this.selected = null;
     this.dragOrig = null;
+    this.resizing = null;
     this.render();
+  }
+
+  // ----- трансформация ручками (инструмент «Размер») -----
+
+  /** Позиции ручек элемента (мм): прямоугольник — 8, окружность — 4, линия — 2 конца. */
+  private handlePoints(g: GraphicPrimitive): Handle[] {
+    if (g.type === "rect") {
+      const { x, y, w, h } = g;
+      return [
+        { id: "nw", x, y },
+        { id: "n", x: x + w / 2, y },
+        { id: "ne", x: x + w, y },
+        { id: "e", x: x + w, y: y + h / 2 },
+        { id: "se", x: x + w, y: y + h },
+        { id: "s", x: x + w / 2, y: y + h },
+        { id: "sw", x, y: y + h },
+        { id: "w", x, y: y + h / 2 },
+      ];
+    }
+    if (g.type === "circle")
+      return [
+        { id: "n", x: g.cx, y: g.cy - g.r },
+        { id: "e", x: g.cx + g.r, y: g.cy },
+        { id: "s", x: g.cx, y: g.cy + g.r },
+        { id: "w", x: g.cx - g.r, y: g.cy },
+      ];
+    if (g.type === "line")
+      return [
+        { id: "a", x: g.x1, y: g.y1 },
+        { id: "b", x: g.x2, y: g.y2 },
+      ];
+    return []; // текст — без ручек (кегль через поле)
+  }
+
+  /** Ручка под точкой (мм), допуск ~7 px. */
+  private hitHandle(g: GraphicPrimitive, p: Pt): Handle | null {
+    const tol = Math.max(0.6, 7 / this.scalePx);
+    for (const h of this.handlePoints(g)) {
+      if (Math.abs(p.x - h.x) <= tol && Math.abs(p.y - h.y) <= tol) return h;
+    }
+    return null;
+  }
+
+  private resizeSelected(): void {
+    const sel = this.selected;
+    const rz = this.resizing;
+    if (sel?.kind !== "g" || !rz) return;
+    const step = this.gridStep;
+    const sx = snap(this.last.x, step);
+    const sy = snap(this.last.y, step);
+    const g = rz.orig;
+    let next: GraphicPrimitive = g;
+    if (g.type === "rect") next = resizeRect(g, rz.handle, sx, sy, step);
+    else if (g.type === "circle") {
+      const r =
+        rz.handle === "e"
+          ? sx - g.cx
+          : rz.handle === "w"
+            ? g.cx - sx
+            : rz.handle === "s"
+              ? sy - g.cy
+              : g.cy - sy;
+      next = { ...g, r: Math.max(step, Math.abs(r)) };
+    } else if (g.type === "line") {
+      next = rz.handle === "a" ? { ...g, x1: sx, y1: sy } : { ...g, x2: sx, y2: sy };
+    }
+    this.graphics[sel.index] = next;
+    this.render();
+  }
+
+  /** Нарисовать ручки выделенной графики (экранные px) — только в режиме «Размер». */
+  private renderHandles(): void {
+    this.handlesG.replaceChildren();
+    if (this.tool !== "resize" || this.selected?.kind !== "g") return;
+    const g = this.graphics[this.selected.index];
+    if (!g) return;
+    const s = this.scalePx;
+    const hs = 4;
+    for (const h of this.handlePoints(g)) {
+      const cx = this.panX + h.x * s;
+      const cy = this.panY + h.y * s;
+      this.handlesG.append(
+        g.type === "line"
+          ? el("circle", {
+              cx,
+              cy,
+              r: hs + 1,
+              fill: "#fff",
+              stroke: "#1b6fc4",
+              "stroke-width": 1.4,
+            })
+          : el("rect", {
+              x: cx - hs,
+              y: cy - hs,
+              width: hs * 2,
+              height: hs * 2,
+              fill: "#fff",
+              stroke: "#1b6fc4",
+              "stroke-width": 1.4,
+            }),
+      );
+    }
   }
 
   private isSel(kind: "g" | "p", i: number): boolean {
@@ -719,6 +891,7 @@ export class SymbolEditor {
       t.textContent = p.name;
       this.content.append(t);
     });
+    this.renderHandles();
   }
 
   private drawShape(g: GraphicPrimitive, color: string): void {
