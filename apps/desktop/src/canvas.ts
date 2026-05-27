@@ -460,28 +460,67 @@ export class CanvasView {
     this.updateView();
   }
 
-  /** Экспорт листа в PDF через печать браузера (Save as PDF), масштаб 1:1 в мм. */
-  exportPdf(): void {
-    const f = this.page.format;
+  /** Сериализовать содержимое текущего листа (все слои в мм: рамка, провода, символы, подписи). */
+  private serializeContent(): string {
     const ser = new XMLSerializer();
-    const body = ser.serializeToString(this.sheetG) + ser.serializeToString(this.nodesG);
-    const svg =
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${f.width} ${f.height}" ` +
-      `width="${f.width}mm" height="${f.height}mm">${body}</svg>`;
-    const tb = this.page.titleBlock;
-    const title = tb.designation || tb.title || "Лист";
+    return [
+      this.sheetG,
+      this.wiresG,
+      this.instancesG,
+      this.annotationsG,
+      this.overlayG,
+      this.nodesG,
+    ]
+      .map((g) => ser.serializeToString(g))
+      .join("");
+  }
+
+  /** SVG-страница листа (мм, 1:1) для печати. */
+  private sheetSvg(): string {
+    const f = this.page.format;
+    return (
+      `<svg xmlns="http://www.w3.org/2000/svg" class="sheet" viewBox="0 0 ${f.width} ${f.height}" ` +
+      `width="${f.width}mm" height="${f.height}mm">${this.serializeContent()}</svg>`
+    );
+  }
+
+  private openPrint(title: string, sizeMm: string, bodyHtml: string): void {
     const printJs = "window.onload=function(){window.focus();window.print();};";
     const html =
-      `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${title} · ${f.name}</title>` +
-      `<style>@page{size:${f.width}mm ${f.height}mm;margin:0}html,body{margin:0}svg{display:block}</style>` +
-      `</head><body>${svg}<script>${printJs}</` +
+      `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${title}</title>` +
+      `<style>@page{size:${sizeMm};margin:0}html,body{margin:0}svg.sheet{display:block;page-break-after:always}</style>` +
+      `</head><body>${bodyHtml}<script>${printJs}</` +
       `script></body></html>`;
     const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
     const win = window.open(url, "_blank");
-    if (!win) {
-      window.alert("Разрешите всплывающие окна, чтобы экспортировать лист в PDF.");
-    }
+    if (!win) window.alert("Разрешите всплывающие окна, чтобы экспортировать в PDF.");
     setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  /** Экспорт текущего листа в PDF через печать браузера (Save as PDF), масштаб 1:1 в мм. */
+  exportPdf(): void {
+    const f = this.page.format;
+    const tb = this.page.titleBlock;
+    const title = `${tb.designation || tb.title || "Лист"} · ${f.name}`;
+    this.openPrint(title, `${f.width}mm ${f.height}mm`, this.sheetSvg());
+  }
+
+  /** Экспорт всех листов проекта одним многостраничным PDF (по образцу формата 1-го листа). */
+  exportProjectPdf(pages: Page[], projectName: string): void {
+    if (pages.length === 0) return;
+    const original = this.page;
+    const sheets: string[] = [];
+    for (const page of pages) {
+      this.setPage(page);
+      sheets.push(this.sheetSvg());
+    }
+    this.setPage(original); // вернуть исходный лист
+    const f = pages[0].format;
+    this.openPrint(
+      `${projectName} · ${pages.length} л.`,
+      `${f.width}mm ${f.height}mm`,
+      sheets.join(""),
+    );
   }
 
   private updateView(): void {

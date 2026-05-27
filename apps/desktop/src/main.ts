@@ -959,6 +959,10 @@ pdfBtn.addEventListener("click", () => {
   view.exportPdf();
   closeFileMenu();
 });
+(document.getElementById("pdf-all") as HTMLButtonElement).addEventListener("click", () => {
+  view.exportProjectPdf(project.pages, project.name || "Проект");
+  closeFileMenu();
+});
 rotateBtn.addEventListener("click", () => view.rotateSelectedOrPending());
 mirrorBtn.addEventListener("click", () => view.mirrorSelectedOrPending());
 deleteBtn.addEventListener("click", () => view.deleteSelected());
