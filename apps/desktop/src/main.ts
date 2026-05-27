@@ -82,6 +82,7 @@ const view = new CanvasView(svg, activePage(project), stack, hud, library, {
     wire3Btn.classList.toggle("on", active && poles === 3);
   },
   getDevices: () => computeDevices(project, library),
+  getPages: () => project.pages, // листы текущего проекта — для адресации соединителей (S29)
   onDrawToolChange: (tool) => {
     for (const [t, b] of Object.entries(drawButtons)) b.classList.toggle("on", t === tool);
   },
@@ -634,6 +635,8 @@ setupSplitter(document.getElementById("split-right")!, "right");
 // ----- диалог свойств элемента (двойной клик) -----
 const dialog = document.getElementById("props") as HTMLDialogElement;
 const desigInput = document.getElementById("prop-desig") as HTMLInputElement;
+const signalInput = document.getElementById("prop-signal") as HTMLInputElement;
+const signalRow = document.getElementById("prop-signal-row")!;
 const typeEl = document.getElementById("prop-type")!;
 const showLabelsInput = document.getElementById("prop-showlabels") as HTMLInputElement;
 const partSelect = document.getElementById("prop-part") as HTMLSelectElement;
@@ -741,6 +744,10 @@ function openProps(inst: SymbolInstance): void {
   desigInput.value = inst.designation;
   showLabelsInput.checked = inst.showLabels;
   const sym = library.get(inst.symbolId);
+  // соединитель страниц (S29): показать поле метки сигнала
+  const isPageConnector = sym?.kind === "page-connector";
+  signalRow.hidden = !isPageConnector;
+  signalInput.value = inst.signal ?? "";
   typeEl.textContent = sym ? `${sym.name} · ${sym.componentCode}` : inst.symbolId;
   const currentMaker = inst.catalogCode ? (catalog.get(inst.catalogCode)?.manufacturer ?? "") : "";
   fillMakers(inst.componentCode, currentMaker);
@@ -756,6 +763,8 @@ dialog.addEventListener("close", () => {
     const designation = desigInput.value.trim() || editing.designation;
     const showLabels = showLabelsInput.checked;
     const catalogCode = partSelect.value || undefined;
+    // метка сигнала соединителя страниц (S29) — только если поле показано
+    const signal = signalRow.hidden ? editing.signal : signalInput.value.trim();
     // характеристики и поля-подписи из секции «Характеристики»
     const attrs: Record<string, string> = {};
     const labelFields: string[] = [];
@@ -770,6 +779,7 @@ dialog.addEventListener("close", () => {
       designation !== editing.designation ||
       showLabels !== editing.showLabels ||
       catalogCode !== editing.catalogCode ||
+      signal !== editing.signal ||
       JSON.stringify(attributes ?? null) !== JSON.stringify(editing.attributes ?? null) ||
       JSON.stringify(labels ?? null) !== JSON.stringify(editing.labelFields ?? null);
     if (dirty) {
@@ -780,6 +790,7 @@ dialog.addEventListener("close", () => {
           catalogCode,
           attributes,
           labelFields: labels,
+          signal,
         }),
       );
     }

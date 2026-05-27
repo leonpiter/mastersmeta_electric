@@ -31,6 +31,9 @@ import {
   translateAnnotation,
   computeJunctions,
   computeNets,
+  connectorPartners,
+  partnersText,
+  circuitNumberAt,
   instancePins,
   instanceLabels,
   coilContactRows,
@@ -75,6 +78,8 @@ export interface CanvasHooks {
   onRequestEditWire?: (wire: Wire) => void;
   /** Поставщик устройств проекта (master/slave) для кросс-референсов (S5). */
   getDevices?: () => DeviceInfo[];
+  /** Поставщик всех листов проекта (для адресации соединителей страниц, S29). */
+  getPages?: () => Page[];
   /** Сменился активный инструмент рисования (или снят — `null`). */
   onDrawToolChange?: (tool: DrawTool | null) => void;
   /** Выбрана аннотация — синхронизировать стиль в ленте (или снято — `null`). */
@@ -1112,6 +1117,11 @@ export class CanvasView {
           }),
         );
       }
+      // соединитель страниц (S29): метка сигнала + кликабельный адрес партнёра
+      if (sym.kind === "page-connector") {
+        this.renderPageConnector(inst, wb);
+        continue;
+      }
       if (inst.showLabels && inst.designation) {
         // стопка подписей: сигла (4 мм, жирн.) + строки характеристик (3 мм) — ГОСТ 2.304
         let ly = wb.y + 2.2;
@@ -1125,6 +1135,62 @@ export class CanvasView {
         this.renderDeviceCrossRef(wb, memberOf.get(inst.id));
       }
     }
+  }
+
+  /**
+   * Подписи соединителя страниц (S29): метка сигнала над стрелкой + адрес партнёра(ов)
+   * под ней. Адрес кликабелен — одиночный клик переносит на лист партнёра.
+   */
+  private renderPageConnector(inst: SymbolInstance, wb: Rect): void {
+    const signal = (inst.signal ?? "").trim();
+    if (signal) {
+      this.overlayG.append(this.text(signal, wb.x, wb.y - 1.2, 2.8, "start", true));
+    }
+    const pages = this.hooks.getPages?.() ?? [this.page];
+    const partners = signal ? connectorPartners(pages, this.library, signal, inst.id) : [];
+    const addr = partners.length > 0 ? `→ ${partnersText(partners)}` : signal ? "→ нет пары" : "?";
+
+    const g = el("g");
+    g.append(
+      el("rect", {
+        x: wb.x,
+        y: wb.y + wb.h + 0.4,
+        width: Math.max(wb.w, 12),
+        height: 4,
+        fill: "transparent",
+      }),
+    );
+    const t = this.text(addr, wb.x, wb.y + wb.h + 3.2, 2.6, "start");
+    t.setAttribute("fill", partners.length > 0 ? "#1b6fc4" : "#9aa7b4");
+    g.append(t);
+    if (partners.length > 0) {
+      const first = partners[0];
+      g.style.cursor = "pointer";
+      g.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.hooks.onNavigateToContact?.(first.pageIndex, first.instanceId);
+      });
+    }
+    this.overlayG.append(g);
+  }
+
+  /**
+   * Поставить соединитель страниц в точку (конец провода, S29): авто-метка по номеру
+   * цепи, затем открыть свойства — задать/проверить метку сигнала.
+   */
+  private placePageConnector(at: Point): void {
+    const sym = this.library.get("gost.page-connector");
+    if (!sym) return;
+    const auto = circuitNumberAt(this.page, this.library, at.x, at.y) ?? "";
+    const cmd = new AddSymbolInstanceCommand(this.page, sym, at.x, at.y);
+    this.stack.execute(cmd);
+    cmd.instance.signal = auto;
+    cmd.instance.showLabels = false; // адресуется меткой, не сиглой
+    this.wireStart = null;
+    this.renderGhost();
+    this.renderInstances();
+    this.select(cmd.instance);
+    this.hooks.onRequestEdit?.(cmd.instance);
   }
 
   /** Кросс-референсы устройства (S5): зеркало контактов у катушки, адрес катушки у контакта. */
@@ -1838,7 +1904,12 @@ export class CanvasView {
     svg.addEventListener("contextmenu", (e) => e.preventDefault());
 
     svg.addEventListener("dblclick", (e) => {
-      if (this.armed || this.wireMode || this.drawTool) return;
+      // в режиме провода двойной клик завершает цепь соединителем страниц (S29)
+      if (this.wireMode) {
+        if (this.wireStart) this.placePageConnector(this.wireStart);
+        return;
+      }
+      if (this.armed || this.drawTool) return;
       const r = svg.getBoundingClientRect();
       const p = this.screenToWorld(e.clientX - r.left, e.clientY - r.top);
       const hit = this.hitTest(p);

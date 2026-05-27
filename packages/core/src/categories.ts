@@ -140,6 +140,13 @@ export const GOST_CATEGORIES: EquipmentCategory[] = [
     attributes: [txt("pins", "Контактов"), txt("rating", "Ток / напряжение")],
   },
   {
+    id: "service",
+    name: "Служебные",
+    componentCode: "W",
+    kinds: ["page-connector"],
+    attributes: [],
+  },
+  {
     id: "misc",
     name: "Прочее",
     componentCode: "",

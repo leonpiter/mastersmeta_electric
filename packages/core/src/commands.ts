@@ -120,6 +120,8 @@ interface InstanceEdit {
   catalogCode?: string;
   attributes?: Record<string, string>;
   labelFields?: string[];
+  /** Метка сигнала соединителя страниц (S29). */
+  signal?: string;
 }
 
 /** Изменить свойства инстанса (позобозначение, видимость подписи, артикул, характеристики). */
@@ -131,6 +133,7 @@ export class EditInstanceCommand implements Command {
     catalogCode?: string;
     attributes?: Record<string, string>;
     labelFields?: string[];
+    signal?: string;
   };
 
   constructor(
@@ -143,6 +146,7 @@ export class EditInstanceCommand implements Command {
       catalogCode: inst.catalogCode,
       attributes: inst.attributes,
       labelFields: inst.labelFields,
+      signal: inst.signal,
     };
   }
 
@@ -152,6 +156,7 @@ export class EditInstanceCommand implements Command {
     if ("catalogCode" in this.after) this.inst.catalogCode = this.after.catalogCode;
     if ("attributes" in this.after) this.inst.attributes = this.after.attributes;
     if ("labelFields" in this.after) this.inst.labelFields = this.after.labelFields;
+    if ("signal" in this.after) this.inst.signal = this.after.signal;
   }
 
   undo(): void {
@@ -160,6 +165,7 @@ export class EditInstanceCommand implements Command {
     this.inst.catalogCode = this.before.catalogCode;
     this.inst.attributes = this.before.attributes;
     this.inst.labelFields = this.before.labelFields;
+    this.inst.signal = this.before.signal;
   }
 }
 
