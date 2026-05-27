@@ -16,7 +16,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 680,
     backgroundColor: "#1f2430",
-    autoHideMenuBar: true,
+    frame: false, // без нативной рамки — своя шапка (#titlebar) в рендерере
     title: "Мастермета Электро",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -86,3 +86,12 @@ app.on("window-all-closed", () => {
 
 // версия приложения для рендерера (окно «О программе» и т.п.)
 ipcMain.handle("app:version", () => app.getVersion());
+
+// управление окном из своей шапки (frame: false)
+ipcMain.on("win:minimize", () => win?.minimize());
+ipcMain.on("win:toggle-maximize", () => {
+  if (!win) return;
+  if (win.isMaximized()) win.unmaximize();
+  else win.maximize();
+});
+ipcMain.on("win:close", () => win?.close());

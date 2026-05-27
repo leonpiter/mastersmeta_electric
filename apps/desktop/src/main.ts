@@ -49,6 +49,9 @@ import { loadUserSymbols, upsertUserSymbol, removeUserSymbol, userSymbolIds } fr
 import { loadUserCategories, upsertUserCategory, removeUserCategory } from "./user-categories";
 import { loadUserBlocks, upsertUserBlock, removeUserBlock } from "./user-blocks";
 import { renderTerminalStrips } from "./terminal-strip";
+import { initDesktopShell } from "./electron-bridge";
+
+initDesktopShell(); // нативная оболочка: свои кнопки окна (frame:false), если Electron
 
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
 const hud = document.getElementById("hud-info")!;

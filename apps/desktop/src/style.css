@@ -122,6 +122,7 @@ body {
   padding: 0 6px;
   background: linear-gradient(var(--header-1), var(--header-2));
   border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag; /* перетаскивание окна за шапку (frame:false в Electron) */
 }
 
 #titlebar .tb-left {
@@ -139,6 +140,7 @@ body {
   background: transparent;
   color: var(--header-text);
   cursor: pointer;
+  -webkit-app-region: no-drag; /* кнопки кликабельны, не перетаскивают окно */
 }
 
 #titlebar button:hover {
@@ -169,9 +171,12 @@ body {
   gap: 2px;
 }
 
-/* кнопки окна — оформление; действия только в нативной оболочке (S11) */
+/* кнопки окна — в вебе только оформление (приглушены); в Electron активны */
 #titlebar .tb-win button {
   opacity: 0.45;
+}
+body.is-electron #titlebar .tb-win button {
+  opacity: 1;
 }
 
 #titlebar .tb-win button.tb-close:hover {
