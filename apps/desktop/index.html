@@ -230,6 +230,19 @@
                 </svg>
                 <span>Клеммы</span>
               </button>
+              <button
+                id="report-strip"
+                type="button"
+                title="Клеммник — графическая схема рейки клемм"
+              >
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <rect x="6" y="2.5" width="4" height="3" />
+                  <rect x="6" y="6.5" width="4" height="3" />
+                  <rect x="6" y="10.5" width="4" height="3" />
+                  <path d="M1.5 4H6M10 4h4.5M1.5 8H6M10 8h4.5M1.5 12H6M10 12h4.5" />
+                </svg>
+                <span>Клеммник</span>
+              </button>
             </div>
             <div class="rgroup-cap">Отчёты</div>
           </div>
@@ -785,6 +798,19 @@
         <div class="prop-actions">
           <button value="csv" type="button" id="term-csv" class="btn-secondary">Экспорт CSV</button>
           <button value="print" type="button" id="term-print" class="btn-secondary">Печать…</button>
+          <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="strip-dialog">
+      <form method="dialog" class="modal-form modal-wide">
+        <h3>Клеммник (схема)</h3>
+        <div id="strip-body" class="strip-body"></div>
+        <div class="prop-actions">
+          <button value="print" type="button" id="strip-print" class="btn-secondary">
+            Печать…
+          </button>
           <button value="ok" type="submit">Закрыть</button>
         </div>
       </form>

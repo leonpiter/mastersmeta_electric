@@ -1201,6 +1201,14 @@ body.resizing #canvas {
   overflow: auto;
 }
 
+/* контейнер графического клеммника (S8) */
+.strip-body {
+  max-height: 62vh;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
 .bom-table {
   width: 100%;
   border-collapse: collapse;

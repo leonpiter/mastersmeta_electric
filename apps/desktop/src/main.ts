@@ -20,6 +20,7 @@ import {
   connectionsToCsv,
   computeTerminals,
   terminalsToCsv,
+  computeTerminalStrips,
   Catalog,
   BUILTIN_PARTS,
   partLabel,
@@ -45,6 +46,7 @@ import { SymbolEditor } from "./symbol-editor";
 import { loadUserSymbols, upsertUserSymbol, removeUserSymbol, userSymbolIds } from "./user-symbols";
 import { loadUserCategories, upsertUserCategory, removeUserCategory } from "./user-categories";
 import { loadUserBlocks, upsertUserBlock, removeUserBlock } from "./user-blocks";
+import { renderTerminalStrips } from "./terminal-strip";
 
 const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
 const hud = document.getElementById("hud-info")!;
@@ -1179,6 +1181,24 @@ function printReport(title: string, headers: string[], rows: string[][]): void {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
+/** Печать произвольного SVG (клеммник) через окно браузера. */
+function printSvg(title: string, svg: SVGSVGElement): void {
+  const esc = (s: string): string =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const body = new XMLSerializer().serializeToString(svg);
+  const css =
+    "@page{size:A4;margin:12mm}body{font-family:sans-serif;color:#000}h1{font-size:13pt}svg{max-width:100%}";
+  const printJs = "window.onload=function(){window.focus();window.print();};";
+  const html =
+    `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>${esc(title)}</title>` +
+    `<style>${css}</style></head><body><h1>${esc(title)}</h1>${body}<script>${printJs}</` +
+    `script></body></html>`;
+  const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+  const win = window.open(url, "_blank");
+  if (!win) window.alert("Разрешите всплывающие окна для печати.");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 // перечень элементов
 const BOM_HEADERS = ["Поз. обозначение", "Наименование", "Кол.", "Примечание"];
 const bomRows = (): string[][] =>
@@ -1234,6 +1254,32 @@ const termBody = document.getElementById("term-body")!;
 (document.getElementById("term-print") as HTMLButtonElement).addEventListener("click", () =>
   printReport(`Таблица клемм — ${projName()}`, TERM_HEADERS, termRows()),
 );
+
+// клеммник (графическая схема рейки клемм, S8)
+const stripDialog = document.getElementById("strip-dialog") as HTMLDialogElement;
+const stripBody = document.getElementById("strip-body")!;
+function showStrips(): void {
+  const strips = computeTerminalStrips(project, library);
+  stripBody.replaceChildren();
+  if (strips.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "bom-empty";
+    empty.textContent = "На листах нет клемм (XT).";
+    stripBody.append(empty);
+  } else {
+    stripBody.append(renderTerminalStrips(strips));
+  }
+  stripDialog.showModal();
+}
+(document.getElementById("report-strip") as HTMLButtonElement).addEventListener(
+  "click",
+  showStrips,
+);
+(document.getElementById("strip-print") as HTMLButtonElement).addEventListener("click", () => {
+  const strips = computeTerminalStrips(project, library);
+  if (strips.length === 0) return;
+  printSvg(`Клеммник — ${projName()}`, renderTerminalStrips(strips));
+});
 
 // ----- меню сетки (показать/скрыть + шаг) -----
 const gridBtn = document.getElementById("grid") as HTMLButtonElement;

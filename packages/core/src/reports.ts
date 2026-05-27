@@ -193,6 +193,42 @@ export function computeTerminals(project: Project, library: SymbolLibrary): Term
   return rows;
 }
 
+/** Клеммник (рейка): группа клемм с общим буквенным префиксом сиглы. */
+export interface TerminalStrip {
+  /** Имя клеммника — префикс сиглы без номера, напр. «XT». */
+  name: string;
+  /** Клеммы рейки в порядке номера. */
+  rows: TerminalRow[];
+}
+
+/** Префикс сиглы без хвостовых цифр: «XT1» → «XT», «X12» → «X». */
+function stripPrefix(designation: string): string {
+  let i = designation.length;
+  while (i > 0 && designation[i - 1] >= "0" && designation[i - 1] <= "9") i--;
+  return designation.slice(0, i) || designation;
+}
+
+/**
+ * Сгруппировать клеммы проекта в клеммники (рейки) по буквенному префиксу сиглы.
+ * Связность не хранится — клеммники вычисляются из размещённых XT (принцип 2).
+ * Внутри рейки — сортировка по номеру; рейки — по имени.
+ */
+export function computeTerminalStrips(project: Project, library: SymbolLibrary): TerminalStrip[] {
+  const byName = new Map<string, TerminalRow[]>();
+  for (const r of computeTerminals(project, library)) {
+    const name = stripPrefix(r.terminal);
+    const list = byName.get(name) ?? [];
+    list.push(r);
+    byName.set(name, list);
+  }
+  for (const rows of byName.values()) {
+    rows.sort((a, b) => a.terminal.localeCompare(b.terminal, undefined, { numeric: true }));
+  }
+  return [...byName.entries()]
+    .map(([name, rows]) => ({ name, rows }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+}
+
 /** Экспорт таблицы клемм в CSV. */
 export function terminalsToCsv(rows: TerminalRow[]): string {
   return toCsv(["Клемма", "Вывод 1", "Вывод 2", "Лист"], rows, (r) => [

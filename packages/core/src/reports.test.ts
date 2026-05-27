@@ -6,6 +6,7 @@ import {
   connectionsToCsv,
   computeTerminals,
   terminalsToCsv,
+  computeTerminalStrips,
 } from "./reports";
 import { Catalog } from "./catalog";
 import { createProject, type Project, type SymbolInstance } from "./model";
@@ -248,5 +249,19 @@ describe("таблица клемм", () => {
   it("terminalsToCsv: заголовок", () => {
     const csv = terminalsToCsv([{ terminal: "XT1", side1: "KM1:A1", side2: "QF1:1", sheet: "1" }]);
     expect(csv.split("\r\n")[0]).toBe("Клемма;Вывод 1;Вывод 2;Лист");
+  });
+
+  it("computeTerminalStrips: группировка по префиксу, сортировка по номеру", () => {
+    const p = createProject();
+    p.pages[0].instances.push(
+      at(term, "XT2", 0, 0),
+      at(term, "XT10", 0, 30),
+      at(term, "XT1", 0, 60),
+      at(term, "X1", 0, 90), // другая рейка
+    );
+    const strips = computeTerminalStrips(p, lib3);
+    expect(strips.map((s) => s.name)).toEqual(["X", "XT"]);
+    const xt = strips.find((s) => s.name === "XT")!;
+    expect(xt.rows.map((r) => r.terminal)).toEqual(["XT1", "XT2", "XT10"]); // числовая сортировка
   });
 });
