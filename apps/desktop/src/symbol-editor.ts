@@ -30,6 +30,7 @@ const KIND_LABELS: Record<SymbolKind, string> = {
   "contact-nc": "Контакт НЗ",
   terminal: "Клемма",
   connector: "Разъём",
+  "page-connector": "Соединитель страниц",
   "black-box": "Прочее",
 };
 

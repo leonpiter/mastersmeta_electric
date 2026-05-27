@@ -12,7 +12,8 @@ import {
 } from "./commands";
 import { SymbolLibrary } from "./symbol";
 import { GOST_SYMBOLS } from "./symbols-gost";
-import { computeNets, danglingPins, computeJunctions } from "./connectivity";
+import { computeNets, danglingPins, computeJunctions, computeProjectNets } from "./connectivity";
+import type { SymbolDef } from "./symbol";
 
 const lib = new SymbolLibrary(GOST_SYMBOLS);
 const qf = GOST_SYMBOLS.find((s) => s.id === "gost.qf")!;
@@ -199,5 +200,58 @@ describe("движок связности (union-find)", () => {
     expect(w.type).toBe("power");
     expect(w.section).toBeUndefined();
     expect(w.color).toBeUndefined();
+  });
+});
+
+describe("сквозная связность через листы (соединители страниц, S29)", () => {
+  // соединитель страниц: 1 вывод в опорной точке
+  const conn: SymbolDef = {
+    id: "test.pageconn",
+    name: "Соединитель страниц",
+    category: "Соединители",
+    componentCode: "X",
+    kind: "page-connector",
+    pins: [{ name: "1", x: 0, y: 0 }],
+    graphics: [{ type: "line", x1: 0, y1: 0, x2: 5, y2: 0 }],
+  };
+  const lib2 = new SymbolLibrary([...GOST_SYMBOLS, conn]);
+
+  /** Лист: провод [(0,0)→(20,0)] + соединитель в (20,0) с меткой. */
+  const sheetWithConnector = (signal: string) => {
+    const page = createPage();
+    new AddWireCommand(page, [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+    ]).do();
+    const c = new AddSymbolInstanceCommand(page, conn, 20, 0);
+    c.do();
+    c.instance.signal = signal;
+    return page;
+  };
+
+  it("соединители с одной меткой на разных листах → одна сквозная цепь", () => {
+    const a = sheetWithConnector("L1");
+    const b = sheetWithConnector("L1");
+    const nets = computeProjectNets([a, b], lib2);
+    expect(nets).toHaveLength(1);
+    expect(nets[0].signals).toEqual(["L1"]);
+    expect(nets[0].members).toHaveLength(2); // по доле на каждом листе
+    // выводы соединителя присутствуют с обоих листов
+    expect(
+      nets[0].pins
+        .filter((p) => p.pinName === "1")
+        .map((p) => p.pageIndex)
+        .sort(),
+    ).toEqual([0, 1]);
+  });
+
+  it("разные метки → отдельные цепи", () => {
+    const nets = computeProjectNets([sheetWithConnector("L1"), sheetWithConnector("L2")], lib2);
+    expect(nets).toHaveLength(2);
+  });
+
+  it("без метки соединители не объединяются", () => {
+    const nets = computeProjectNets([sheetWithConnector(""), sheetWithConnector("")], lib2);
+    expect(nets).toHaveLength(2);
   });
 });

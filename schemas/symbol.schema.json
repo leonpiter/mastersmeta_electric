@@ -30,6 +30,7 @@
         "contact-nc",
         "terminal",
         "connector",
+        "page-connector",
         "black-box"
       ]
     },

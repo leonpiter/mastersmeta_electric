@@ -104,6 +104,93 @@ export function computeNets(page: Page, library: SymbolLibrary): Net[] {
   return nets;
 }
 
+/** Глобальная (сквозная) цепь: локальные неты листов, объединённые общей меткой соединителей. */
+export interface ProjectNet {
+  id: number;
+  /** Доли цепи по листам: индекс листа + id локального нета. */
+  members: { pageIndex: number; localNetId: number }[];
+  /** Все выводы цепи (с указанием листа). */
+  pins: (NetPin & { pageIndex: number })[];
+  /** Метки соединителей страниц, объединившие цепь (для номера/адресации). */
+  signals: string[];
+}
+
+/**
+ * Сквозная связность проекта (S29): локальные неты каждого листа + объединение нетов
+ * разных листов, если на них стоят соединители страниц (`kind: "page-connector"`) с
+ * одинаковой меткой `signal`. Так провод сохраняет одну цепь (и номер) через листы.
+ */
+export function computeProjectNets(pages: Page[], library: SymbolLibrary): ProjectNet[] {
+  const local = pages.map((p) => computeNets(p, library));
+
+  // union-find над «листовыми» нетами: узел = `${pageIndex}:${localNetId}`
+  const parent = new Map<string, string>();
+  const ensure = (k: string): void => {
+    if (!parent.has(k)) parent.set(k, k);
+  };
+  const find = (k: string): string => {
+    let r = k;
+    while (parent.get(r) !== r) r = parent.get(r)!;
+    return r;
+  };
+  const union = (a: string, b: string): void => {
+    ensure(a);
+    ensure(b);
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
+  // все локальные неты — узлы (даже без соединителей)
+  local.forEach((nets, pi) => nets.forEach((_, ni) => ensure(`${pi}:${ni}`)));
+
+  // соединители: метка → узлы (локальные неты, где лежит вывод соединителя)
+  const bySignal = new Map<string, string[]>();
+  pages.forEach((page, pi) => {
+    for (const inst of page.instances) {
+      if (library.get(inst.symbolId)?.kind !== "page-connector") continue;
+      const signal = inst.signal?.trim();
+      if (!signal) continue;
+      const localNetId = local[pi].findIndex((n) => n.pins.some((pn) => pn.instanceId === inst.id));
+      if (localNetId < 0) continue;
+      const node = `${pi}:${localNetId}`;
+      const list = bySignal.get(signal);
+      if (list) list.push(node);
+      else bySignal.set(signal, [node]);
+    }
+  });
+
+  // объединить неты внутри каждой метки
+  for (const nodes of bySignal.values())
+    for (let i = 1; i < nodes.length; i++) union(nodes[0], nodes[i]);
+
+  // сборка глобальных нетов по корню union-find
+  const rootIdx = new Map<string, number>();
+  const out: ProjectNet[] = [];
+  const globalOf = (node: string): ProjectNet => {
+    const r = find(node);
+    let idx = rootIdx.get(r);
+    if (idx === undefined) {
+      idx = out.length;
+      rootIdx.set(r, idx);
+      out.push({ id: idx, members: [], pins: [], signals: [] });
+    }
+    return out[idx];
+  };
+  local.forEach((nets, pi) =>
+    nets.forEach((net, ni) => {
+      const g = globalOf(`${pi}:${ni}`);
+      g.members.push({ pageIndex: pi, localNetId: ni });
+      for (const pn of net.pins) g.pins.push({ ...pn, pageIndex: pi });
+    }),
+  );
+  for (const [signal, nodes] of bySignal) {
+    const g = globalOf(nodes[0]);
+    if (!g.signals.includes(signal)) g.signals.push(signal);
+  }
+  return out;
+}
+
 /** Выводы символов, не подключённые ни к одному проводу (висящие). */
 export function danglingPins(page: Page, library: SymbolLibrary): NetPin[] {
   return computeNets(page, library)

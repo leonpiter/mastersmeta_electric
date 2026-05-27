@@ -24,6 +24,7 @@ export type SymbolKind =
   | "contact-nc" // нормально замкнутый контакт
   | "terminal" // клемма
   | "connector" // разъём
+  | "page-connector" // соединитель страниц (адресная стрелка переноса провода, S29)
   | "black-box"; // прочее
 
 export const SYMBOL_KINDS: readonly SymbolKind[] = [
@@ -34,6 +35,7 @@ export const SYMBOL_KINDS: readonly SymbolKind[] = [
   "contact-nc",
   "terminal",
   "connector",
+  "page-connector",
   "black-box",
 ];
 
