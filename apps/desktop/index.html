@@ -491,6 +491,31 @@
             <div class="rgroup-cap">Параметры</div>
           </div>
           <div class="rgroup">
+            <div class="rgroup-tools se-props" id="se-props"></div>
+            <div class="rgroup-cap">Геометрия</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
+              <button type="button" id="se-rotate" title="Повернуть выделенное на 90° (R)">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M13 8A5 5 0 1 1 11 4" />
+                  <path d="M11 1.5V4.3H8.2" fill="currentColor" stroke="none" />
+                  <path d="M11 1.5V4.3H8.2" />
+                </svg>
+                <span>Поворот</span>
+              </button>
+              <button type="button" id="se-mirror" title="Зеркало выделенного по X (M)">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1.5v13" stroke-dasharray="2 1.5" />
+                  <path d="M6 4 2.5 8 6 12z" fill="currentColor" stroke="none" />
+                  <path d="M10 4l3.5 4-3.5 4z" />
+                </svg>
+                <span>Зеркало</span>
+              </button>
+            </div>
+            <div class="rgroup-cap">Объект</div>
+          </div>
+          <div class="rgroup">
             <div class="rgroup-tools">
               <input
                 id="se-grid"
@@ -519,8 +544,26 @@
           </div>
           <div class="rgroup">
             <div class="rgroup-tools">
-              <button type="button" id="se-undo" class="btn-secondary">Убрать последнее</button>
-              <button type="button" id="se-clear" class="btn-secondary">Очистить</button>
+              <button type="button" id="se-undo" title="Отменить (Ctrl+Z)">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M5.5 4 2 7.5 5.5 11" />
+                  <path d="M2 7.5h7.5a4 4 0 0 1 0 8H6" />
+                </svg>
+                <span>Отменить</span>
+              </button>
+              <button type="button" id="se-redo" title="Вернуть (Ctrl+Y)">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M10.5 4 14 7.5 10.5 11" />
+                  <path d="M14 7.5H6.5a4 4 0 0 0 0 8H10" />
+                </svg>
+                <span>Вернуть</span>
+              </button>
+              <button type="button" id="se-clear" title="Очистить весь символ">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 4.5h10M6 4.5V3h4v1.5M4.5 4.5 5.2 13h5.6l.7-8.5" />
+                </svg>
+                <span>Очистить</span>
+              </button>
             </div>
             <div class="rgroup-cap">Правка</div>
           </div>

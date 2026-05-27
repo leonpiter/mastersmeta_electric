@@ -1149,6 +1149,34 @@ body.editing-symbol #canvas {
   width: 52px;
 }
 
+/* числовые свойства выделенного элемента (S28 Ф5) */
+.se-props {
+  flex-wrap: wrap;
+  gap: 3px 7px;
+  max-width: 210px;
+  align-content: center;
+}
+.se-prop {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.se-prop input {
+  width: 44px;
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+}
+.se-props-empty {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 .se-tools {
   display: flex;
   flex-wrap: wrap;

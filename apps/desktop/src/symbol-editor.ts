@@ -130,6 +130,45 @@ function resizeRect(
   return { type: "rect", x, y, w, h };
 }
 
+/** Повернуть примитив на 90° (по часовой, y вниз) вокруг точки (cx, cy). */
+function rotateGraphic90(g: GraphicPrimitive, cx: number, cy: number): GraphicPrimitive {
+  const rot = (x: number, y: number): Pt => ({ x: cx - (y - cy), y: cy + (x - cx) });
+  if (g.type === "line") {
+    const a = rot(g.x1, g.y1);
+    const b = rot(g.x2, g.y2);
+    return { type: "line", x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+  }
+  if (g.type === "circle") {
+    const c = rot(g.cx, g.cy);
+    return { ...g, cx: c.x, cy: c.y };
+  }
+  if (g.type === "arc") {
+    const c = rot(g.cx, g.cy);
+    return { ...g, cx: c.x, cy: c.y, a0: g.a0 + 90, a1: g.a1 + 90 };
+  }
+  if (g.type === "rect") {
+    // прямоугольник: повернуть центр, поменять стороны местами
+    const c = rot(g.x + g.w / 2, g.y + g.h / 2);
+    return { type: "rect", x: c.x - g.h / 2, y: c.y - g.w / 2, w: g.h, h: g.w };
+  }
+  const t = rot(g.x, g.y); // текст: вращаем позицию (угол текста не поддержан)
+  return { ...g, x: t.x, y: t.y };
+}
+
+/** Отразить примитив по горизонтали (зеркало X) относительно прямой x = cx. */
+function mirrorGraphicX(g: GraphicPrimitive, cx: number): GraphicPrimitive {
+  const mx = (x: number): number => 2 * cx - x;
+  if (g.type === "line") return { ...g, x1: mx(g.x1), x2: mx(g.x2) };
+  if (g.type === "circle") return { ...g, cx: mx(g.cx) };
+  if (g.type === "arc") return { ...g, cx: mx(g.cx), a0: 180 - g.a1, a1: 180 - g.a0 };
+  if (g.type === "rect") return { ...g, x: mx(g.x + g.w) };
+  const anchor = g.anchor === "start" ? "end" : g.anchor === "end" ? "start" : g.anchor;
+  return { ...g, x: mx(g.x), anchor };
+}
+
+/** Округлить до 0,1 мм для показа в числовых полях (без «1.9999999»). */
+const round1 = (v: number): number => Math.round(v * 10) / 10;
+
 /** Авто-инкремент имени вывода: «13»→«14», «A1»→«A2», иначе без изменения (без regex). */
 function nextPinName(name: string): string {
   let i = name.length;
@@ -207,7 +246,6 @@ export class SymbolEditor {
   private last = { x: 0, y: 0 };
   private down: { x: number; y: number; button: number; moved: boolean } | null = null;
   private space = false;
-  private lastWasPin = false;
   private editId: string | null = null;
   // выделение и перетаскивание элемента (инструмент «Выбрать»)
   private selected: Sel = null;
@@ -218,6 +256,17 @@ export class SymbolEditor {
   private guidesX: number[] = [];
   private guidesY: number[] = [];
   private guideDrag: { axis: "x" | "y"; index: number } | null = null;
+  // история редактора (undo/redo) — снимки {graphics, pins} (S28 Ф5)
+  private undoStack: { graphics: GraphicPrimitive[]; pins: Pin[] }[] = [];
+  private redoStack: { graphics: GraphicPrimitive[]; pins: Pin[] }[] = [];
+  /** Снимок ДО текущего жеста (фиксируется на pointerup, если было изменение). */
+  private pendingUndo: { graphics: GraphicPrimitive[]; pins: Pin[] } | null = null;
+  /** Сигнатура отрисованной панели свойств (тип+индекс) — не перестраивать без нужды. */
+  private propsSig = "";
+  /** Поля числовой панели в порядке отрисовки (для live-обновления значений). */
+  private propInputs: HTMLInputElement[] = [];
+  private readonly undoBtn = document.getElementById("se-undo") as HTMLButtonElement;
+  private readonly redoBtn = document.getElementById("se-redo") as HTMLButtonElement | null;
 
   constructor(
     private readonly onSave: (sym: SymbolDef) => void,
@@ -269,16 +318,18 @@ export class SymbolEditor {
         this.render();
       }),
     );
-    (document.getElementById("se-undo") as HTMLButtonElement).addEventListener("click", () => {
-      if (this.lastWasPin) this.pins.pop();
-      else this.graphics.pop();
-      this.render();
-    });
+    this.undoBtn.addEventListener("click", () => this.undo());
+    this.redoBtn?.addEventListener("click", () => this.redo());
     (document.getElementById("se-clear") as HTMLButtonElement).addEventListener("click", () => {
+      if (this.graphics.length === 0 && this.pins.length === 0) return;
+      this.pushUndo();
       this.graphics = [];
       this.pins = [];
+      this.selected = null;
       this.render();
     });
+    document.getElementById("se-rotate")?.addEventListener("click", () => this.rotateSelected());
+    document.getElementById("se-mirror")?.addEventListener("click", () => this.mirrorSelected());
     document.getElementById("se-fit")?.addEventListener("click", () => this.fit());
     (document.getElementById("se-save") as HTMLButtonElement).addEventListener("click", () =>
       this.save(),
@@ -327,6 +378,11 @@ export class SymbolEditor {
     this.guidesX = [];
     this.guidesY = [];
     this.guideDrag = null;
+    this.undoStack = [];
+    this.redoStack = [];
+    this.pendingUndo = null;
+    this.propsSig = "";
+    this.updateEditButtons();
     this.editId = seed && !opts.asCopy ? seed.id : null;
     this.nameEl.value = seed ? (opts.asCopy ? `${seed.name} (копия)` : seed.name) : "";
     this.codeEl.value = seed?.componentCode ?? "";
@@ -725,6 +781,18 @@ export class SymbolEditor {
     // клавиши работают только в режиме редактора и не в полях ввода
     document.addEventListener("keydown", (e) => {
       if (!this.isOpen || document.activeElement?.tagName === "INPUT") return;
+      if (e.ctrlKey || e.metaKey) {
+        const k = e.key.toLowerCase();
+        if (k === "z") {
+          e.preventDefault();
+          if (e.shiftKey) this.redo();
+          else this.undo();
+        } else if (k === "y") {
+          e.preventDefault();
+          this.redo();
+        }
+        return;
+      }
       if (e.key === " ") {
         this.space = true;
         e.preventDefault();
@@ -738,6 +806,15 @@ export class SymbolEditor {
       } else if ((e.key === "Delete" || e.key === "Backspace") && this.selected) {
         e.preventDefault();
         this.deleteSelected();
+      } else if ((e.key === "r" || e.key === "R") && this.selected) {
+        e.preventDefault();
+        this.rotateSelected();
+      } else if ((e.key === "m" || e.key === "M") && this.selected) {
+        e.preventDefault();
+        this.mirrorSelected();
+      } else if (e.key.startsWith("Arrow") && this.selected) {
+        e.preventDefault();
+        this.nudgeSelected(e.key, e.shiftKey);
       }
     });
     document.addEventListener("keyup", (e) => {
@@ -763,6 +840,7 @@ export class SymbolEditor {
           const h = this.hitHandle(g, this.last);
           if (h) {
             this.resizing = { handle: h.id, orig: { ...g } };
+            this.beginGesture();
             return;
           }
         }
@@ -775,6 +853,7 @@ export class SymbolEditor {
             g: this.selected.kind === "g" ? { ...this.graphics[this.selected.index] } : undefined,
             p: this.selected.kind === "p" ? { ...this.pins[this.selected.index] } : undefined,
           };
+          this.beginGesture();
         }
         this.render();
         return;
@@ -782,8 +861,8 @@ export class SymbolEditor {
       if (this.tool === "pin") {
         const at = { x: snap(this.last.x, this.gridStep), y: snap(this.last.y, this.gridStep) };
         const name = this.pinNameEl.value.trim() || String(this.pins.length + 1);
+        this.pushUndo();
         this.pins.push({ name, x: at.x, y: at.y });
-        this.lastWasPin = true;
         this.pinNameEl.value = nextPinName(name);
         this.render();
         return;
@@ -792,6 +871,7 @@ export class SymbolEditor {
         const text = (this.textEl?.value ?? "").trim();
         if (text) {
           const size = Number(this.textSizeEl?.value) || 4;
+          this.pushUndo();
           this.graphics.push({
             type: "text",
             x: snap(this.last.x, this.gridStep),
@@ -800,12 +880,12 @@ export class SymbolEditor {
             size,
             anchor: "middle",
           });
-          this.lastWasPin = false;
           this.render();
         }
         return;
       }
       this.start = { x: snap(this.last.x, this.gridStep), y: snap(this.last.y, this.gridStep) };
+      this.beginGesture();
     });
 
     svg.addEventListener("pointermove", (e) => {
@@ -856,9 +936,14 @@ export class SymbolEditor {
         this.start = null;
         if (shape) {
           this.graphics.push(shape);
-          this.lastWasPin = false;
-        }
+          this.commitGesture();
+        } else this.cancelGesture();
         this.render();
+      } else if (this.resizing || this.dragOrig) {
+        // фиксируем отмену только если элемент реально сдвинули/изменили
+        if (this.down?.moved) this.commitGesture();
+        else this.cancelGesture();
+        if (this.down?.moved) this.render();
       }
       this.dragOrig = null;
       this.resizing = null;
@@ -970,12 +1055,261 @@ export class SymbolEditor {
   private deleteSelected(): void {
     const sel = this.selected;
     if (!sel) return;
+    this.pushUndo();
     if (sel.kind === "g") this.graphics.splice(sel.index, 1);
     else this.pins.splice(sel.index, 1);
     this.selected = null;
     this.dragOrig = null;
     this.resizing = null;
     this.render();
+  }
+
+  // ----- история (undo/redo, S28 Ф5) -----
+
+  private cloneState(): { graphics: GraphicPrimitive[]; pins: Pin[] } {
+    return {
+      graphics: this.graphics.map((g) => ({ ...g })),
+      pins: this.pins.map((p) => ({ ...p })),
+    };
+  }
+
+  /** Снимок ДО мгновенной операции (удаление/числовой ввод/поворот/вставка). */
+  private pushUndo(): void {
+    this.undoStack.push(this.cloneState());
+    if (this.undoStack.length > 100) this.undoStack.shift();
+    this.redoStack = [];
+    this.updateEditButtons();
+  }
+
+  /** Зафиксировать снимок перед жестом (drag/resize/draw) — фиксируется при commit. */
+  private beginGesture(): void {
+    this.pendingUndo = this.cloneState();
+  }
+
+  private commitGesture(): void {
+    if (!this.pendingUndo) return;
+    this.undoStack.push(this.pendingUndo);
+    if (this.undoStack.length > 100) this.undoStack.shift();
+    this.redoStack = [];
+    this.pendingUndo = null;
+    this.updateEditButtons();
+  }
+
+  private cancelGesture(): void {
+    this.pendingUndo = null;
+  }
+
+  private undo(): void {
+    const prev = this.undoStack.pop();
+    if (!prev) return;
+    this.redoStack.push(this.cloneState());
+    this.graphics = prev.graphics;
+    this.pins = prev.pins;
+    this.selected = null;
+    this.dragOrig = null;
+    this.resizing = null;
+    this.updateEditButtons();
+    this.render();
+  }
+
+  private redo(): void {
+    const next = this.redoStack.pop();
+    if (!next) return;
+    this.undoStack.push(this.cloneState());
+    this.graphics = next.graphics;
+    this.pins = next.pins;
+    this.selected = null;
+    this.updateEditButtons();
+    this.render();
+  }
+
+  private updateEditButtons(): void {
+    this.undoBtn.disabled = this.undoStack.length === 0;
+    if (this.redoBtn) this.redoBtn.disabled = this.redoStack.length === 0;
+  }
+
+  // ----- поворот / зеркало / сдвиг выделения (S28 Ф5) -----
+
+  /** Центр габарита выделенного элемента (мм) — ось поворота/зеркала. */
+  private selPivot(): Pt | null {
+    const sel = this.selected;
+    if (sel?.kind === "g") {
+      const g = this.graphics[sel.index];
+      if (!g) return null;
+      const b = symbolBounds({ graphics: [g], pins: [] } as unknown as SymbolDef);
+      return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    }
+    if (sel?.kind === "p") {
+      const p = this.pins[sel.index];
+      return p ? { x: p.x, y: p.y } : null;
+    }
+    return null;
+  }
+
+  private rotateSelected(): void {
+    const sel = this.selected;
+    const c = this.selPivot();
+    if (sel?.kind !== "g" || !c) return; // вывод-точку поворачивать незачем
+    this.pushUndo();
+    this.graphics[sel.index] = rotateGraphic90(this.graphics[sel.index], c.x, c.y);
+    this.render();
+  }
+
+  private mirrorSelected(): void {
+    const sel = this.selected;
+    const c = this.selPivot();
+    if (sel?.kind !== "g" || !c) return;
+    this.pushUndo();
+    this.graphics[sel.index] = mirrorGraphicX(this.graphics[sel.index], c.x);
+    this.render();
+  }
+
+  /** Сдвиг выделения стрелками: шаг сетки, Shift — ×10. */
+  private nudgeSelected(key: string, big: boolean): void {
+    const sel = this.selected;
+    if (!sel) return;
+    const d = this.gridStep * (big ? 10 : 1);
+    const dx = key === "ArrowLeft" ? -d : key === "ArrowRight" ? d : 0;
+    const dy = key === "ArrowUp" ? -d : key === "ArrowDown" ? d : 0;
+    if (dx === 0 && dy === 0) return;
+    this.pushUndo();
+    if (sel.kind === "g") this.graphics[sel.index] = movedGraphic(this.graphics[sel.index], dx, dy);
+    else {
+      const p = this.pins[sel.index];
+      this.pins[sel.index] = { ...p, x: p.x + dx, y: p.y + dy };
+    }
+    this.render();
+  }
+
+  // ----- числовые свойства выделенного (панель «Геометрия», S28 Ф5) -----
+
+  /**
+   * Описание редактируемых числовых полей выделенного элемента.
+   * `apply` всегда перечитывает текущий элемент (без захвата устаревшего снимка),
+   * чтобы последовательные правки разных полей не затирали друг друга.
+   */
+  private propsFor(): { label: string; value: number; min?: number; apply: (v: number) => void }[] {
+    const sel = this.selected;
+    if (!sel) return [];
+    if (sel.kind === "p") {
+      const p = this.pins[sel.index];
+      if (!p) return [];
+      const patchP = (patch: Partial<Pin>): void => {
+        const c = this.pins[sel.index];
+        if (c) this.pins[sel.index] = { ...c, ...patch };
+      };
+      return [
+        { label: "x", value: p.x, apply: (v) => patchP({ x: v }) },
+        { label: "y", value: p.y, apply: (v) => patchP({ y: v }) },
+      ];
+    }
+    const g = this.graphics[sel.index];
+    if (!g) return [];
+    const patchG = (patch: Record<string, number>): void => {
+      const c = this.graphics[sel.index];
+      if (c) this.graphics[sel.index] = { ...c, ...patch };
+    };
+    const pos = (v: number): number => Math.max(0.1, v);
+    if (g.type === "rect")
+      return [
+        { label: "x", value: g.x, apply: (v) => patchG({ x: v }) },
+        { label: "y", value: g.y, apply: (v) => patchG({ y: v }) },
+        { label: "ш", value: g.w, min: 0.1, apply: (v) => patchG({ w: pos(v) }) },
+        { label: "в", value: g.h, min: 0.1, apply: (v) => patchG({ h: pos(v) }) },
+      ];
+    if (g.type === "circle")
+      return [
+        { label: "cx", value: g.cx, apply: (v) => patchG({ cx: v }) },
+        { label: "cy", value: g.cy, apply: (v) => patchG({ cy: v }) },
+        { label: "r", value: g.r, min: 0.1, apply: (v) => patchG({ r: pos(v) }) },
+      ];
+    if (g.type === "arc")
+      return [
+        { label: "cx", value: g.cx, apply: (v) => patchG({ cx: v }) },
+        { label: "cy", value: g.cy, apply: (v) => patchG({ cy: v }) },
+        { label: "r", value: g.r, min: 0.1, apply: (v) => patchG({ r: pos(v) }) },
+        { label: "a0", value: g.a0, apply: (v) => patchG({ a0: v }) },
+        { label: "a1", value: g.a1, apply: (v) => patchG({ a1: v }) },
+      ];
+    if (g.type === "line")
+      return [
+        { label: "x1", value: g.x1, apply: (v) => patchG({ x1: v }) },
+        { label: "y1", value: g.y1, apply: (v) => patchG({ y1: v }) },
+        { label: "x2", value: g.x2, apply: (v) => patchG({ x2: v }) },
+        { label: "y2", value: g.y2, apply: (v) => patchG({ y2: v }) },
+      ];
+    return [
+      { label: "x", value: g.x, apply: (v) => patchG({ x: v }) },
+      { label: "y", value: g.y, apply: (v) => patchG({ y: v }) },
+      {
+        label: "кегль",
+        value: g.size ?? 4,
+        min: 0.5,
+        apply: (v) => patchG({ size: Math.max(0.5, v) }),
+      },
+    ];
+  }
+
+  /** Текущая сигнатура выделения (для решения «перестроить или обновить значения»). */
+  private selSig(): string {
+    const sel = this.selected;
+    if (!sel) return "none";
+    const t = sel.kind === "g" ? (this.graphics[sel.index]?.type ?? "?") : "pin";
+    return `${sel.kind}${sel.index}:${t}`;
+  }
+
+  /** Перестроить панель «Геометрия» под текущее выделение. */
+  private renderProps(): void {
+    const host = document.getElementById("se-props");
+    if (!host) return;
+    this.propsSig = this.selSig();
+    this.propInputs = [];
+    host.replaceChildren();
+    const fields = this.propsFor();
+    if (fields.length === 0) {
+      const span = document.createElement("span");
+      span.className = "se-props-empty";
+      span.textContent = "выберите элемент";
+      host.append(span);
+      return;
+    }
+    for (const f of fields) {
+      const wrap = document.createElement("label");
+      wrap.className = "se-prop";
+      const span = document.createElement("span");
+      span.textContent = f.label;
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.step = "0.1";
+      if (f.min !== undefined) inp.min = String(f.min);
+      inp.value = String(round1(f.value));
+      inp.addEventListener("change", () => {
+        const v = Number(inp.value);
+        if (!Number.isFinite(v)) return;
+        this.pushUndo();
+        f.apply(v);
+        this.render();
+      });
+      wrap.append(span, inp);
+      host.append(wrap);
+      this.propInputs.push(inp);
+    }
+  }
+
+  /** Обновить значения в полях «Геометрия» без перестройки (live при drag/resize). */
+  private syncProps(): void {
+    if (this.selSig() !== this.propsSig) {
+      this.renderProps();
+      return;
+    }
+    if (this.propInputs.length === 0) return;
+    // не затирать поле, которое пользователь сейчас редактирует
+    const active = document.activeElement;
+    const fields = this.propsFor();
+    fields.forEach((f, i) => {
+      const inp = this.propInputs[i];
+      if (inp && inp !== active) inp.value = String(round1(f.value));
+    });
   }
 
   // ----- трансформация ручками (инструмент «Размер») -----
@@ -1108,6 +1442,7 @@ export class SymbolEditor {
       this.content.append(t);
     });
     this.renderHandles();
+    this.syncProps();
   }
 
   private drawShape(g: GraphicPrimitive, color: string): void {
