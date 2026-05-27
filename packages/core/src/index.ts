@@ -12,6 +12,7 @@ export * from "./commands";
 export * from "./blocks";
 export * from "./packs";
 export * from "./connectivity";
+export * from "./crossref";
 export * from "./devices";
 export * from "./catalog";
 export * from "./catalog-builtin";
