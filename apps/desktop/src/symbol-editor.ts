@@ -159,6 +159,9 @@ export class SymbolEditor {
   private readonly textEl = document.getElementById("se-text") as HTMLInputElement | null;
   private readonly textSizeEl = document.getElementById("se-textsize") as HTMLInputElement | null;
   private readonly gridEl = document.getElementById("se-grid") as HTMLInputElement;
+  // линейки (мм) сверху/слева — S28 Ф3
+  private readonly rulerTop = document.getElementById("se-ruler-top") as unknown as SVGSVGElement;
+  private readonly rulerLeft = document.getElementById("se-ruler-left") as unknown as SVGSVGElement;
   private readonly zoomEl = document.getElementById("se-zoom");
   private readonly hintEl = document.getElementById("se-hint")!;
   // инструменты рисования теперь в ленте (вкладка «Редактор УГО»)
@@ -545,6 +548,60 @@ export class SymbolEditor {
 
     if (this.zoomEl) this.zoomEl.textContent = `${Math.round(this.zoom * 100)}%`;
     this.renderHandles();
+    this.renderRulers();
+  }
+
+  /** Линейки (мм) сверху/слева — следуют за pan/zoom (S28 Ф3). */
+  private renderRulers(): void {
+    const s = this.scalePx;
+    const { w, h } = this.size();
+    const RW = 20;
+    this.rulerTop.setAttribute("width", String(w));
+    this.rulerTop.setAttribute("height", String(RW));
+    this.rulerLeft.setAttribute("width", String(RW));
+    this.rulerLeft.setAttribute("height", String(h));
+    this.rulerTop.replaceChildren();
+    this.rulerLeft.replaceChildren();
+
+    // «красивый» шаг подписей ~>= 55 px; малые штрихи — каждый major/5
+    const steps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+    let major = steps[steps.length - 1];
+    for (const st of steps) {
+      if (st * s >= 55) {
+        major = st;
+        break;
+      }
+    }
+    const minor = major / 5;
+    const tick = (x1: number, y1: number, x2: number, y2: number): SVGElement =>
+      el("line", { x1, y1, x2, y2, stroke: "#7f8c9b", "stroke-width": 0.6 });
+
+    // верхняя линейка (вертикальные штрихи по X)
+    const mx0 = Math.ceil(this.screenToWorld(0, 0).x / minor) * minor;
+    for (let m = mx0; ; m += minor) {
+      const sx = this.panX + m * s;
+      if (sx > w) break;
+      const isMajor = ((Math.round(m / minor) % 5) + 5) % 5 === 0;
+      this.rulerTop.append(tick(sx, isMajor ? 3 : 12, sx, RW));
+      if (isMajor) {
+        const t = el("text", { x: sx + 1.5, y: 9, "font-size": 8, fill: "#5a6b7d" });
+        t.textContent = String(Math.round(m));
+        this.rulerTop.append(t);
+      }
+    }
+    // левая линейка (горизонтальные штрихи по Y)
+    const my0 = Math.ceil(this.screenToWorld(0, 0).y / minor) * minor;
+    for (let m = my0; ; m += minor) {
+      const sy = this.panY + m * s;
+      if (sy > h) break;
+      const isMajor = ((Math.round(m / minor) % 5) + 5) % 5 === 0;
+      this.rulerLeft.append(tick(isMajor ? 3 : 12, sy, RW, sy));
+      if (isMajor) {
+        const t = el("text", { x: 2, y: sy - 1.5, "font-size": 8, fill: "#5a6b7d" });
+        t.textContent = String(Math.round(m));
+        this.rulerLeft.append(t);
+      }
+    }
   }
 
   // ----- ввод -----
