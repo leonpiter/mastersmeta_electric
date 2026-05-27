@@ -183,6 +183,8 @@ export class SymbolEditor {
   private readonly gridRect: SVGRectElement;
   private readonly axes: SVGGElement;
   private readonly content: SVGGElement;
+  /** Слой направляющих (экранные px, S28 Ф3). */
+  private readonly guidesG: SVGGElement;
   /** Слой ручек трансформации (экранные px, поверх контента). */
   private readonly handlesG: SVGGElement;
 
@@ -211,6 +213,10 @@ export class SymbolEditor {
   private dragOrig: { sx: number; sy: number; g?: GraphicPrimitive; p?: Pin } | null = null;
   // трансформация ручкой (инструмент «Размер»): id ручки + исходная графика
   private resizing: { handle: string; orig: GraphicPrimitive } | null = null;
+  // направляющие (Visio): вертикальные (по X, мм) и горизонтальные (по Y, мм), только в редакторе
+  private guidesX: number[] = [];
+  private guidesY: number[] = [];
+  private guideDrag: { axis: "x" | "y"; index: number } | null = null;
 
   constructor(
     private readonly onSave: (sym: SymbolDef) => void,
@@ -247,8 +253,10 @@ export class SymbolEditor {
     this.gridRect = el("rect", { x: 0, y: 0, width: 1, height: 1, fill: "url(#se-grid-pattern)" });
     this.axes = el("g");
     this.content = el("g");
-    this.handlesG = el("g");
-    this.svg.append(defs, this.gridRect, this.axes, this.content, this.handlesG);
+    this.guidesG = el("g", { "data-layer": "guides" });
+    this.handlesG = el("g", { "data-layer": "handles" });
+    this.svg.append(defs, this.gridRect, this.axes, this.content, this.guidesG, this.handlesG);
+    this.installRulers();
 
     this.toolBtns.forEach((b) =>
       b.addEventListener("click", () => {
@@ -314,6 +322,10 @@ export class SymbolEditor {
     this.pins = seed ? seed.pins.map((p) => ({ ...p })) : [];
     this.selected = null;
     this.dragOrig = null;
+    this.resizing = null;
+    this.guidesX = [];
+    this.guidesY = [];
+    this.guideDrag = null;
     this.editId = seed && !opts.asCopy ? seed.id : null;
     this.nameEl.value = seed ? (opts.asCopy ? `${seed.name} (копия)` : seed.name) : "";
     this.codeEl.value = seed?.componentCode ?? "";
@@ -321,8 +333,8 @@ export class SymbolEditor {
     this.applyCategory(seed?.kind ?? "component");
     this.pinNameEl.value = "1";
     this.hintEl.textContent = this.editId
-      ? "Правка системного УГО — сохранится как пользовательский override."
-      : "Колесо — масштаб; средняя кнопка / Space — панорама; Esc — отмена действия.";
+      ? "Правка системного УГО — сохранится как override. Направляющие — тяните из линеек (на линейку или 2× — убрать)."
+      : "Колесо — масштаб; Space — панорама; Esc — отмена. Направляющие — тяните из линеек (назад на линейку или 2× — убрать).";
     const mode = seed ? (opts.asCopy ? "Копия" : "Правка") : "Новый символ";
     const titleName = seed ? `${mode}: ${this.nameEl.value}` : mode;
     document.getElementById("se-title")!.textContent = `Редактор УГО — ${titleName}`;
@@ -508,12 +520,8 @@ export class SymbolEditor {
     this.gridRect.setAttribute("width", String(w));
     this.gridRect.setAttribute("height", String(h));
 
-    let step = this.gridStep;
-    let tile = step * s;
-    while (tile < 8) {
-      step *= 2;
-      tile = step * s;
-    }
+    // сетка совпадает с линейкой: шаг = мелкий штрих линейки, привязка к мировому 0
+    const tile = this.pickStep().minor * s;
     const ox = ((this.panX % tile) + tile) % tile;
     const oy = ((this.panY % tile) + tile) % tile;
     this.gridPattern.setAttribute("width", String(tile));
@@ -549,6 +557,24 @@ export class SymbolEditor {
     if (this.zoomEl) this.zoomEl.textContent = `${Math.round(this.zoom * 100)}%`;
     this.renderHandles();
     this.renderRulers();
+    this.renderGuides();
+  }
+
+  /**
+   * «Красивый» шаг линейки/сетки: крупный (с подписью) ~>= 55 px, мелкий = major/5.
+   * Один источник для линейки И сетки канваса — чтобы они совпадали.
+   */
+  private pickStep(): { major: number; minor: number } {
+    const s = this.scalePx;
+    const steps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+    let major = steps[steps.length - 1];
+    for (const st of steps) {
+      if (st * s >= 55) {
+        major = st;
+        break;
+      }
+    }
+    return { major, minor: major / 5 };
   }
 
   /** Линейки (мм) сверху/слева — следуют за pan/zoom (S28 Ф3). */
@@ -563,16 +589,7 @@ export class SymbolEditor {
     this.rulerTop.replaceChildren();
     this.rulerLeft.replaceChildren();
 
-    // «красивый» шаг подписей ~>= 55 px; малые штрихи — каждый major/5
-    const steps = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
-    let major = steps[steps.length - 1];
-    for (const st of steps) {
-      if (st * s >= 55) {
-        major = st;
-        break;
-      }
-    }
-    const minor = major / 5;
+    const { minor } = this.pickStep();
     const tick = (x1: number, y1: number, x2: number, y2: number): SVGElement =>
       el("line", { x1, y1, x2, y2, stroke: "#7f8c9b", "stroke-width": 0.6 });
 
@@ -602,6 +619,102 @@ export class SymbolEditor {
         this.rulerLeft.append(t);
       }
     }
+  }
+
+  // ----- направляющие (Visio): вытаскиваются из линеек, только в редакторе -----
+
+  private installRulers(): void {
+    const rt = this.rulerTop;
+    const rl = this.rulerLeft;
+    rt.addEventListener("pointerdown", (e) => {
+      rt.setPointerCapture(e.pointerId);
+      this.guidesX.push(snap(this.clientToWorld(e.clientX, e.clientY).x, this.gridStep));
+      this.guideDrag = { axis: "x", index: this.guidesX.length - 1 };
+      this.renderGuides();
+    });
+    rt.addEventListener("pointermove", (e) => {
+      if (this.guideDrag?.axis !== "x") return;
+      this.guidesX[this.guideDrag.index] = snap(
+        this.clientToWorld(e.clientX, e.clientY).x,
+        this.gridStep,
+      );
+      this.renderGuides();
+    });
+    rt.addEventListener("pointerup", (e) => {
+      if (this.guideDrag?.axis !== "x") return;
+      // отпустили над линейкой (не над канвасом) — убрать направляющую
+      if (e.clientY < this.svg.getBoundingClientRect().top)
+        this.guidesX.splice(this.guideDrag.index, 1);
+      this.guideDrag = null;
+      this.renderGuides();
+    });
+    rl.addEventListener("pointerdown", (e) => {
+      rl.setPointerCapture(e.pointerId);
+      this.guidesY.push(snap(this.clientToWorld(e.clientX, e.clientY).y, this.gridStep));
+      this.guideDrag = { axis: "y", index: this.guidesY.length - 1 };
+      this.renderGuides();
+    });
+    rl.addEventListener("pointermove", (e) => {
+      if (this.guideDrag?.axis !== "y") return;
+      this.guidesY[this.guideDrag.index] = snap(
+        this.clientToWorld(e.clientX, e.clientY).y,
+        this.gridStep,
+      );
+      this.renderGuides();
+    });
+    rl.addEventListener("pointerup", (e) => {
+      if (this.guideDrag?.axis !== "y") return;
+      if (e.clientX < this.svg.getBoundingClientRect().left)
+        this.guidesY.splice(this.guideDrag.index, 1);
+      this.guideDrag = null;
+      this.renderGuides();
+    });
+    document.getElementById("se-corner")?.addEventListener("dblclick", () => {
+      this.guidesX = [];
+      this.guidesY = [];
+      this.renderGuides();
+    });
+  }
+
+  /** Нарисовать направляющие (экранные px) — линии через весь канвас. */
+  private renderGuides(): void {
+    this.guidesG.replaceChildren();
+    const s = this.scalePx;
+    const { w, h } = this.size();
+    for (const gx of this.guidesX)
+      this.guidesG.append(
+        el("line", {
+          x1: this.panX + gx * s,
+          y1: 0,
+          x2: this.panX + gx * s,
+          y2: h,
+          stroke: "#1aa37a",
+          "stroke-width": 0.7,
+          "stroke-dasharray": "5 3",
+        }),
+      );
+    for (const gy of this.guidesY)
+      this.guidesG.append(
+        el("line", {
+          x1: 0,
+          y1: this.panY + gy * s,
+          x2: w,
+          y2: this.panY + gy * s,
+          stroke: "#1aa37a",
+          "stroke-width": 0.7,
+          "stroke-dasharray": "5 3",
+        }),
+      );
+  }
+
+  /** Направляющая под точкой (мм), допуск ~4 px. */
+  private hitGuide(p: Pt): { axis: "x" | "y"; index: number } | null {
+    const tol = Math.max(0.4, 4 / this.scalePx);
+    for (let i = this.guidesX.length - 1; i >= 0; i--)
+      if (Math.abs(p.x - this.guidesX[i]) <= tol) return { axis: "x", index: i };
+    for (let i = this.guidesY.length - 1; i >= 0; i--)
+      if (Math.abs(p.y - this.guidesY[i]) <= tol) return { axis: "y", index: i };
+    return null;
   }
 
   // ----- ввод -----
@@ -637,6 +750,12 @@ export class SymbolEditor {
       if (e.button === 1 || this.space) return; // пан
       if (e.button !== 0) return;
       if (this.tool === "select" || this.tool === "resize") {
+        // схватить направляющую (приоритетнее фигур)
+        const gh = this.hitGuide(this.last);
+        if (gh) {
+          this.guideDrag = gh;
+          return;
+        }
         // в режиме «Размер» сначала пробуем схватить ручку трансформации выделенной графики
         if (this.tool === "resize" && this.selected?.kind === "g") {
           const g = this.graphics[this.selected.index];
@@ -694,7 +813,12 @@ export class SymbolEditor {
       if (!this.down.moved && Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > 3)
         this.down.moved = true;
       if (!this.down.moved) return;
-      if (this.down.button === 1 || this.space) {
+      if (this.guideDrag) {
+        if (this.guideDrag.axis === "x")
+          this.guidesX[this.guideDrag.index] = snap(this.last.x, this.gridStep);
+        else this.guidesY[this.guideDrag.index] = snap(this.last.y, this.gridStep);
+        this.renderGuides();
+      } else if (this.down.button === 1 || this.space) {
         this.panX += e.movementX;
         this.panY += e.movementY;
         this.updateView();
@@ -708,7 +832,23 @@ export class SymbolEditor {
       }
     });
 
-    svg.addEventListener("pointerup", () => {
+    svg.addEventListener("pointerup", (e) => {
+      // завершить перетаскивание направляющей: отпустили за пределами канваса
+      // (на линейке/вне) — удалить (как в Visio)
+      if (this.guideDrag) {
+        const r = this.svg.getBoundingClientRect();
+        const outside =
+          e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        const gd = this.guideDrag;
+        if (outside) {
+          if (gd.axis === "x") this.guidesX.splice(gd.index, 1);
+          else this.guidesY.splice(gd.index, 1);
+        }
+        this.guideDrag = null;
+        this.renderGuides();
+        this.down = null;
+        return;
+      }
       if (this.start) {
         const end = { x: snap(this.last.x, this.gridStep), y: snap(this.last.y, this.gridStep) };
         const shape = this.shapeFrom(this.start, end);
@@ -722,6 +862,16 @@ export class SymbolEditor {
       this.dragOrig = null;
       this.resizing = null;
       this.down = null;
+    });
+
+    // двойной клик по направляющей — удалить её
+    svg.addEventListener("dblclick", (e) => {
+      const gh = this.hitGuide(this.clientToWorld(e.clientX, e.clientY));
+      if (gh) {
+        if (gh.axis === "x") this.guidesX.splice(gh.index, 1);
+        else this.guidesY.splice(gh.index, 1);
+        this.renderGuides();
+      }
     });
 
     svg.addEventListener("pointerleave", () => {
