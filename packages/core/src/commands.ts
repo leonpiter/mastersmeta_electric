@@ -14,7 +14,7 @@ import {
   type Wire,
 } from "./model";
 import { type Rotation, type SymbolDef, type SymbolLibrary, nextDesignation } from "./symbol";
-import { computeNets } from "./connectivity";
+import { computeNets, computeProjectNets } from "./connectivity";
 
 /** Поставить узел на листе (координаты уже привязаны к сетке вызывающим кодом). */
 export class AddNodeCommand implements Command {
@@ -603,6 +603,90 @@ export class AutoNumberCommand implements Command {
           if (w.locked && !renumberLocked) continue;
           assign(w, num);
         }
+      }
+    }
+  }
+
+  do(): void {
+    for (const c of this.changes) {
+      c.wire.number = c.toNumber;
+      c.wire.locked = c.toLocked;
+    }
+  }
+
+  undo(): void {
+    for (const c of this.changes) {
+      c.wire.number = c.fromNumber;
+      c.wire.locked = c.fromLocked;
+    }
+  }
+}
+
+/**
+ * Сквозная автонумерация по всему проекту (S29): один номер на сквозную цепь через листы
+ * (`computeProjectNets` объединяет цепи листов по метке соединителей страниц). Обратима.
+ */
+export class AutoNumberProjectCommand implements Command {
+  readonly type = "auto-number-project";
+  private readonly changes: NumberChange[] = [];
+
+  constructor(pages: Page[], library: SymbolLibrary, opts: AutoNumberOptions = {}) {
+    const step = opts.step ?? 1;
+    const mode = opts.mode ?? "potential";
+    const renumberLocked = opts.renumberLocked ?? false;
+
+    const used = new Set<string>();
+    if (!renumberLocked)
+      for (const p of pages) for (const w of p.wires) if (w.locked && w.number) used.add(w.number);
+
+    let n = opts.start ?? 1;
+    const nextNum = (): string => {
+      while (used.has(String(n))) n += step;
+      const s = String(n);
+      used.add(s);
+      n += step;
+      return s;
+    };
+    const assign = (w: Wire, num: string): void => {
+      const toLocked = renumberLocked ? false : w.locked;
+      if (w.number !== num || w.locked !== toLocked) {
+        this.changes.push({
+          wire: w,
+          fromNumber: w.number,
+          fromLocked: w.locked,
+          toNumber: num,
+          toLocked,
+        });
+      }
+    };
+
+    if (mode === "unique") {
+      for (const p of pages)
+        for (const w of p.wires) {
+          if (w.points.length < 2 || (w.locked && !renumberLocked)) continue;
+          assign(w, nextNum());
+        }
+      return;
+    }
+
+    // по сквозным цепям: собираем провода всех долей глобальной цепи (по листам)
+    const local = pages.map((p) => computeNets(p, library));
+    const wireById = new Map<Id, Wire>();
+    for (const p of pages) for (const w of p.wires) wireById.set(w.id, w);
+
+    for (const gnet of computeProjectNets(pages, library)) {
+      const wires: Wire[] = [];
+      for (const m of gnet.members)
+        for (const id of local[m.pageIndex][m.localNetId].wireIds) {
+          const w = wireById.get(id);
+          if (w && w.points.length >= 2) wires.push(w);
+        }
+      if (wires.length === 0) continue;
+      let num = renumberLocked ? undefined : wires.find((w) => w.locked && w.number)?.number;
+      num ??= nextNum();
+      for (const w of wires) {
+        if (w.locked && !renumberLocked) continue;
+        assign(w, num);
       }
     }
   }

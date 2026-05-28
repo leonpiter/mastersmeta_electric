@@ -23,6 +23,7 @@ import {
   MacroCommand,
   MoveWireEndpointCommand,
   AutoNumberCommand,
+  AutoNumberProjectCommand,
   ClearNumbersCommand,
   AddAnnotationCommand,
   RemoveAnnotationCommand,
@@ -353,9 +354,18 @@ export class CanvasView {
     this.renderSheet();
   }
 
-  /** Автонумерация цепей (ГОСТ 2.709): по потенциалам или по проводам. Обратима. */
+  /**
+   * Автонумерация цепей (ГОСТ 2.709): по потенциалам или по проводам. Обратима.
+   * Сквозная по всему проекту (S29) — один номер на цепь через листы (соединители
+   * страниц). Если листы недоступны (нет `getPages`) — нумеруется текущий лист.
+   */
   autoNumber(opts: AutoNumberOptions = {}): void {
-    this.stack.execute(new AutoNumberCommand(this.page, this.library, opts));
+    const pages = this.hooks.getPages?.();
+    this.stack.execute(
+      pages && pages.length > 1
+        ? new AutoNumberProjectCommand(pages, this.library, opts)
+        : new AutoNumberCommand(this.page, this.library, opts),
+    );
   }
 
   /** Очистить номера: «all» — все провода листа; «selected» — цепь выбранного провода. */
