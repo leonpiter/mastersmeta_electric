@@ -765,6 +765,55 @@ body.resizing #canvas {
   touch-action: none;
 }
 
+/* пустое рабочее пространство: подсказка поверх области канваса, пока нет проекта */
+#empty-state {
+  grid-area: canvas;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  z-index: 4;
+}
+body.no-project #empty-state {
+  display: flex;
+}
+body.no-project #pagetabs {
+  display: none;
+}
+#empty-state .es-card {
+  text-align: center;
+  padding: 28px 36px;
+}
+#empty-state .es-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+#empty-state .es-text {
+  margin: 6px 0 16px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+#empty-state .es-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+#empty-state .es-actions button {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 16px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+#empty-state .es-actions button.btn-secondary {
+  background: var(--panel-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+
 /* ---- статус-бар ---- */
 #hud {
   grid-area: status;

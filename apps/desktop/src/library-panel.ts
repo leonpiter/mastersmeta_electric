@@ -222,7 +222,7 @@ export class LibraryPanel {
 
     const exp = document.createElement("span");
     exp.className = "lib-exp";
-    exp.textContent = "−";
+    exp.textContent = "+"; // по умолчанию папки свёрнуты
 
     let icon: HTMLElement | SVGSVGElement;
     if (opts.fav) {
@@ -241,6 +241,7 @@ export class LibraryPanel {
 
     const rows = document.createElement("div");
     rows.className = "lib-rows";
+    rows.hidden = true; // свёрнуто по умолчанию
     for (const sym of syms) rows.append(this.row(sym));
     if (opts.mine?.length) rows.append(this.subFolder("Мои символы", opts.mine));
 
@@ -294,7 +295,7 @@ export class LibraryPanel {
     head.className = "lib-folder lib-subhead";
     const exp = document.createElement("span");
     exp.className = "lib-exp";
-    exp.textContent = "−";
+    exp.textContent = "+"; // свёрнуто по умолчанию
     const name = document.createElement("span");
     name.className = "lib-fname";
     name.textContent = title;
@@ -302,6 +303,7 @@ export class LibraryPanel {
 
     const subrows = document.createElement("div");
     subrows.className = "lib-rows lib-subrows";
+    subrows.hidden = true;
     for (const sym of syms) subrows.append(this.row(sym));
 
     head.addEventListener("click", (e) => {
@@ -320,7 +322,7 @@ export class LibraryPanel {
     folder.className = "lib-folder";
     const exp = document.createElement("span");
     exp.className = "lib-exp";
-    exp.textContent = "−";
+    exp.textContent = "+"; // свёрнуто по умолчанию
     const name = document.createElement("span");
     name.className = "lib-fname";
     name.textContent = "Блоки";
@@ -328,6 +330,7 @@ export class LibraryPanel {
 
     const rows = document.createElement("div");
     rows.className = "lib-rows";
+    rows.hidden = true;
     for (const block of blocks) {
       const row = document.createElement("div");
       row.className = "lib-row";

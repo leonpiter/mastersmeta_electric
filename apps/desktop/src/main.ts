@@ -60,9 +60,14 @@ const projectEl = document.getElementById("project")!;
 // кнопка «В блок» — объявлена до канваса: хук onSelectionCountChange управляет доступностью
 const saveBlockBtn = document.getElementById("save-block") as HTMLButtonElement;
 
-// рабочее пространство (S26): несколько открытых проектов, активный — `project`
-const projects: Project[] = [createProject()]; // 1 проект, 1 лист A3
-let project = projects[0]; // активный проект (определяется активной страницей)
+// рабочее пространство (S26): несколько открытых проектов, активный — `project`.
+// Пустой плейсхолдер `blank` не входит в workspace и не показывается — он нужен лишь чтобы
+// канвас всегда имел лист. При первом запуске workspace пуст: сайдбар/вкладки пустые,
+// проект появляется только после «Создать» или «Открыть».
+const blank: Project = createProject();
+blank.name = "";
+const projects: Project[] = [];
+let project: Project = blank; // активный проект (blank, пока workspace пуст)
 const stack = new CommandStack();
 const library = new SymbolLibrary(GOST_SYMBOLS);
 const catalog = new Catalog(BUILTIN_PARTS);
@@ -347,16 +352,18 @@ function deleteCategory(name: string): void {
 }
 
 // ----- рабочее пространство: вкладки открытых страниц (S26) -----
-let openPages: Page[] = [activePage(project)]; // открытые листы (вкладки)
-let activePageObj: Page = openPages[0]; // показываемый лист
+let openPages: Page[] = []; // открытые листы (вкладки) — пусто, пока нет проекта
+let activePageObj: Page = activePage(blank); // лист для канваса (blank, пока workspace пуст)
 
-const projectOf = (page: Page): Project => projects.find((p) => p.pages.includes(page)) ?? project;
+const projectOf = (page: Page): Project => projects.find((p) => p.pages.includes(page)) ?? blank;
 const openTabs = (): OpenTab[] => openPages.map((page) => ({ project: projectOf(page), page }));
 
 function renderWorkspace(): void {
   projectPanel.refresh();
   pageTabs.render(openTabs(), activePageObj);
   syncTitle();
+  // пустое рабочее пространство — пустой сайдбар/вкладки + подсказка на канвасе
+  document.body.classList.toggle("no-project", projects.length === 0);
 }
 
 /** Активировать (и при необходимости открыть) лист — определяет активный проект и канвас. */
@@ -408,16 +415,19 @@ const projectPanel = new ProjectPanel(
   () => activePageObj.id,
 );
 
-/** Закрыть проект целиком (последний не закрываем). */
+/** Закрыть проект целиком. Закрытие последнего → пустое рабочее пространство. */
 function closeProject(p: Project): void {
-  if (projects.length <= 1) return;
   const i = projects.indexOf(p);
   if (i < 0) return;
   projects.splice(i, 1);
   openPages = openPages.filter((pg) => !p.pages.includes(pg));
-  if (p.pages.includes(activePageObj) || openPages.length === 0) {
-    const fallback = openPages[0] ?? activePage(projects[0]);
-    activatePage(fallback);
+  if (projects.length === 0) {
+    activePageObj = activePage(blank);
+    project = blank;
+    view.setPage(activePageObj);
+    renderWorkspace();
+  } else if (p.pages.includes(activePageObj) || openPages.length === 0) {
+    activatePage(openPages[0] ?? activePage(projects[0]));
   } else {
     renderWorkspace();
   }
@@ -426,6 +436,14 @@ function closeProject(p: Project): void {
 // синхронизация после команд (add/remove листа, undo/redo): починить вкладки и вид
 stack.subscribe(() => {
   openPages = openPages.filter((pg) => projects.some((p) => p.pages.includes(pg)));
+  if (projects.length === 0) {
+    // workspace опустел (напр. undo создания проекта) — вернуться к blank-листу
+    activePageObj = activePage(blank);
+    project = blank;
+    if (view.currentPageId !== activePageObj.id) view.setPage(activePageObj);
+    renderWorkspace();
+    return;
+  }
   if (!projects.some((p) => p.pages.includes(activePageObj))) {
     activePageObj = openPages[0] ?? activePage(projects[0]);
   }
@@ -819,10 +837,11 @@ fileMenu.addEventListener("click", (e) => e.stopPropagation());
 /** Обновить название проекта в верхней полосе заголовка (S21). */
 const tbName = document.getElementById("tb-name")!;
 function syncTitle(): void {
-  tbName.textContent = project.name || "Без имени";
+  tbName.textContent = projects.length === 0 ? "Нет проекта" : project.name || "Без имени";
 }
 
 function saveProject(): void {
+  if (projects.length === 0) return; // нечего сохранять — нет проекта
   const content = serializeProject(project);
   const name = `${project.name || "project"}.esch`;
   const d = desktop();
@@ -886,6 +905,9 @@ const saveHandler = (): void => {
   openProject();
   closeFileMenu();
 });
+// кнопки на пустом экране (нет проекта)
+document.getElementById("es-new")?.addEventListener("click", () => addProject(createProject()));
+document.getElementById("es-open")?.addEventListener("click", () => openProject());
 (document.getElementById("file-save") as HTMLButtonElement).addEventListener("click", saveHandler);
 (document.getElementById("file-saveas") as HTMLButtonElement).addEventListener(
   "click",
