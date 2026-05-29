@@ -15,16 +15,31 @@ const BOT = 15;
 const lead = (fromY: number, toY: number) =>
   ({ type: "line", x1: 0, y1: fromY, x2: 0, y2: toY }) as const;
 
-/** Графика одного полюса коммутационного аппарата (рубильник/автомат) при x. */
-function switchPole(x: number, auto: boolean): GraphicPrimitive[] {
-  const g: GraphicPrimitive[] = [
+/** Графика полюса рубильника/разъединителя при x (без авторасцепителя). */
+function switchPole(x: number): GraphicPrimitive[] {
+  return [
     { type: "line", x1: x, y1: 0, x2: x, y2: 5 }, // верхний вывод
     { type: "line", x1: x, y1: 11, x2: x, y2: 15 }, // нижний вывод
     { type: "circle", cx: x, cy: 11, r: 0.6 }, // неподвижный контакт
     { type: "line", x1: x, y1: 5, x2: x + 3, y2: 10.2 }, // подвижный контакт 30°, длина 6
   ];
-  if (auto) g.push({ type: "rect", x: x + 2.4, y: 3.6, w: 2, h: 2 }); // метка автомата
-  return g;
+}
+
+/**
+ * Полюс автоматического выключателя (ГОСТ 2.755): неподвижный контакт-кружок Ø2
+ * снизу (токовая перегрузка), наклонный подвижный нож с коробочкой авторасцепителя
+ * (≈1.5×2), знак «×» функции выключения сверху. По образцу UGO/методички.
+ */
+function breakerPole(x: number): GraphicPrimitive[] {
+  return [
+    { type: "line", x1: x, y1: 0, x2: x, y2: 5 }, // верхний вывод
+    { type: "line", x1: x - 1, y1: 2, x2: x + 1, y2: 4 }, // × функция выключения (размер 2)
+    { type: "line", x1: x - 1, y1: 4, x2: x + 1, y2: 2 },
+    { type: "line", x1: x, y1: 5, x2: x + 2.6, y2: 9 }, // подвижный контакт (нож, открыт)
+    { type: "rect", x: x + 0.2, y: 5.6, w: 1.6, h: 2 }, // коробочка авторасцепителя ≈1.5×2
+    { type: "circle", cx: x, cy: 10, r: 1 }, // неподвижный контакт Ø2 (токовая перегрузка)
+    { type: "line", x1: x, y1: 11, x2: x, y2: 15 }, // нижний вывод
+  ];
 }
 
 /**
@@ -43,13 +58,14 @@ function poleSwitch(opts: {
   const pins: Pin[] = [];
   for (let i = 0; i < opts.poles; i++) {
     const x = i * 5;
-    g.push(...switchPole(x, !!opts.auto));
+    g.push(...(opts.auto ? breakerPole(x) : switchPole(x)));
     pins.push({ name: String(2 * i + 1), x, y: TOP });
     pins.push({ name: String(2 * i + 2), x, y: BOT });
   }
   if (opts.poles > 1) {
-    // механическая связь — линия по серединам подвижных контактов
-    g.push({ type: "line", x1: 1.5, y1: 7.6, x2: (opts.poles - 1) * 5 + 1.5, y2: 7.6 });
+    // механическая связь (штрих) между подвижными контактами
+    const ly = opts.auto ? 6.5 : 7.6;
+    g.push({ type: "line", x1: 0, y1: ly, x2: (opts.poles - 1) * 5, y2: ly });
   }
   return {
     id: opts.id,
@@ -100,7 +116,7 @@ const QS: SymbolDef = {
   ],
 };
 
-/** Автоматический выключатель (ГОСТ 2.755): контакт + метка авторасцепителя. */
+/** Автоматический выключатель (ГОСТ 2.755): нож + Ø2 + коробочка + знак выключения. */
 const QF: SymbolDef = {
   id: "gost.qf",
   name: "Выключатель автоматический",
@@ -111,13 +127,7 @@ const QF: SymbolDef = {
     { name: "1", x: 0, y: TOP },
     { name: "2", x: 0, y: BOT },
   ],
-  graphics: [
-    lead(TOP, 5),
-    lead(11, BOT),
-    { type: "circle", cx: 0, cy: 11, r: 0.6 },
-    { type: "line", x1: 0, y1: 5, x2: 3, y2: 10.2 }, // подвижный контакт 30°, длина 6
-    { type: "rect", x: 2.4, y: 3.6, w: 2, h: 2 }, // метка автомата у конца контакта
-  ],
+  graphics: breakerPole(0),
 };
 
 /** Катушка контактора/реле (ГОСТ 2.756): прямоугольник, выводы A1/A2. */
