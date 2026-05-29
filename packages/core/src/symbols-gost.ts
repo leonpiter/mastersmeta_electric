@@ -603,8 +603,182 @@ const QW4 = poleSwitch({
   poles: 4,
 });
 
+// ===== Ф4 · Коммутация управления (S, ГОСТ 2.755) =====
+const BTN = "Кнопки и переключатели";
+/** Толкатель кнопки (шток + клавиша) сбоку от подвижного контакта. */
+const pusher: GraphicPrimitive[] = [
+  { type: "line", x1: 2.3, y1: 7.4, x2: 2.3, y2: 2.5 },
+  { type: "line", x1: 0.3, y1: 2.5, x2: 4.3, y2: 2.5 },
+];
+
+/** Кнопка управления (НЗ): размыкающий контакт с толкателем. */
+const SB_NC: SymbolDef = {
+  id: "gost.sb.nc",
+  name: "Кнопка управления (НЗ)",
+  category: BTN,
+  componentCode: "SB",
+  kind: "contact-nc",
+  pins: [
+    { name: "1", x: 0, y: TOP },
+    { name: "2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
+    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 }, // перемычка НЗ
+    ...pusher,
+  ],
+};
+
+/** Переключатель / ключ управления (SA): перекидной контакт (общий + НО + НЗ). */
+const SA: SymbolDef = {
+  id: "gost.sa",
+  name: "Переключатель (ключ)",
+  category: BTN,
+  componentCode: "SA",
+  kind: "contact-co",
+  pins: [
+    { name: "11", x: 0, y: 15 },
+    { name: "12", x: -5, y: 0 },
+    { name: "14", x: 5, y: 0 },
+  ],
+  graphics: [
+    { type: "line", x1: 0, y1: 15, x2: 0, y2: 10 },
+    { type: "line", x1: -5, y1: 0, x2: -5, y2: 6 },
+    { type: "line", x1: 5, y1: 0, x2: 5, y2: 6 },
+    { type: "line", x1: 0, y1: 10, x2: -5, y2: 6 },
+    { type: "circle", cx: 0, cy: 10, r: 0.6 },
+    { type: "circle", cx: 5, cy: 6, r: 0.6 },
+    { type: "line", x1: 0, y1: 10, x2: 2.5, y2: 12 }, // рукоятка ключа
+  ],
+};
+
+/** Автоматический выключатель цепи управления (SF): однополюсный с меткой автомата. */
+const SF: SymbolDef = poleSwitch({
+  id: "gost.sf",
+  name: "Автомат цепи управления",
+  category: BTN,
+  code: "SF",
+  poles: 1,
+  auto: true,
+});
+
+/** Концевой (путевой) выключатель, НО (SQ): контакт с роликом-толкателем. */
+const SQ_NO: SymbolDef = {
+  id: "gost.sq.no",
+  name: "Выключатель концевой (НО)",
+  category: BTN,
+  componentCode: "SQ",
+  kind: "contact-no",
+  pins: [
+    { name: "13", x: 0, y: TOP },
+    { name: "14", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
+    { type: "line", x1: 2, y1: 7.4, x2: 4.5, y2: 7.4 }, // упор ролика
+    { type: "rect", x: 4.5, y: 6.4, w: 2, h: 2 }, // ролик/упор
+  ],
+};
+
+/** Концевой выключатель, НЗ (SQ). */
+const SQ_NC: SymbolDef = {
+  id: "gost.sq.nc",
+  name: "Выключатель концевой (НЗ)",
+  category: BTN,
+  componentCode: "SQ",
+  kind: "contact-nc",
+  pins: [
+    { name: "11", x: 0, y: TOP },
+    { name: "12", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
+    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 }, // перемычка НЗ
+    { type: "rect", x: 4.5, y: 6.4, w: 2, h: 2 }, // ролик/упор
+  ],
+};
+
+/** Термоконтакт (SK): размыкающий контакт, срабатывающий от температуры. */
+const SK: SymbolDef = {
+  id: "gost.sk",
+  name: "Термоконтакт (SK)",
+  category: BTN,
+  componentCode: "SK",
+  kind: "contact-nc",
+  pins: [
+    { name: "1", x: 0, y: TOP },
+    { name: "2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
+    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 }, // перемычка НЗ
+    { type: "text", x: 5.5, y: 4.5, text: "t°", size: 3, anchor: "start" }, // признак температуры
+  ],
+};
+
+/** Замыкающий контакт с замедлением (ГОСТ 2.755): дуга-«парашют» у подвижного контакта. */
+const S_NO_DELAY: SymbolDef = {
+  id: "gost.s.no.delay",
+  name: "Контакт с замедлением (НО)",
+  category: BTN,
+  componentCode: "SA",
+  kind: "contact-no",
+  pins: [
+    { name: "13", x: 0, y: TOP },
+    { name: "14", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
+    { type: "arc", cx: 2, cy: 7.75, r: 2, a0: 0, a1: 180 }, // замедление (парашют снизу)
+  ],
+};
+
+/** Размыкающий контакт с замедлением. */
+const S_NC_DELAY: SymbolDef = {
+  id: "gost.s.nc.delay",
+  name: "Контакт с замедлением (НЗ)",
+  category: BTN,
+  componentCode: "SA",
+  kind: "contact-nc",
+  pins: [
+    { name: "11", x: 0, y: TOP },
+    { name: "12", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
+    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 }, // перемычка НЗ
+    { type: "arc", cx: 2, cy: 7.75, r: 2, a0: 180, a1: 360 }, // замедление (парашют сверху)
+  ],
+};
+
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
 export const GOST_SYMBOLS: SymbolDef[] = [
+  SB_NC,
+  SA,
+  SF,
+  SQ_NO,
+  SQ_NC,
+  SK,
+  S_NO_DELAY,
+  S_NC_DELAY,
   Q1,
   QW1,
   QK,

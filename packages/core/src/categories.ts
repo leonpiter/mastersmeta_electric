@@ -108,7 +108,7 @@ export const GOST_CATEGORIES: EquipmentCategory[] = [
     id: "button",
     name: "Кнопки и переключатели",
     componentCode: "SB",
-    kinds: ["contact-no", "contact-nc"],
+    kinds: ["contact-no", "contact-nc", "contact-co", "component-aux"],
     attributes: [txt("color", "Цвет"), sel("latching", "Фиксация", ["без фикс.", "с фикс."])],
   },
   {
