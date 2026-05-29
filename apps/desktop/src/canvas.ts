@@ -646,6 +646,7 @@ export class CanvasView {
     // зонная сетка (ГОСТ 2.104): тики + метки
     const zg = zoneGrid(f);
     const tick = 4;
+    // зонные метки только сверху (колонки) и слева (строки) — снизу/справа мешали бы штампу
     for (let i = 1; i < zg.cols; i++) {
       const x = zg.colX[i];
       g.append(
@@ -658,21 +659,10 @@ export class CanvasView {
           "stroke-width": 0.25,
         }),
       );
-      g.append(
-        el("line", {
-          x1: x,
-          y1: fr.y + fr.h - tick,
-          x2: x,
-          y2: fr.y + fr.h,
-          stroke: "#888",
-          "stroke-width": 0.25,
-        }),
-      );
     }
     for (let i = 0; i < zg.cols; i++) {
       const cx = (zg.colX[i] + zg.colX[i + 1]) / 2;
       g.append(this.text(String(i + 1), cx, fr.y + tick / 2 + 0.5, 3));
-      g.append(this.text(String(i + 1), cx, fr.y + fr.h - tick / 2 - 0.5, 3));
     }
     for (let i = 1; i < zg.rows; i++) {
       const y = zg.rowY[i];
@@ -686,22 +676,11 @@ export class CanvasView {
           "stroke-width": 0.25,
         }),
       );
-      g.append(
-        el("line", {
-          x1: fr.x + fr.w - tick,
-          y1: y,
-          x2: fr.x + fr.w,
-          y2: y,
-          stroke: "#888",
-          "stroke-width": 0.25,
-        }),
-      );
     }
     for (let i = 0; i < zg.rows; i++) {
       const cy = (zg.rowY[i] + zg.rowY[i + 1]) / 2;
       const letter = String.fromCharCode(65 + i);
       g.append(this.text(letter, fr.x + tick / 2, cy, 3));
-      g.append(this.text(letter, fr.x + fr.w - tick / 2, cy, 3));
     }
 
     this.renderTitleBlock(g, fr);
