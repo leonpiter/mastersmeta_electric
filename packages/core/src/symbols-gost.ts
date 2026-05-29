@@ -829,10 +829,475 @@ const KK: SymbolDef = {
   ],
 };
 
+// ===== Ф6 · Приборы, пассивные, полупроводники, источники, сигнальные, тр-ры, соединения =====
+const twoPin: Pin[] = [
+  { name: "1", x: 0, y: TOP },
+  { name: "2", x: 0, y: BOT },
+];
+
+/** Измерительный прибор (ГОСТ 2.729): круг Ø10 с обозначением величины. */
+/** Круглый 2-выводной элемент Ø10 с буквенной меткой (прибор/машина/источник). */
+function meterLike(
+  id: string,
+  name: string,
+  category: string,
+  code: string,
+  label: string,
+): SymbolDef {
+  return {
+    id,
+    name,
+    category,
+    componentCode: code,
+    kind: "component",
+    pins: twoPin,
+    graphics: [
+      lead(TOP, 2.5),
+      lead(12.5, BOT),
+      { type: "circle", cx: 0, cy: 7.5, r: 5 },
+      { type: "text", x: 0, y: 7.5, text: label, size: 3.4, anchor: "middle" },
+    ],
+  };
+}
+const meter = (code: string, name: string, label: string): SymbolDef =>
+  meterLike(`gost.${code.toLowerCase()}`, name, "Приборы измерительные", code, label);
+const METERS: SymbolDef[] = (
+  [
+    ["PA", "Амперметр", "A"],
+    ["PV", "Вольтметр", "V"],
+    ["PW", "Ваттметр", "W"],
+    ["PVA", "Варметр", "var"],
+    ["PI", "Счётчик активной энергии", "Wh"],
+    ["PK", "Счётчик реактивной энергии", "вр"],
+    ["PR", "Омметр", "Ω"],
+    ["PS", "Регистрирующий прибор", "∿"],
+  ] as const
+).map(([c, n, l]) => meter(c, n, l));
+
+/** Резистор постоянный (ГОСТ 2.728): прямоугольник 10×4. */
+const R: SymbolDef = {
+  id: "gost.r",
+  name: "Резистор",
+  category: "Резисторы",
+  componentCode: "R",
+  kind: "component",
+  pins: twoPin,
+  graphics: [lead(TOP, 2.5), lead(12.5, BOT), { type: "rect", x: -2, y: 2.5, w: 4, h: 10 }],
+};
+
+/** Варистор / ОПН (RU): резистор с косой стрелкой. */
+const RU: SymbolDef = {
+  id: "gost.ru",
+  name: "Варистор / ОПН",
+  category: "Резисторы",
+  componentCode: "RU",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 2.5),
+    lead(12.5, BOT),
+    { type: "rect", x: -2, y: 2.5, w: 4, h: 10 },
+    { type: "line", x1: -3, y1: 12, x2: 3, y2: 4 }, // косая характеристика
+  ],
+};
+
+/** Конденсатор (ГОСТ 2.728): две обкладки. */
+const C: SymbolDef = {
+  id: "gost.c",
+  name: "Конденсатор",
+  category: "Конденсаторы",
+  componentCode: "C",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 6),
+    lead(9, BOT),
+    { type: "line", x1: -3.5, y1: 6, x2: 3.5, y2: 6 },
+    { type: "line", x1: -3.5, y1: 9, x2: 3.5, y2: 9 },
+  ],
+};
+
+/** Конденсаторная батарея (CB). */
+const CB: SymbolDef = {
+  id: "gost.cb",
+  name: "Конденсаторная батарея",
+  category: "Конденсаторы",
+  componentCode: "CB",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 6),
+    lead(9, BOT),
+    { type: "line", x1: -3.5, y1: 6, x2: 3.5, y2: 6 },
+    { type: "line", x1: -3.5, y1: 9, x2: 3.5, y2: 9 },
+    { type: "line", x1: -3.5, y1: 10.5, x2: 3.5, y2: 10.5 },
+  ],
+};
+
+/** Дроссель / катушка индуктивности (L): три полудуги. */
+const L: SymbolDef = {
+  id: "gost.l",
+  name: "Дроссель",
+  category: "Катушки и реакторы",
+  componentCode: "L",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 4),
+    lead(11, BOT),
+    { type: "arc", cx: 0, cy: 5.5, r: 1.5, a0: -90, a1: 90 },
+    { type: "arc", cx: 0, cy: 8, r: 1.5, a0: -90, a1: 90 },
+    { type: "arc", cx: 0, cy: 10.5, r: 1.5, a0: -90, a1: 90 },
+  ],
+};
+
+/** Реактор (LR, ГОСТ 2.723): 3/4 окружности Ø12 с радиусом. */
+const LR: SymbolDef = {
+  id: "gost.lr",
+  name: "Реактор",
+  category: "Катушки и реакторы",
+  componentCode: "LR",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 1.5),
+    { type: "arc", cx: 0, cy: 7.5, r: 6, a0: 60, a1: 360 }, // 3/4 окружности
+    { type: "line", x1: 0, y1: 7.5, x2: 3, y2: 12.7 }, // радиус
+    lead(13.5, BOT),
+  ],
+};
+
+/** Диод (VD, ГОСТ 2.730): треугольник + катодная черта. */
+const VD: SymbolDef = {
+  id: "gost.vd",
+  name: "Диод",
+  category: "Полупроводники",
+  componentCode: "VD",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 5),
+    lead(9, BOT),
+    { type: "line", x1: -2.5, y1: 5, x2: 2.5, y2: 5 },
+    { type: "line", x1: -2.5, y1: 5, x2: 0, y2: 9 },
+    { type: "line", x1: 2.5, y1: 5, x2: 0, y2: 9 },
+    { type: "line", x1: -2.5, y1: 9, x2: 2.5, y2: 9 }, // катод
+  ],
+};
+
+/** Тиристор (VS): диод с управляющим электродом. */
+const VS: SymbolDef = {
+  id: "gost.vs",
+  name: "Тиристор",
+  category: "Полупроводники",
+  componentCode: "VS",
+  kind: "component",
+  pins: [
+    { name: "1", x: 0, y: TOP },
+    { name: "2", x: 0, y: BOT },
+    { name: "G", x: 5, y: 10 },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(9, BOT),
+    { type: "line", x1: -2.5, y1: 5, x2: 2.5, y2: 5 },
+    { type: "line", x1: -2.5, y1: 5, x2: 0, y2: 9 },
+    { type: "line", x1: 2.5, y1: 5, x2: 0, y2: 9 },
+    { type: "line", x1: -2.5, y1: 9, x2: 2.5, y2: 9 },
+    { type: "line", x1: 2, y1: 9, x2: 5, y2: 10 }, // управляющий электрод
+  ],
+};
+
+/** Транзистор (VT): круг с базой, коллектором и эмиттером. */
+const VT: SymbolDef = {
+  id: "gost.vt",
+  name: "Транзистор",
+  category: "Полупроводники",
+  componentCode: "VT",
+  kind: "component",
+  pins: [
+    { name: "B", x: -5, y: 5 },
+    { name: "C", x: 5, y: TOP },
+    { name: "E", x: 5, y: BOT },
+  ],
+  graphics: [
+    { type: "line", x1: -5, y1: 5, x2: -1, y2: 5 }, // вывод базы
+    { type: "line", x1: -1, y1: 3, x2: -1, y2: 12 }, // пластина базы
+    { type: "line", x1: -1, y1: 5, x2: 5, y2: 0 }, // коллектор
+    { type: "line", x1: -1, y1: 10, x2: 5, y2: 15 }, // эмиттер
+  ],
+};
+
+/** Преобразователь / выпрямитель (UZ): квадрат с диагональю и знаками ∼/=. */
+const UZ: SymbolDef = {
+  id: "gost.uz",
+  name: "Преобразователь (UZ)",
+  category: "Преобразователи",
+  componentCode: "UZ",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 2),
+    lead(13, BOT),
+    { type: "rect", x: -5, y: 2, w: 10, h: 11 },
+    { type: "line", x1: 5, y1: 2, x2: -5, y2: 13 }, // диагональ
+    { type: "text", x: -2.5, y: 5.5, text: "∼", size: 3, anchor: "middle" },
+    { type: "text", x: 2.5, y: 11, text: "=", size: 3, anchor: "middle" },
+  ],
+};
+
+/** Генератор (G, ГОСТ 2.722): круг Ø10 с буквой G. */
+const G: SymbolDef = meterLike("gost.g", "Генератор", "Источники питания", "G", "G");
+/** Синхронный компенсатор (GC). */
+const GC: SymbolDef = meterLike(
+  "gost.gc",
+  "Синхронный компенсатор",
+  "Источники питания",
+  "GC",
+  "GC",
+);
+
+/** Аккумуляторная батарея (GB, ГОСТ 2.742): чередование длинных/коротких черт. */
+const GB: SymbolDef = {
+  id: "gost.gb",
+  name: "Батарея аккумуляторная",
+  category: "Источники питания",
+  componentCode: "GB",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 5),
+    lead(10, BOT),
+    { type: "line", x1: -3, y1: 5, x2: 3, y2: 5 }, // +
+    { type: "line", x1: -1.5, y1: 6.5, x2: 1.5, y2: 6.5 }, // −
+    { type: "line", x1: -3, y1: 8, x2: 3, y2: 8 },
+    { type: "line", x1: -1.5, y1: 9.5, x2: 1.5, y2: 9.5 },
+  ],
+};
+
+/** Звуковая сигнализация (HA): полукруг (звонок). */
+const HA: SymbolDef = {
+  id: "gost.ha",
+  name: "Звуковая сигнализация",
+  category: "Лампы и индикаторы",
+  componentCode: "HA",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 4),
+    lead(11, BOT),
+    { type: "arc", cx: 0, cy: 7.5, r: 4, a0: 180, a1: 360 },
+    { type: "line", x1: -4, y1: 7.5, x2: 4, y2: 7.5 },
+  ],
+};
+
+/** Сигнальное табло (HLA): прямоугольник с диагоналями. */
+const HLA: SymbolDef = {
+  id: "gost.hla",
+  name: "Табло сигнальное",
+  category: "Лампы и индикаторы",
+  componentCode: "HLA",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 3),
+    lead(12, BOT),
+    { type: "rect", x: -5, y: 3, w: 10, h: 9 },
+    { type: "line", x1: -5, y1: 3, x2: 5, y2: 12 },
+    { type: "line", x1: 5, y1: 3, x2: -5, y2: 12 },
+  ],
+};
+
+/** Лампа осветительная (EL): круг с крестом. */
+const EL: SymbolDef = {
+  id: "gost.el",
+  name: "Лампа осветительная",
+  category: "Лампы и индикаторы",
+  componentCode: "EL",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 4),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 7.5, r: 3.5 },
+    { type: "line", x1: -2.5, y1: 5, x2: 2.5, y2: 10 },
+    { type: "line", x1: -2.5, y1: 10, x2: 2.5, y2: 5 },
+  ],
+};
+
+/** Трансформатор тока (TA, ГОСТ 2.723): первичная шина сквозь кольцо. */
+const TA: SymbolDef = {
+  id: "gost.ta",
+  name: "Трансформатор тока",
+  category: "Трансформаторы",
+  componentCode: "TA",
+  kind: "component",
+  pins: [
+    { name: "Л1", x: 0, y: TOP },
+    { name: "Л2", x: 0, y: BOT },
+    { name: "И1", x: 5, y: 5 },
+    { name: "И2", x: 5, y: 10 },
+  ],
+  graphics: [
+    { type: "line", x1: 0, y1: 0, x2: 0, y2: 15 }, // первичная шина
+    { type: "circle", cx: 2, cy: 7.5, r: 2 }, // вторичная обмотка (кольцо)
+    { type: "line", x1: 4, y1: 6, x2: 5, y2: 5 },
+    { type: "line", x1: 4, y1: 9, x2: 5, y2: 10 },
+  ],
+};
+
+/** Трансформатор напряжения (TV): две обмотки-круга. */
+const TV: SymbolDef = {
+  id: "gost.tv",
+  name: "Трансформатор напряжения",
+  category: "Трансформаторы",
+  componentCode: "TV",
+  kind: "component",
+  pins: [
+    { name: "A", x: -5, y: 0 },
+    { name: "X", x: 5, y: 0 },
+    { name: "a", x: -5, y: 20 },
+    { name: "x", x: 5, y: 20 },
+  ],
+  graphics: [
+    { type: "circle", cx: 0, cy: 7, r: 5 },
+    { type: "circle", cx: 0, cy: 13, r: 5 },
+    { type: "line", x1: -5, y1: 0, x2: -2.9, y2: 2.95 },
+    { type: "line", x1: 5, y1: 0, x2: 2.9, y2: 2.95 },
+    { type: "line", x1: -5, y1: 20, x2: -2.9, y2: 17.05 },
+    { type: "line", x1: 5, y1: 20, x2: 2.9, y2: 17.05 },
+  ],
+};
+
+/** Разрядник / ОПН (FV, ГОСТ 2.727): искровой промежуток в прямоугольнике. */
+const FV: SymbolDef = {
+  id: "gost.fv",
+  name: "Разрядник",
+  category: "Предохранители",
+  componentCode: "FV",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 3),
+    lead(12, BOT),
+    { type: "rect", x: -2.5, y: 3, w: 5, h: 9 },
+    { type: "line", x1: 0, y1: 3, x2: 0, y2: 6 }, // верхний электрод
+    { type: "line", x1: -2, y1: 8, x2: 2, y2: 8 }, // искровой промежуток (стрелка ↓)
+    { type: "line", x1: 0, y1: 6, x2: -2, y2: 8 },
+    { type: "line", x1: 0, y1: 6, x2: 2, y2: 8 },
+  ],
+};
+
+/** Штырь разъёма (XP): вилка. */
+const XP: SymbolDef = {
+  id: "gost.xp",
+  name: "Штырь (вилка)",
+  category: "Разъёмы",
+  componentCode: "XP",
+  kind: "connector",
+  pins: [{ name: "1", x: 0, y: 0 }],
+  graphics: [
+    { type: "line", x1: 0, y1: 0, x2: 5, y2: 0 },
+    { type: "line", x1: 5, y1: -1.5, x2: 8, y2: 0 }, // острие штыря
+    { type: "line", x1: 5, y1: 1.5, x2: 8, y2: 0 },
+  ],
+};
+
+/** Контактное соединение (X): разъёмное — полая точка. */
+const X_CONN: SymbolDef = {
+  id: "gost.x",
+  name: "Соединение контактное",
+  category: "Разъёмы",
+  componentCode: "X",
+  kind: "connector",
+  pins: [
+    { name: "1", x: 0, y: 0 },
+    { name: "2", x: 0, y: 5 },
+  ],
+  graphics: [{ type: "circle", cx: 0, cy: 2.5, r: 1.4 }],
+};
+
+/** Неразборное соединение (XN): сплошная точка-пайка. */
+const XN: SymbolDef = {
+  id: "gost.xn",
+  name: "Соединение неразборное",
+  category: "Разъёмы",
+  componentCode: "XN",
+  kind: "connector",
+  pins: [
+    { name: "1", x: 0, y: 0 },
+    { name: "2", x: 0, y: 5 },
+  ],
+  graphics: [
+    { type: "circle", cx: 0, cy: 2.5, r: 1 },
+    { type: "circle", cx: 0, cy: 2.5, r: 0.4 },
+  ],
+};
+
+/** Электромагнит (YA, ГОСТ 2.756): прямоугольник привода. */
+const YA: SymbolDef = {
+  id: "gost.ya",
+  name: "Электромагнит",
+  category: "Электромагниты",
+  componentCode: "YA",
+  kind: "component-aux",
+  pins: [
+    { name: "A1", x: 0, y: TOP },
+    { name: "A2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 1.5),
+    lead(13.5, BOT),
+    { type: "rect", x: -3, y: 1.5, w: 6, h: 12 },
+    { type: "line", x1: -3, y1: 1.5, x2: 3, y2: 13.5 }, // диагональ привода
+  ],
+};
+
+/** Фильтр (Z): прямоугольник с обозначением. */
+const Z: SymbolDef = {
+  id: "gost.z",
+  name: "Фильтр",
+  category: "Фильтры",
+  componentCode: "Z",
+  kind: "component",
+  pins: twoPin,
+  graphics: [
+    lead(TOP, 2.5),
+    lead(12.5, BOT),
+    { type: "rect", x: -4, y: 2.5, w: 8, h: 10 },
+    { type: "text", x: 0, y: 7.5, text: "Z", size: 4, anchor: "middle" },
+  ],
+};
+
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
 export const GOST_SYMBOLS: SymbolDef[] = [
   ...RELAY_COILS,
   KK,
+  ...METERS,
+  R,
+  RU,
+  C,
+  CB,
+  L,
+  LR,
+  VD,
+  VS,
+  VT,
+  UZ,
+  G,
+  GC,
+  GB,
+  HA,
+  HLA,
+  EL,
+  TA,
+  TV,
+  FV,
+  XP,
+  X_CONN,
+  XN,
+  YA,
+  Z,
   SB_NC,
   SA,
   SF,

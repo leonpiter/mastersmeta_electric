@@ -85,6 +85,20 @@ describe("валидация *.symbol.json", () => {
       expect(r.ok, `${s.id}: ${r.ok ? "" : r.errors.join("; ")}`).toBe(true);
     }
   });
+
+  it("выводы всех встроенных УГО — на сетке 5 мм (ГОСТ 2.747)", () => {
+    for (const s of GOST_SYMBOLS) {
+      for (const p of s.pins) {
+        expect(p.x % 5 === 0, `${s.id}.${p.name} x=${p.x}`).toBe(true);
+        expect(p.y % 5 === 0, `${s.id}.${p.name} y=${p.y}`).toBe(true);
+      }
+    }
+  });
+
+  it("уникальные id у всех встроенных УГО", () => {
+    const ids = GOST_SYMBOLS.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
   it("ловит отсутствующие поля и плохой kind", () => {
     const r = validateSymbol({ id: "x", kind: "wrong", pins: [], graphics: [] });
     expect(r.ok).toBe(false);
