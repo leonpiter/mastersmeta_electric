@@ -769,8 +769,70 @@ const S_NC_DELAY: SymbolDef = {
   ],
 };
 
+// ===== Ф5 · Реле (K, ГОСТ 2.756) — катушки подтипов (общее начертание 12×6) =====
+const RELAY = "Реле";
+/** Катушка реле-подтипа: общий прямоугольник 12×6, сигла — свой код. */
+function relayCoil(code: string, name: string): SymbolDef {
+  return {
+    id: `gost.coil.${code.toLowerCase()}`,
+    name,
+    category: RELAY,
+    componentCode: code,
+    kind: "coil",
+    pins: [
+      { name: "A1", x: 0, y: TOP },
+      { name: "A2", x: 0, y: BOT },
+    ],
+    graphics: [lead(TOP, 1.5), lead(13.5, BOT), { type: "rect", x: -3, y: 1.5, w: 6, h: 12 }],
+  };
+}
+const RELAY_COILS: SymbolDef[] = (
+  [
+    ["KA", "Реле токовое"],
+    ["KB", "Реле блокировки"],
+    ["KBS", "Реле блокировки от многократных вкл."],
+    ["KF", "Реле частоты"],
+    ["KH", "Реле указательное"],
+    ["KL", "Реле промежуточное"],
+    ["KQ", "Реле фиксации положения"],
+    ["KQC", "Реле положения «включено»"],
+    ["KQT", "Реле положения «отключено»"],
+    ["KQS", "Реле положения разъединителя"],
+    ["KS", "Реле контроля"],
+    ["KSS", "Реле контроля сигнализации"],
+    ["KSV", "Реле контроля напряжения"],
+    ["KSG", "Реле газовое"],
+    ["KST", "Термореле"],
+    ["KT", "Реле времени"],
+    ["KV", "Реле напряжения"],
+    ["KW", "Реле мощности"],
+  ] as const
+).map(([code, name]) => relayCoil(code, name));
+
+/** Воспринимающая часть электротеплового реле (KK): нагреватель в силовой цепи. */
+const KK: SymbolDef = {
+  id: "gost.kk",
+  name: "Тепловое реле (нагреватель)",
+  category: RELAY,
+  componentCode: "KK",
+  kind: "component-aux",
+  pins: [
+    { name: "1", x: 0, y: TOP },
+    { name: "2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 2.5),
+    lead(12.5, BOT),
+    { type: "rect", x: -3, y: 2.5, w: 6, h: 10 },
+    { type: "line", x1: -3, y1: 5.5, x2: 3, y2: 5.5 }, // элемент нагревателя
+    { type: "line", x1: -3, y1: 9.5, x2: 3, y2: 9.5 },
+  ],
+};
+
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
 export const GOST_SYMBOLS: SymbolDef[] = [
+  ...RELAY_COILS,
+  KK,
   SB_NC,
   SA,
   SF,

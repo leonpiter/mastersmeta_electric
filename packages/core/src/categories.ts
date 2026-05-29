@@ -101,7 +101,7 @@ export const GOST_CATEGORIES: EquipmentCategory[] = [
     id: "relay",
     name: "Реле",
     componentCode: "K",
-    kinds: ["coil", "contact-no", "contact-nc", "contact-co"],
+    kinds: ["coil", "contact-no", "contact-nc", "contact-co", "component-aux"],
     attributes: [txt("coilU", "Напряжение катушки")],
   },
   {
