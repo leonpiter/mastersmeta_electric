@@ -131,7 +131,7 @@ const KM: SymbolDef = {
     { name: "A1", x: 0, y: TOP },
     { name: "A2", x: 0, y: BOT },
   ],
-  graphics: [lead(TOP, 1.5), lead(13.5, BOT), { type: "rect", x: -3, y: 1.5, w: 6, h: 12 }],
+  graphics: [lead(TOP, 4.5), lead(10.5, BOT), { type: "rect", x: -6, y: 4.5, w: 12, h: 6 }],
 };
 
 /** Кнопка управления (ГОСТ 2.755): нормально разомкнутый контакт с толкателем. */
@@ -264,7 +264,7 @@ const K: SymbolDef = {
     { name: "A1", x: 0, y: TOP },
     { name: "A2", x: 0, y: BOT },
   ],
-  graphics: [lead(TOP, 1.5), lead(13.5, BOT), { type: "rect", x: -3, y: 1.5, w: 6, h: 12 }],
+  graphics: [lead(TOP, 4.5), lead(10.5, BOT), { type: "rect", x: -6, y: 4.5, w: 12, h: 6 }],
 };
 
 /** Контакт реле, НО (13/14) — slave катушки K (общая сигла). */
@@ -783,7 +783,7 @@ function relayCoil(code: string, name: string): SymbolDef {
       { name: "A1", x: 0, y: TOP },
       { name: "A2", x: 0, y: BOT },
     ],
-    graphics: [lead(TOP, 1.5), lead(13.5, BOT), { type: "rect", x: -3, y: 1.5, w: 6, h: 12 }],
+    graphics: [lead(TOP, 4.5), lead(10.5, BOT), { type: "rect", x: -6, y: 4.5, w: 12, h: 6 }],
   };
 }
 const RELAY_COILS: SymbolDef[] = (
@@ -1246,10 +1246,10 @@ const YA: SymbolDef = {
     { name: "A2", x: 0, y: BOT },
   ],
   graphics: [
-    lead(TOP, 1.5),
-    lead(13.5, BOT),
-    { type: "rect", x: -3, y: 1.5, w: 6, h: 12 },
-    { type: "line", x1: -3, y1: 1.5, x2: 3, y2: 13.5 }, // диагональ привода
+    lead(TOP, 4.5),
+    lead(10.5, BOT),
+    { type: "rect", x: -6, y: 4.5, w: 12, h: 6 },
+    { type: "line", x1: -6, y1: 4.5, x2: 6, y2: 10.5 }, // диагональ привода
   ],
 };
 
