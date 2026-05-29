@@ -20,6 +20,7 @@ publish:
   repo: mastersmeta_electric
 
 win:
+  icon: build/icon.ico
   target:
     - nsis
   artifactName: MastermetaElectro-Setup-${version}.${ext}

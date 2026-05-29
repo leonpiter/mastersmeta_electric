@@ -11,6 +11,15 @@ let win = null;
 /** Разрешён ли выход (после подтверждения несохранённых изменений в рендерере). */
 let allowClose = false;
 
+/** Иконка окна/панели задач: .ico в dev-дереве, favelicon в собранном dist. */
+function appIcon() {
+  const candidates = [
+    path.join(__dirname, "..", "build", "icon.ico"),
+    path.join(__dirname, "..", "dist", "favicon.png"),
+  ];
+  return candidates.find((p) => fs.existsSync(p));
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1440,
@@ -19,6 +28,7 @@ function createWindow() {
     minHeight: 680,
     backgroundColor: "#1f2430",
     frame: false, // без нативной рамки — своя шапка (#titlebar) в рендерере
+    icon: appIcon(),
     title: "Мастермета Электро",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
