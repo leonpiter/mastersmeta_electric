@@ -936,23 +936,25 @@ export class SymbolEditor {
         // ручка вращения (приоритетнее направляющих/фигур)
         if (this.selection.length > 0) {
           const rh = this.rotateHandleWorld();
-          const pivot = this.selPivot();
-          if (
-            rh &&
-            pivot &&
-            Math.hypot(this.last.x - rh.x, this.last.y - rh.y) <= 7 / this.scalePx
-          ) {
-            this.rotating = {
-              pivot,
-              startDeg: (Math.atan2(this.last.y - pivot.y, this.last.x - pivot.x) * 180) / Math.PI,
-              items: this.selection.map((sl) =>
-                sl.kind === "g"
-                  ? { kind: "g", index: sl.index, g: { ...this.graphics[sl.index] } }
-                  : { kind: "p", index: sl.index, p: { ...this.pins[sl.index] } },
-              ),
-            };
-            this.beginGesture();
-            return;
+          if (rh && Math.hypot(this.last.x - rh.x, this.last.y - rh.y) <= 7 / this.scalePx) {
+            this.beginGesture(); // снимок ДО (с прямоугольником) — для корректного undo
+            this.expandSelectedRectsToLines(); // наклоняемые прямоугольники → 4 линии
+            const pivot = this.selPivot();
+            if (pivot) {
+              this.rotating = {
+                pivot,
+                startDeg:
+                  (Math.atan2(this.last.y - pivot.y, this.last.x - pivot.x) * 180) / Math.PI,
+                items: this.selection.map((sl) =>
+                  sl.kind === "g"
+                    ? { kind: "g", index: sl.index, g: { ...this.graphics[sl.index] } }
+                    : { kind: "p", index: sl.index, p: { ...this.pins[sl.index] } },
+                ),
+              };
+              this.render();
+              return;
+            }
+            this.cancelGesture();
           }
         }
         // схватить направляющую (приоритетнее фигур)
@@ -1377,6 +1379,40 @@ export class SymbolEditor {
     const b = this.selBBox();
     if (!b) return null;
     return { x: b.x + b.w / 2, y: b.y - 26 / this.scalePx };
+  }
+
+  /**
+   * Превратить выделенные прямоугольники в 4 линии — чтобы их можно было наклонить
+   * вращением (rect остаётся по осям и не наклоняется). Выделение пересобирается.
+   */
+  private expandSelectedRectsToLines(): void {
+    const selG = new Set(this.selection.filter((s) => s.kind === "g").map((s) => s.index));
+    if (![...selG].some((i) => this.graphics[i]?.type === "rect")) return;
+    const out: GraphicPrimitive[] = [];
+    const remap = new Map<number, number[]>();
+    this.graphics.forEach((g, i) => {
+      if (selG.has(i) && g.type === "rect") {
+        const s = out.length;
+        const { x, y, w, h } = g;
+        out.push(
+          { type: "line", x1: x, y1: y, x2: x + w, y2: y },
+          { type: "line", x1: x + w, y1: y, x2: x + w, y2: y + h },
+          { type: "line", x1: x + w, y1: y + h, x2: x, y2: y + h },
+          { type: "line", x1: x, y1: y + h, x2: x, y2: y },
+        );
+        remap.set(i, [s, s + 1, s + 2, s + 3]);
+      } else {
+        remap.set(i, [out.length]);
+        out.push(g);
+      }
+    });
+    this.graphics = out;
+    const ns: SelItem[] = [];
+    for (const s of this.selection) {
+      if (s.kind === "p") ns.push(s);
+      else for (const ni of remap.get(s.index) ?? []) ns.push({ kind: "g", index: ni });
+    }
+    this.selection = ns;
   }
 
   /** Вращение выделения ручкой на произвольный угол (снап к 1°) вокруг центра. */
