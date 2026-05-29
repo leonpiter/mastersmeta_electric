@@ -14,7 +14,7 @@
 | [S16](sprints/S16-dsl-autolayout.md) | [S17](sprints/S17-web-pwa.md) | [S18](sprints/S18-backend-multitenant.md) | [S19](sprints/S19-realtime-collab.md) |
 | [S23](sprints/S23-ai-first-mode.md) | [S24](sprints/S24-element-editor-footprint.md) | [S25 ✅](sprints/archive/S25-graphics-annotations.md) | [S26 🚧](sprints/S26-workspace-multi-project.md) |
 | [S27 ✅](sprints/archive/S27-ugo-editor-complex.md) | [S28 ✅](sprints/archive/S28-ugo-editor-pro.md) | [S29 ✅](sprints/archive/S29-wire-crossref.md) | [S30 ✅](sprints/archive/S30-library-folder.md) |
-| [S31 ✅](sprints/archive/S31-ugo-library-expansion.md) | [S32 📝](sprints/S32-title-block-gost.md) | | |
+| [S31 ✅](sprints/archive/S31-ugo-library-expansion.md) | [S32 ✅](sprints/archive/S32-title-block-gost.md) | | |
 
 **Сквозные (инфраструктура, вне вех A–G):**
 - [S20 — гейт качества](sprints/archive/S20-infra-quality-gate.md) ✅ — ESLint/Prettier, `pnpm verify`, pre-push git-хук, `.claude` allowlist, README/LICENSE (MIT).
@@ -52,7 +52,7 @@
 **Цель:** корректный лист по ГОСТ. **Scope:** форматы A3/A4, рамка (ГОСТ 2.301: поля 20/5/5/5), зонная
 сетка (1…N / A…M), основная надпись (ГОСТ 2.104, шаблонная, data-bound), экспорт листа в PDF.
 **DoD:** печатается/экспортируется лист со штампом и рамкой; поля штампа заполняются из данных проекта.
-> Доработка штампа до точной ГОСТ 2.104 Форма 1 + редактирование всех полей + авто-нумерация листов — [S32](sprints/S32-title-block-gost.md).
+> Доработка штампа до ГОСТ 2.104 Форма 1 + редактирование всех полей + авто-нумерация листов — [S32 ✅](sprints/archive/S32-title-block-gost.md) (2026-05-29).
 
 ### S2 · Символы и расстановка
 **Цель:** библиотека УГО и вставка. **Scope:** формат `*.symbol.json` + JSON Schema; панель библиотеки
