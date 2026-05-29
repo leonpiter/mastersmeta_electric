@@ -594,10 +594,25 @@ export class AutoNumberCommand implements Command {
         assign(w, nextNum());
       }
     } else {
-      for (const net of computeNets(page, library)) {
+      const nets = computeNets(page, library);
+      // метка соединителя страниц (S29) на цепи → номер этой цепи
+      const signalOf = (net: (typeof nets)[number]): string | undefined => {
+        for (const pin of net.pins) {
+          const inst = page.instances.find((i) => i.id === pin.instanceId);
+          if (inst && library.get(inst.symbolId)?.kind === "page-connector" && inst.signal?.trim())
+            return inst.signal.trim();
+        }
+        return undefined;
+      };
+      for (const net of nets) {
+        const sig = signalOf(net);
+        if (sig) used.add(sig);
+      }
+      for (const net of nets) {
         const wires = net.wireIds.map((id) => byId.get(id)!).filter((w) => w.points.length >= 2);
         if (wires.length === 0) continue;
         let num = renumberLocked ? undefined : wires.find((w) => w.locked && w.number)?.number;
+        num ??= signalOf(net);
         num ??= nextNum();
         for (const w of wires) {
           if (w.locked && !renumberLocked) continue;
@@ -674,7 +689,11 @@ export class AutoNumberProjectCommand implements Command {
     const wireById = new Map<Id, Wire>();
     for (const p of pages) for (const w of p.wires) wireById.set(w.id, w);
 
-    for (const gnet of computeProjectNets(pages, library)) {
+    const nets = computeProjectNets(pages, library);
+    // метки соединителей страниц = номера цепей; зарезервировать, чтобы авто-номер их не повторил
+    for (const g of nets) for (const s of g.signals) used.add(s);
+
+    for (const gnet of nets) {
       const wires: Wire[] = [];
       for (const m of gnet.members)
         for (const id of local[m.pageIndex][m.localNetId].wireIds) {
@@ -682,7 +701,9 @@ export class AutoNumberProjectCommand implements Command {
           if (w && w.points.length >= 2) wires.push(w);
         }
       if (wires.length === 0) continue;
+      // приоритет: ручной (locked) номер → метка соединителя (S29) → авто
       let num = renumberLocked ? undefined : wires.find((w) => w.locked && w.number)?.number;
+      num ??= gnet.signals[0];
       num ??= nextNum();
       for (const w of wires) {
         if (w.locked && !renumberLocked) continue;

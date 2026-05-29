@@ -111,7 +111,7 @@ describe("автонумерация цепей (ГОСТ 2.709)", () => {
 
     const cmd = new AutoNumberProjectCommand([p1, p2], lib);
     cmd.do();
-    expect(w1.created.number).toBeDefined();
+    expect(w1.created.number).toBe("L1"); // провод наследует метку соединителя
     expect(w1.created.number).toBe(w2.created.number); // один номер через листы
     cmd.undo();
     expect(w1.created.number).toBeUndefined();
@@ -141,6 +141,21 @@ describe("автонумерация цепей (ГОСТ 2.709)", () => {
 
     new AutoNumberProjectCommand([p1, p2], lib).do();
     expect(w1.created.number).not.toBe(w2.created.number);
+  });
+
+  it("на одном листе провод наследует метку соединителя (S29)", () => {
+    const conn = GOST_SYMBOLS.find((s) => s.id === "gost.page-connector")!;
+    const page = createPage();
+    const w = new AddWireCommand(page, [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+    ]);
+    w.do();
+    const c = new AddSymbolInstanceCommand(page, conn, 20, 0);
+    c.do();
+    c.instance.signal = "PE";
+    new AutoNumberCommand(page, lib).do();
+    expect(w.created.number).toBe("PE");
   });
 
   it("SetWireNumber (потенциал/lock) обратимо", () => {

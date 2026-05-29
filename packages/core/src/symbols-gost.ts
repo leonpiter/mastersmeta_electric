@@ -344,6 +344,27 @@ const PAGE_CONN: SymbolDef = {
   ],
 };
 
+/**
+ * Продолжение провода (S29): приёмный соединитель страниц — «ласточкин хвост»
+ * (флажок с V-вырезом). Тот же `page-connector`: связывается по метке как стрелка.
+ */
+const PAGE_CONN_IN: SymbolDef = {
+  id: "gost.page-connector-in",
+  name: "Продолжение провода",
+  category: "Служебные",
+  componentCode: "W",
+  kind: "page-connector",
+  pins: [{ name: "1", x: 0, y: 0 }],
+  graphics: [
+    { type: "line", x1: 0, y1: 0, x2: 3, y2: 0 }, // хвостик к проводу
+    { type: "line", x1: 3, y1: -3, x2: 9, y2: -3 }, // верх флажка
+    { type: "line", x1: 9, y1: -3, x2: 7, y2: 0 }, // вырез (верхняя грань)
+    { type: "line", x1: 7, y1: 0, x2: 9, y2: 3 }, // вырез (нижняя грань)
+    { type: "line", x1: 9, y1: 3, x2: 3, y2: 3 }, // низ флажка
+    { type: "line", x1: 3, y1: 3, x2: 3, y2: -3 }, // левая грань
+  ],
+};
+
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
 export const GOST_SYMBOLS: SymbolDef[] = [
   QF,
@@ -363,4 +384,5 @@ export const GOST_SYMBOLS: SymbolDef[] = [
   XT,
   XS,
   PAGE_CONN,
+  PAGE_CONN_IN,
 ];
