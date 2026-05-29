@@ -27,10 +27,10 @@ const FU: SymbolDef = {
     { name: "2", x: 0, y: BOT },
   ],
   graphics: [
-    lead(TOP, 4),
-    lead(11, BOT),
-    { type: "rect", x: -2.5, y: 4, w: 5, h: 7 },
-    { type: "line", x1: 0, y1: 4, x2: 0, y2: 11 },
+    lead(TOP, 2.5),
+    lead(12.5, BOT),
+    { type: "rect", x: -2, y: 2.5, w: 4, h: 10 },
+    { type: "line", x1: 0, y1: 2.5, x2: 0, y2: 12.5 },
   ],
 };
 
@@ -49,7 +49,7 @@ const QS: SymbolDef = {
     lead(TOP, 5),
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 }, // неподвижный контакт
-    { type: "line", x1: 0, y1: 5, x2: 4.5, y2: 10.5 }, // подвижный контакт (разомкнут)
+    { type: "line", x1: 0, y1: 5, x2: 3, y2: 10.2 }, // подвижный контакт 30°, длина 6 (разомкнут)
   ],
 };
 
@@ -68,8 +68,8 @@ const QF: SymbolDef = {
     lead(TOP, 5),
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
-    { type: "line", x1: 0, y1: 5, x2: 4.5, y2: 10.5 },
-    { type: "rect", x: 3.3, y: 4.6, w: 2, h: 2 }, // метка автомата у конца контакта
+    { type: "line", x1: 0, y1: 5, x2: 3, y2: 10.2 }, // подвижный контакт 30°, длина 6
+    { type: "rect", x: 2.4, y: 3.6, w: 2, h: 2 }, // метка автомата у конца контакта
   ],
 };
 
@@ -84,7 +84,7 @@ const KM: SymbolDef = {
     { name: "A1", x: 0, y: TOP },
     { name: "A2", x: 0, y: BOT },
   ],
-  graphics: [lead(TOP, 4), lead(11, BOT), { type: "rect", x: -3, y: 4, w: 6, h: 7 }],
+  graphics: [lead(TOP, 1.5), lead(13.5, BOT), { type: "rect", x: -3, y: 1.5, w: 6, h: 12 }],
 };
 
 /** Кнопка управления (ГОСТ 2.755): нормально разомкнутый контакт с толкателем. */
@@ -102,7 +102,7 @@ const SB: SymbolDef = {
     lead(TOP, 5),
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
-    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 }, // контакт (разомкнут)
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 }, // контакт (разомкнут)
     { type: "line", x1: 2.3, y1: 7.4, x2: 2.3, y2: 2.5 }, // шток толкателя
     { type: "line", x1: 0.3, y1: 2.5, x2: 4.3, y2: 2.5 }, // кнопка
   ],
@@ -140,9 +140,9 @@ const M: SymbolDef = {
     { name: "2", x: 0, y: BOT },
   ],
   graphics: [
-    lead(TOP, 4),
-    lead(11, BOT),
-    { type: "circle", cx: 0, cy: 7.5, r: 3.5 },
+    lead(TOP, 2.5),
+    lead(12.5, BOT),
+    { type: "circle", cx: 0, cy: 7.5, r: 5 },
     { type: "text", x: 0, y: 7.5, text: "M", size: 4, anchor: "middle" },
   ],
 };
@@ -182,7 +182,7 @@ const KM_NO: SymbolDef = {
     lead(TOP, 5),
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
-    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
   ],
 };
 
@@ -201,7 +201,7 @@ const KM_NC: SymbolDef = {
     lead(TOP, 5),
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
-    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
     { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 },
   ],
 };
@@ -217,7 +217,7 @@ const K: SymbolDef = {
     { name: "A1", x: 0, y: TOP },
     { name: "A2", x: 0, y: BOT },
   ],
-  graphics: [lead(TOP, 4), lead(11, BOT), { type: "rect", x: -3, y: 4, w: 6, h: 7 }],
+  graphics: [lead(TOP, 1.5), lead(13.5, BOT), { type: "rect", x: -3, y: 1.5, w: 6, h: 12 }],
 };
 
 /** Контакт реле, НО (13/14) — slave катушки K (общая сигла). */
@@ -235,7 +235,7 @@ const K_NO: SymbolDef = {
     lead(TOP, 5),
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
-    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
   ],
 };
 
@@ -254,7 +254,7 @@ const K_NC: SymbolDef = {
     lead(TOP, 5),
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
-    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 },
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
     { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 },
   ],
 };
@@ -273,12 +273,12 @@ const T: SymbolDef = {
     { name: "4", x: 5, y: 20 },
   ],
   graphics: [
-    { type: "circle", cx: 0, cy: 7, r: 4 },
-    { type: "circle", cx: 0, cy: 13, r: 4 },
-    { type: "line", x1: -5, y1: 0, x2: -2.8, y2: 4.2 },
-    { type: "line", x1: 5, y1: 0, x2: 2.8, y2: 4.2 },
-    { type: "line", x1: -5, y1: 20, x2: -2.8, y2: 15.8 },
-    { type: "line", x1: 5, y1: 20, x2: 2.8, y2: 15.8 },
+    { type: "circle", cx: 0, cy: 7, r: 5 },
+    { type: "circle", cx: 0, cy: 13, r: 5 },
+    { type: "line", x1: -5, y1: 0, x2: -2.9, y2: 2.95 },
+    { type: "line", x1: 5, y1: 0, x2: 2.9, y2: 2.95 },
+    { type: "line", x1: -5, y1: 20, x2: -2.9, y2: 17.05 },
+    { type: "line", x1: 5, y1: 20, x2: 2.9, y2: 17.05 },
   ],
 };
 
@@ -401,7 +401,7 @@ const KM_MAIN: SymbolDef = {
   graphics: [
     lead(TOP, 5),
     lead(11, BOT),
-    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 }, // подвижный контакт (НО)
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 }, // подвижный контакт (НО)
     { type: "line", x1: -1.5, y1: 6.5, x2: 1.5, y2: 9.5 }, // штрих силового полюса
   ],
 };
