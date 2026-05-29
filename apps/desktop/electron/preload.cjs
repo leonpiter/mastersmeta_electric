@@ -30,10 +30,14 @@ contextBridge.exposeInMainWorld("desktop", {
     saveBlocks: (dir, list) => ipcRenderer.invoke("library:saveBlocks", { dir, list }),
     reveal: (dir) => ipcRenderer.invoke("library:reveal", { dir }),
   },
-  /** @param {(e: { type: "available" | "downloaded" | "error"; payload: string }) => void} cb */
+  // проверка/установка обновлений (окно «О программе»)
+  checkUpdates: () => ipcRenderer.invoke("update:check"),
+  installUpdate: () => ipcRenderer.send("update:install"),
+  /** @param {(e: { type: "available" | "downloaded" | "none" | "error"; payload: string }) => void} cb */
   onUpdate: (cb) => {
     ipcRenderer.on("update:available", (_e, v) => cb({ type: "available", payload: v }));
     ipcRenderer.on("update:downloaded", (_e, v) => cb({ type: "downloaded", payload: v }));
+    ipcRenderer.on("update:none", () => cb({ type: "none", payload: "" }));
     ipcRenderer.on("update:error", (_e, v) => cb({ type: "error", payload: v }));
   },
 });

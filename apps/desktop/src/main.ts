@@ -1076,6 +1076,61 @@ libDirChange.addEventListener("click", () => {
 });
 libDirReveal.addEventListener("click", () => revealLibraryDir());
 
+// меню Файл → «Настройки» (заглушка) и «О программе» (версия/разраб/обновления)
+const settingsDialog = document.getElementById("settings-dialog") as HTMLDialogElement;
+(document.getElementById("menu-settings") as HTMLButtonElement).addEventListener("click", () => {
+  closeFileMenu();
+  settingsDialog.showModal();
+});
+
+const aboutDialog = document.getElementById("about-dialog") as HTMLDialogElement;
+const aboutVersion = document.getElementById("about-version")!;
+const aboutStatus = document.getElementById("about-update-status")!;
+const aboutCheck = document.getElementById("about-check") as HTMLButtonElement;
+const aboutInstall = document.getElementById("about-install") as HTMLButtonElement;
+let updateReady = false;
+
+// события апдейтера (desktop): обновляем строку статуса и кнопку установки
+desktop()?.onUpdate((e) => {
+  if (e.type === "available") {
+    aboutStatus.textContent = `Доступна версия ${e.payload} — загружаю…`;
+    updateReady = false;
+  } else if (e.type === "downloaded") {
+    aboutStatus.textContent = `Версия ${e.payload} загружена.`;
+    updateReady = true;
+  } else if (e.type === "none") {
+    aboutStatus.textContent = "У вас актуальная версия.";
+    updateReady = false;
+  } else {
+    aboutStatus.textContent = "Не удалось проверить обновления.";
+    updateReady = false;
+  }
+  aboutInstall.hidden = !updateReady;
+});
+
+(document.getElementById("menu-about") as HTMLButtonElement).addEventListener("click", () => {
+  closeFileMenu();
+  const d = desktop();
+  aboutVersion.textContent = "…";
+  void (d ? d.version() : Promise.resolve("веб-версия")).then(
+    (v) => (aboutVersion.textContent = v),
+  );
+  aboutStatus.textContent = "";
+  aboutCheck.hidden = !d; // в вебе обновлений нет
+  aboutInstall.hidden = !updateReady;
+  aboutDialog.showModal();
+});
+aboutCheck.addEventListener("click", () => {
+  aboutStatus.textContent = "Проверяю обновления…";
+  void desktop()?.checkUpdates();
+});
+aboutInstall.addEventListener("click", () => {
+  if (
+    window.confirm("Приложение закроется и установит новую версию. Закрыть все проекты и обновить?")
+  )
+    desktop()?.installUpdate();
+});
+
 // верхняя полоса заголовка (S21): быстрый доступ к файловым действиям
 (document.getElementById("tb-new") as HTMLButtonElement).addEventListener("click", () =>
   addProject(createProject()),

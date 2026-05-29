@@ -59,13 +59,18 @@ function createWindow() {
 }
 
 // авто-обновление: модуль грузим ЛЕНИВО (после ready), иначе он обращается к
-// app.getVersion() ещё до инициализации Electron и падает.
-function setupAutoUpdates() {
-  const { autoUpdater } = require("electron-updater");
-  autoUpdater.on("update-available", (info) => {
+// app.getVersion() ещё до инициализации Electron и падает. Слушатели — один раз.
+let updater = null;
+function getUpdater() {
+  if (updater) return updater;
+  updater = require("electron-updater").autoUpdater;
+  updater.on("update-available", (info) => {
     win?.webContents.send("update:available", info?.version ?? "");
   });
-  autoUpdater.on("update-downloaded", (info) => {
+  updater.on("update-not-available", () => {
+    win?.webContents.send("update:none", "");
+  });
+  updater.on("update-downloaded", (info) => {
     win?.webContents.send("update:downloaded", info?.version ?? "");
     if (Notification.isSupported()) {
       new Notification({
@@ -74,10 +79,10 @@ function setupAutoUpdates() {
       }).show();
     }
   });
-  autoUpdater.on("error", (err) => {
+  updater.on("error", (err) => {
     win?.webContents.send("update:error", String(err));
   });
-  autoUpdater.checkForUpdatesAndNotify().catch((e) => console.error("updater:", e));
+  return updater;
 }
 
 app.whenReady().then(() => {
@@ -85,7 +90,28 @@ app.whenReady().then(() => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-  if (app.isPackaged) setupAutoUpdates(); // в dev обновлять нечего
+  // авто-проверка при старте (только в установленном приложении)
+  if (app.isPackaged)
+    getUpdater()
+      .checkForUpdatesAndNotify()
+      .catch((e) => console.error("updater:", e));
+});
+
+// ручная проверка обновлений (из окна «О программе»)
+ipcMain.handle("update:check", () => {
+  if (!app.isPackaged) {
+    win?.webContents.send("update:none", "");
+    return;
+  }
+  getUpdater()
+    .checkForUpdates()
+    .catch((e) => win?.webContents.send("update:error", String(e)));
+});
+
+// установить загруженное обновление (закрывает приложение, ставит новую версию)
+ipcMain.on("update:install", () => {
+  allowClose = true; // в обход гарда несохранённых — пользователь уже подтвердил
+  getUpdater().quitAndInstall();
 });
 
 app.on("window-all-closed", () => {

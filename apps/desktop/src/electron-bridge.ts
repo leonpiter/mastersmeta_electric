@@ -28,8 +28,11 @@ interface DesktopBridge {
     saveBlocks: (dir: string, list: unknown[]) => Promise<void>;
     reveal: (dir: string) => Promise<void>;
   };
+  /** Проверка/установка обновлений (окно «О программе»). */
+  checkUpdates: () => Promise<void>;
+  installUpdate: () => void;
   onUpdate: (
-    cb: (e: { type: "available" | "downloaded" | "error"; payload: string }) => void,
+    cb: (e: { type: "available" | "downloaded" | "none" | "error"; payload: string }) => void,
   ) => void;
 }
 

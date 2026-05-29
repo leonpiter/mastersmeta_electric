@@ -97,7 +97,7 @@ export function findDevice(devices: DeviceInfo[], designation: string): DeviceIn
   return devices.find((d) => d.designation === designation);
 }
 
-/** Колонка зеркала контактов (ГОСТ/See Electrical): силовой / НО / НЗ. */
+/** Колонка зеркала контактов: M — главные/силовые, НО — норм. открытый, НЗ — норм. закрытый. */
 export type ContactColumn = "M" | "NO" | "NC";
 
 /** Строка зеркала контактов под катушкой (тип, выводы, адрес, цель перехода). */

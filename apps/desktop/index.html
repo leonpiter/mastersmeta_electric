@@ -607,6 +607,9 @@
       <button class="dd-item" id="lib-export" type="button">Экспорт библиотеки УГО…</button>
       <button class="dd-item" id="lib-import" type="button">Импорт библиотеки УГО…</button>
       <button class="dd-item" id="lib-folder" type="button">Папка библиотеки УГО…</button>
+      <div class="dd-sep"></div>
+      <button class="dd-item" id="menu-settings" type="button">Настройки…</button>
+      <button class="dd-item" id="menu-about" type="button">О программе…</button>
     </div>
 
     <div id="grid-menu" class="dropdown" hidden>
@@ -900,6 +903,37 @@
           <button value="cancel" type="button" id="libdir-change" class="btn-secondary">
             Изменить…
           </button>
+          <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="settings-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>Настройки</h3>
+        <p class="dialog-hint">
+          Раздел в разработке. Здесь появятся: тема оформления, вид курсора, шаг сетки по умолчанию
+          и прочие параметры.
+        </p>
+        <div class="prop-actions">
+          <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="about-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>О программе</h3>
+        <div class="about-row"><b>Мастермета Электро</b></div>
+        <div class="about-row">Версия: <span id="about-version">—</span></div>
+        <div class="about-row">Разработчик: Leonid</div>
+        <div class="about-row">
+          E-mail: <a href="mailto:leonpiter@gmail.com">leonpiter@gmail.com</a>
+        </div>
+        <p id="about-update-status" class="dialog-hint"></p>
+        <div class="prop-actions">
+          <button type="button" id="about-check" class="btn-secondary">Проверить обновления</button>
+          <button type="button" id="about-install" hidden>Обновить и перезапустить</button>
           <button value="ok" type="submit">Закрыть</button>
         </div>
       </form>
