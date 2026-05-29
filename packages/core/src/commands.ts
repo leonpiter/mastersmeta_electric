@@ -138,6 +138,9 @@ interface InstanceEdit {
   labelFields?: string[];
   /** Метка сигнала соединителя страниц (S29). */
   signal?: string;
+  /** Сдвиг таблицы зеркала контактов (мм). */
+  mirrorDx?: number;
+  mirrorDy?: number;
 }
 
 /** Изменить свойства инстанса (позобозначение, видимость подписи, артикул, характеристики). */
@@ -150,6 +153,8 @@ export class EditInstanceCommand implements Command {
     attributes?: Record<string, string>;
     labelFields?: string[];
     signal?: string;
+    mirrorDx?: number;
+    mirrorDy?: number;
   };
 
   constructor(
@@ -163,6 +168,8 @@ export class EditInstanceCommand implements Command {
       attributes: inst.attributes,
       labelFields: inst.labelFields,
       signal: inst.signal,
+      mirrorDx: inst.mirrorDx,
+      mirrorDy: inst.mirrorDy,
     };
   }
 
@@ -173,6 +180,8 @@ export class EditInstanceCommand implements Command {
     if ("attributes" in this.after) this.inst.attributes = this.after.attributes;
     if ("labelFields" in this.after) this.inst.labelFields = this.after.labelFields;
     if ("signal" in this.after) this.inst.signal = this.after.signal;
+    if ("mirrorDx" in this.after) this.inst.mirrorDx = this.after.mirrorDx;
+    if ("mirrorDy" in this.after) this.inst.mirrorDy = this.after.mirrorDy;
   }
 
   undo(): void {
@@ -182,6 +191,8 @@ export class EditInstanceCommand implements Command {
     this.inst.attributes = this.before.attributes;
     this.inst.labelFields = this.before.labelFields;
     this.inst.signal = this.before.signal;
+    this.inst.mirrorDx = this.before.mirrorDx;
+    this.inst.mirrorDy = this.before.mirrorDy;
   }
 }
 

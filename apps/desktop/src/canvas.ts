@@ -12,6 +12,7 @@ import {
   symbolBounds,
   transformLocalPoint,
   AddSymbolInstanceCommand,
+  EditInstanceCommand,
   RotateInstanceCommand,
   MirrorInstanceCommand,
   RemoveInstanceCommand,
@@ -1226,7 +1227,7 @@ export class CanvasView {
 
     // у катушки — боксовое «зеркало контактов»: таблица M | НО | НЗ с адресами (S27 Ф2)
     if (member.kind === "coil" && device.contacts.length > 0) {
-      this.renderContactMirror(wb, device);
+      this.renderContactMirror(wb, device, member.instance);
     }
 
     // у контакта — адрес катушки (откуда управляется)
@@ -1242,8 +1243,9 @@ export class CanvasView {
   /**
    * Боксовое зеркало контактов под катушкой (S27 Ф2): таблица «выводы | M | НО | НЗ»;
    * адрес контакта в своей колонке кликабелен — двойной клик ведёт на лист контакта.
+   * Таблицу можно перетаскивать мышью (смещение хранится в `coil.mirrorDx/Dy`, S: DnD).
    */
-  private renderContactMirror(wb: Rect, device: DeviceInfo): void {
+  private renderContactMirror(wb: Rect, device: DeviceInfo, coil: SymbolInstance): void {
     const rows = coilContactRows(device);
     if (rows.length === 0) return;
 
@@ -1253,15 +1255,17 @@ export class CanvasView {
     const rowH = 3.4;
     const cols: ContactColumn[] = ["M", "NO", "NC"];
     const colLabel: Record<ContactColumn, string> = { M: "M", NO: "НО", NC: "НЗ" };
-    const x0 = wb.x;
-    const y0 = wb.y + wb.h + 1.8;
+    const x0 = wb.x + (coil.mirrorDx ?? 0);
+    const y0 = wb.y + wb.h + 1.8 + (coil.mirrorDy ?? 0);
     const totalW = gutterW + cols.length * colW;
     const totalH = headerH + rows.length * rowH;
     const colX = (i: number): number => x0 + gutterW + i * colW;
     const div = (x1: number, y1: number, x2: number, y2: number): SVGElement =>
       el("line", { x1, y1, x2, y2, stroke: "#9fb0c3", "stroke-width": 0.15 });
 
-    this.overlayG.append(
+    const g = el("g");
+    g.style.cursor = "move";
+    g.append(
       el("rect", {
         x: x0,
         y: y0,
@@ -1272,25 +1276,61 @@ export class CanvasView {
         "stroke-width": 0.2,
       }),
     );
-    this.overlayG.append(div(colX(0), y0, colX(0), y0 + totalH));
-    for (let i = 1; i < cols.length; i++)
-      this.overlayG.append(div(colX(i), y0, colX(i), y0 + totalH));
-    this.overlayG.append(div(x0, y0 + headerH, x0 + totalW, y0 + headerH));
+    g.append(div(colX(0), y0, colX(0), y0 + totalH));
+    for (let i = 1; i < cols.length; i++) g.append(div(colX(i), y0, colX(i), y0 + totalH));
+    g.append(div(x0, y0 + headerH, x0 + totalW, y0 + headerH));
 
     cols.forEach((c, i) => {
       const t = this.text(colLabel[c], colX(i) + colW / 2, y0 + headerH / 2, 2, "middle");
       t.setAttribute("fill", "#5a7088");
-      this.overlayG.append(t);
+      g.append(t);
     });
 
     rows.forEach((row, r) => {
       const ry = y0 + headerH + r * rowH;
-      if (r > 0) this.overlayG.append(div(x0, ry, x0 + totalW, ry));
+      if (r > 0) g.append(div(x0, ry, x0 + totalW, ry));
       const pinT = this.text(row.pins.join("·"), x0 + 1, ry + rowH / 2, 2, "start");
       pinT.setAttribute("fill", "#5a7088");
-      this.overlayG.append(pinT);
+      g.append(pinT);
       const ci = Math.max(0, cols.indexOf(row.column));
-      this.overlayG.append(this.contactAddressCell(row, colX(ci), ry, colW, rowH));
+      g.append(this.contactAddressCell(row, colX(ci), ry, colW, rowH));
+    });
+
+    this.attachMirrorDrag(g, coil);
+    this.overlayG.append(g);
+  }
+
+  /** DnD таблицы зеркала: тянем мышью, на отпускании пишем смещение (привязка к сетке, обратимо). */
+  private attachMirrorDrag(g: SVGGElement, coil: SymbolInstance): void {
+    const base = { dx: coil.mirrorDx ?? 0, dy: coil.mirrorDy ?? 0 };
+    let drag: { sx: number; sy: number; moved: boolean } | null = null;
+    g.addEventListener("pointerdown", (e) => {
+      if (this.wireMode || this.drawTool || this.armed || this.armedBlock || e.button !== 0) return;
+      e.stopPropagation();
+      g.setPointerCapture(e.pointerId);
+      drag = { sx: e.clientX, sy: e.clientY, moved: false };
+    });
+    g.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 3)
+        drag.moved = true;
+      if (drag.moved) {
+        const ddx = (e.clientX - drag.sx) / this.scalePx;
+        const ddy = (e.clientY - drag.sy) / this.scalePx;
+        g.setAttribute("transform", `translate(${ddx} ${ddy})`);
+      }
+    });
+    g.addEventListener("pointerup", (e) => {
+      if (!drag) return;
+      const moved = drag.moved;
+      const ddx = (e.clientX - drag.sx) / this.scalePx;
+      const ddy = (e.clientY - drag.sy) / this.scalePx;
+      drag = null;
+      if (!moved) return; // клик без сдвига — не трогаем (двойной клик навигирует по адресу)
+      const step = this.page.gridStep;
+      const nx = Math.round((base.dx + ddx) / step) * step;
+      const ny = Math.round((base.dy + ddy) / step) * step;
+      this.stack.execute(new EditInstanceCommand(coil, { mirrorDx: nx, mirrorDy: ny }));
     });
   }
 
