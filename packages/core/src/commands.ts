@@ -44,6 +44,8 @@ export interface PlaceOptions {
   rotation?: Rotation;
   mirror?: boolean;
   id?: Id;
+  /** Явная сигла (подтверждённая пользователем при вставке); иначе авто по коду. */
+  designation?: string;
   // перенос свойств при копировании/вставке (S: copy-paste)
   attributes?: Record<string, string>;
   labelFields?: string[];
@@ -64,10 +66,14 @@ export class AddSymbolInstanceCommand implements Command {
     y: number,
     opts: PlaceOptions = {},
   ) {
-    const designation = nextDesignation(
-      page.instances.map((i) => i.designation),
-      sym.componentCode,
-    );
+    const explicit = opts.designation?.trim();
+    const designation =
+      explicit && explicit.length > 0
+        ? explicit
+        : nextDesignation(
+            page.instances.map((i) => i.designation),
+            sym.componentCode,
+          );
     this.inst = {
       id: opts.id ?? newId(),
       symbolId: sym.id,

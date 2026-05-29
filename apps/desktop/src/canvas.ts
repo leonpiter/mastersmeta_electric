@@ -35,6 +35,7 @@ import {
   connectorPartners,
   partnersText,
   circuitNumberAt,
+  nextDesignation,
   instancePins,
   instanceLabels,
   coilContactRows,
@@ -91,6 +92,12 @@ export interface CanvasHooks {
   onNavigateToContact?: (pageIndex: number, instanceId: string) => void;
   /** Изменилось число выбранных инстансов (для кнопки «В блок», S27 Ф4). */
   onSelectionCountChange?: (count: number) => void;
+  /**
+   * Подтвердить сиглу при вставке символа (модалка). `commit(designation)` ставит символ
+   * с этой сиглой (пустая → авто); `commit(null)` — отмена. Совпадение сигл связывает
+   * катушку и контакты в одно устройство (master/slave).
+   */
+  onConfirmDesignation?: (suggested: string, commit: (designation: string | null) => void) => void;
 }
 
 /** Инструмент рисования аннотаций. */
@@ -1630,6 +1637,31 @@ export class CanvasView {
     this.hooks.onSelectionCountChange?.(this.multi.size);
   }
 
+  /** Поставить взведённый символ в точку (с разрезом провода под выводами). */
+  private placeArmed(sym: SymbolDef, p: Point, designation?: string): void {
+    const addCmd = new AddSymbolInstanceCommand(this.page, sym, p.x, p.y, {
+      rotation: this.pendingRotation,
+      mirror: this.pendingMirror,
+      designation,
+    });
+    // разрез провода при вставке символа на него (принцип 2)
+    const pins = instancePins(sym, {
+      x: p.x,
+      y: p.y,
+      rotation: this.pendingRotation,
+      mirror: this.pendingMirror,
+    });
+    const splits: Command[] = [];
+    for (const w of this.page.wires) {
+      const cut = pins.find((pin) =>
+        w.points.some((_, i) => i > 0 && pointOnSegment(pin, w.points[i - 1], w.points[i])),
+      );
+      if (cut) splits.push(new SplitWireCommand(this.page, w, { x: cut.x, y: cut.y }));
+    }
+    this.stack.execute(splits.length ? new MacroCommand([addCmd, ...splits]) : addCmd);
+    this.select(addCmd.instance);
+  }
+
   /** Esc — завершить/прервать провод, выйти из вставки/рисования, иначе снять выделение. */
   cancelPlacement(): void {
     if (this.wireMode) {
@@ -1898,28 +1930,21 @@ export class CanvasView {
           }
           this.renderGhost();
         } else if (this.armed) {
+          const sym = this.armed;
           const p = snapPoint(this.last, this.page.gridStep);
-          const addCmd = new AddSymbolInstanceCommand(this.page, this.armed, p.x, p.y, {
-            rotation: this.pendingRotation,
-            mirror: this.pendingMirror,
-          });
-          // разрез провода при вставке символа на него (принцип 2)
-          const pins = instancePins(this.armed, {
-            x: p.x,
-            y: p.y,
-            rotation: this.pendingRotation,
-            mirror: this.pendingMirror,
-          });
-          const splits: Command[] = [];
-          for (const w of this.page.wires) {
-            const cut = pins.find((pin) =>
-              w.points.some((_, i) => i > 0 && pointOnSegment(pin, w.points[i - 1], w.points[i])),
+          // подтверждение сиглы при вставке (master/slave по совпадающей сигле);
+          // для соединителей страниц (адресуются меткой) — без модалки
+          if (sym.kind !== "page-connector" && this.hooks.onConfirmDesignation) {
+            const suggested = nextDesignation(
+              this.page.instances.map((i) => i.designation),
+              sym.componentCode,
             );
-            if (cut) splits.push(new SplitWireCommand(this.page, w, { x: cut.x, y: cut.y }));
+            this.hooks.onConfirmDesignation(suggested, (d) => {
+              if (d !== null) this.placeArmed(sym, p, d);
+            });
+          } else {
+            this.placeArmed(sym, p);
           }
-          const cmd = splits.length ? new MacroCommand([addCmd, ...splits]) : addCmd;
-          this.stack.execute(cmd); // подписка перерисует слой символов/проводов
-          this.select(addCmd.instance); // выбрать новый, режим вставки сохраняется
         } else if (this.armedBlock) {
           const p = snapPoint(this.last, this.page.gridStep);
           const cmd = new InsertBlockCommand(this.page, this.armedBlock, this.library, p.x, p.y);

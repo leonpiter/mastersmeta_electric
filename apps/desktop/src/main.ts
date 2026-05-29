@@ -115,6 +115,8 @@ const view = new CanvasView(svg, activePage(project), stack, hud, library, {
   onSelectionCountChange: (count) => {
     saveBlockBtn.disabled = count < 2;
   },
+  // подтверждение сиглы при вставке (master/slave по совпадающей сигле)
+  onConfirmDesignation: (suggested, commit) => requestDesignation(suggested, commit),
 });
 // редактор УГО (S9): сохранение в пользовательскую библиотеку (override по id)
 function applyUserSymbol(sym: SymbolDef): void {
@@ -189,6 +191,27 @@ panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
   },
   canReset: (id) => GOST_IDS.has(id) && userIds.has(id),
   canDelete: (id) => userIds.has(id) && !GOST_IDS.has(id),
+});
+
+// модалка подтверждения сиглы при вставке символа (master/slave по совпадающей сигле)
+const desigDialog = document.getElementById("desig-dialog") as HTMLDialogElement;
+const desigInputEl = document.getElementById("desig-input") as HTMLInputElement;
+let desigCommit: ((d: string | null) => void) | null = null;
+function requestDesignation(suggested: string, commit: (d: string | null) => void): void {
+  desigCommit = commit;
+  desigInputEl.value = suggested;
+  desigDialog.showModal();
+  desigInputEl.focus();
+  desigInputEl.select();
+}
+(document.getElementById("desig-cancel") as HTMLButtonElement).addEventListener("click", () =>
+  desigDialog.close("cancel"),
+);
+desigDialog.addEventListener("close", () => {
+  const commit = desigCommit;
+  desigCommit = null;
+  if (!commit) return;
+  commit(desigDialog.returnValue === "ok" ? desigInputEl.value.trim() : null);
 });
 
 // быстрое переименование пользовательского УГО (S27) — без полного редактора
