@@ -198,6 +198,8 @@ export class CanvasView {
   private selectedAnno: Annotation | null = null;
   /** Буфер обмена (копирование/вставка инстансов, Ctrl+C/V). */
   private clip: SymbolInstance[] = [];
+  /** Рамка-выделение (marquee): ЛКМ-протяжка по пустому листу. */
+  private marquee: { x0: number; y0: number } | null = null;
   /** Активный инструмент рисования аннотаций (или null). */
   private drawTool: DrawTool | null = null;
   /** Текущий стиль аннотаций (для новых; применяется и к выбранной). */
@@ -1485,6 +1487,26 @@ export class CanvasView {
    * с учётом поворота·зеркала). Тянутся на всю видимую область — для выравнивания с
    * другими УГО и по вертикали, и по горизонтали.
    */
+  /** Нарисовать прямоугольник рамки-выделения (в ghostG, мировые координаты). */
+  private renderMarquee(): void {
+    const m = this.marquee;
+    if (!m) return;
+    this.ghostG.replaceChildren();
+    this.ghostG.append(
+      el("rect", {
+        x: Math.min(m.x0, this.last.x),
+        y: Math.min(m.y0, this.last.y),
+        width: Math.abs(this.last.x - m.x0),
+        height: Math.abs(this.last.y - m.y0),
+        fill: "#1b6fc4",
+        "fill-opacity": 0.08,
+        stroke: "#1b6fc4",
+        "stroke-width": 0.3,
+        "stroke-dasharray": "1.5 1",
+      }),
+    );
+  }
+
   private appendPlacementGuides(p: Point, sym: SymbolDef): void {
     const b = symbolBounds(sym);
     const corners: Point[] = [
@@ -1908,6 +1930,9 @@ export class CanvasView {
           this.selectAnno(anno);
           const start = snapPoint(this.last, this.page.gridStep);
           this.annoDrag = { anno, lastX: start.x, lastY: start.y, totalDX: 0, totalDY: 0 };
+        } else {
+          // пустое место — начать рамку-выделение
+          this.marquee = { x0: this.last.x, y0: this.last.y };
         }
       }
     });
@@ -1947,9 +1972,11 @@ export class CanvasView {
             this.annoDrag.totalDY += dy;
             this.renderAnnotations();
           }
+        } else if (this.down.moved && this.marquee) {
+          this.renderMarquee();
         } else if (
           this.down.moved &&
-          (this.down.button === 1 || (this.down.button === 0 && !this.drawTool))
+          (this.down.button === 1 || (this.down.button === 0 && !this.drawTool && !this.marquee))
         ) {
           this.panX += e.movementX;
           this.panY += e.movementY;
@@ -2002,6 +2029,32 @@ export class CanvasView {
         if (this.down?.moved && (ad.totalDX !== 0 || ad.totalDY !== 0)) {
           translateAnnotation(ad.anno, -ad.totalDX, -ad.totalDY); // откат живого сдвига
           this.stack.execute(new MoveAnnotationCommand(ad.anno, ad.totalDX, ad.totalDY));
+        }
+        this.down = null;
+        return;
+      }
+
+      // завершить рамку-выделение → собрать инстансы внутри в мультивыделение
+      if (this.marquee) {
+        const m = this.marquee;
+        this.marquee = null;
+        this.ghostG.replaceChildren();
+        if (this.down?.moved) {
+          const x1 = Math.min(m.x0, this.last.x);
+          const x2 = Math.max(m.x0, this.last.x);
+          const y1 = Math.min(m.y0, this.last.y);
+          const y2 = Math.max(m.y0, this.last.y);
+          this.multi.clear();
+          for (const inst of this.page.instances) {
+            if (inst.x >= x1 && inst.x <= x2 && inst.y >= y1 && inst.y <= y2)
+              this.multi.add(inst.id);
+          }
+          this.selected = null;
+          this.selectedWire = null;
+          this.clearAnnoSelection();
+          this.renderInstances();
+          this.updateHud();
+          this.hooks.onSelectionCountChange?.(this.multi.size);
         }
         this.down = null;
         return;
