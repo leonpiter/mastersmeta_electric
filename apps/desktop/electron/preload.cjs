@@ -16,6 +16,17 @@ contextBridge.exposeInMainWorld("desktop", {
     save: (defaultName, content) => ipcRenderer.invoke("file:save", { defaultName, content }),
     open: (extensions) => ipcRenderer.invoke("file:open", { extensions }),
   },
+  // библиотека УГО в папке на диске (S30)
+  library: {
+    defaultDir: () => ipcRenderer.invoke("library:defaultDir"),
+    pickDir: () => ipcRenderer.invoke("library:pickDir"),
+    load: (dir) => ipcRenderer.invoke("library:load", { dir }),
+    saveSymbol: (dir, symbol) => ipcRenderer.invoke("library:saveSymbol", { dir, symbol }),
+    deleteSymbol: (dir, id) => ipcRenderer.invoke("library:deleteSymbol", { dir, id }),
+    saveCategories: (dir, list) => ipcRenderer.invoke("library:saveCategories", { dir, list }),
+    saveBlocks: (dir, list) => ipcRenderer.invoke("library:saveBlocks", { dir, list }),
+    reveal: (dir) => ipcRenderer.invoke("library:reveal", { dir }),
+  },
   /** @param {(e: { type: "available" | "downloaded" | "error"; payload: string }) => void} cb */
   onUpdate: (cb) => {
     ipcRenderer.on("update:available", (_e, v) => cb({ type: "available", payload: v }));

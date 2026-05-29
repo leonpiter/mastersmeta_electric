@@ -119,3 +119,67 @@ ipcMain.handle("file:open", async (_e, { extensions }) => {
   const text = await fs.promises.readFile(file, "utf8");
   return { name: path.basename(file), text };
 });
+
+// ----- библиотека УГО в папке на диске (S30) -----
+const libSymbolsDir = (dir) => path.join(dir, "symbols");
+const safeName = (id) => String(id).replace(/[^a-zA-Z0-9._-]/g, "_");
+const readJson = async (file) => {
+  try {
+    return JSON.parse(await fs.promises.readFile(file, "utf8"));
+  } catch {
+    return null;
+  }
+};
+
+/** Папка библиотеки по умолчанию: …\Documents\Мастермета Электро\Библиотека УГО. */
+ipcMain.handle("library:defaultDir", () =>
+  path.join(app.getPath("documents"), "Мастермета Электро", "Библиотека УГО"),
+);
+
+/** Нативный выбор папки библиотеки. */
+ipcMain.handle("library:pickDir", async () => {
+  const res = await dialog.showOpenDialog(win ?? undefined, {
+    properties: ["openDirectory", "createDirectory"],
+  });
+  return res.canceled || res.filePaths.length === 0 ? null : res.filePaths[0];
+});
+
+/** Прочитать всю библиотеку из папки (создаёт папку при отсутствии). */
+ipcMain.handle("library:load", async (_e, { dir }) => {
+  await fs.promises.mkdir(libSymbolsDir(dir), { recursive: true });
+  const symbols = [];
+  const files = await fs.promises.readdir(libSymbolsDir(dir)).catch(() => []);
+  for (const f of files) {
+    if (!f.endsWith(".symbol.json")) continue;
+    const obj = await readJson(path.join(libSymbolsDir(dir), f));
+    if (obj) symbols.push(obj);
+  }
+  const categories = (await readJson(path.join(dir, "categories.json"))) ?? [];
+  const blocks = (await readJson(path.join(dir, "blocks.json"))) ?? [];
+  return { symbols, categories, blocks };
+});
+
+ipcMain.handle("library:saveSymbol", async (_e, { dir, symbol }) => {
+  await fs.promises.mkdir(libSymbolsDir(dir), { recursive: true });
+  const file = path.join(libSymbolsDir(dir), `${safeName(symbol.id)}.symbol.json`);
+  await fs.promises.writeFile(file, JSON.stringify(symbol, null, 2), "utf8");
+});
+
+ipcMain.handle("library:deleteSymbol", async (_e, { dir, id }) => {
+  await fs.promises.rm(path.join(libSymbolsDir(dir), `${safeName(id)}.symbol.json`), {
+    force: true,
+  });
+});
+
+ipcMain.handle("library:saveCategories", async (_e, { dir, list }) => {
+  await fs.promises.mkdir(dir, { recursive: true });
+  await fs.promises.writeFile(path.join(dir, "categories.json"), JSON.stringify(list, null, 2));
+});
+
+ipcMain.handle("library:saveBlocks", async (_e, { dir, list }) => {
+  await fs.promises.mkdir(dir, { recursive: true });
+  await fs.promises.writeFile(path.join(dir, "blocks.json"), JSON.stringify(list, null, 2));
+});
+
+/** Открыть папку библиотеки в проводнике. */
+ipcMain.handle("library:reveal", (_e, { dir }) => shell.openPath(dir));

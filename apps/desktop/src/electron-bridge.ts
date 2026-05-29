@@ -12,6 +12,19 @@ interface DesktopBridge {
     save: (defaultName: string, content: string) => Promise<boolean>;
     open: (extensions: string[]) => Promise<{ name: string; text: string } | null>;
   };
+  /** Библиотека УГО в папке на диске (S30). */
+  library: {
+    defaultDir: () => Promise<string>;
+    pickDir: () => Promise<string | null>;
+    load: (
+      dir: string,
+    ) => Promise<{ symbols: unknown[]; categories: unknown[]; blocks: unknown[] }>;
+    saveSymbol: (dir: string, symbol: unknown) => Promise<void>;
+    deleteSymbol: (dir: string, id: string) => Promise<void>;
+    saveCategories: (dir: string, list: unknown[]) => Promise<void>;
+    saveBlocks: (dir: string, list: unknown[]) => Promise<void>;
+    reveal: (dir: string) => Promise<void>;
+  };
   onUpdate: (
     cb: (e: { type: "available" | "downloaded" | "error"; payload: string }) => void,
   ) => void;
