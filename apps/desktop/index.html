@@ -605,6 +605,7 @@
       <button class="dd-item" id="lib-import" type="button">Импорт библиотеки УГО…</button>
       <button class="dd-item" id="lib-folder" type="button">Папка библиотеки УГО…</button>
       <div class="dd-sep"></div>
+      <button class="dd-item" id="menu-codes" type="button">Справочник кодов ГОСТ…</button>
       <button class="dd-item" id="menu-settings" type="button">Настройки…</button>
       <button class="dd-item" id="menu-about" type="button">О программе…</button>
     </div>
@@ -925,6 +926,17 @@
           <button type="button" id="set-lib-folder" class="btn-secondary">Папка библиотеки…</button>
         </div>
         <p class="dialog-hint">Тема оформления и вид курсора появятся в следующих версиях.</p>
+        <div class="prop-actions">
+          <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="codes-dialog">
+      <form method="dialog" class="modal-form codes-form">
+        <h3>Справочник буквенных кодов (ГОСТ 2.710)</h3>
+        <p class="dialog-hint">Клик по коду — отфильтровать библиотеку УГО.</p>
+        <div id="codes-body" class="codes-body"></div>
         <div class="prop-actions">
           <button value="ok" type="submit">Закрыть</button>
         </div>

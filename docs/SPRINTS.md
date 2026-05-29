@@ -14,6 +14,7 @@
 | [S16](sprints/S16-dsl-autolayout.md) | [S17](sprints/S17-web-pwa.md) | [S18](sprints/S18-backend-multitenant.md) | [S19](sprints/S19-realtime-collab.md) |
 | [S23](sprints/S23-ai-first-mode.md) | [S24](sprints/S24-element-editor-footprint.md) | [S25 ✅](sprints/archive/S25-graphics-annotations.md) | [S26 🚧](sprints/S26-workspace-multi-project.md) |
 | [S27 ✅](sprints/archive/S27-ugo-editor-complex.md) | [S28 ✅](sprints/archive/S28-ugo-editor-pro.md) | [S29 ✅](sprints/archive/S29-wire-crossref.md) | [S30 ✅](sprints/archive/S30-library-folder.md) |
+| [S31 🚧](sprints/S31-ugo-library-expansion.md) | [S32 📝](sprints/S32-title-block-gost.md) | | |
 
 **Сквозные (инфраструктура, вне вех A–G):**
 - [S20 — гейт качества](sprints/archive/S20-infra-quality-gate.md) ✅ — ESLint/Prettier, `pnpm verify`, pre-push git-хук, `.claude` allowlist, README/LICENSE (MIT).
@@ -51,6 +52,7 @@
 **Цель:** корректный лист по ГОСТ. **Scope:** форматы A3/A4, рамка (ГОСТ 2.301: поля 20/5/5/5), зонная
 сетка (1…N / A…M), основная надпись (ГОСТ 2.104, шаблонная, data-bound), экспорт листа в PDF.
 **DoD:** печатается/экспортируется лист со штампом и рамкой; поля штампа заполняются из данных проекта.
+> Доработка штампа до точной ГОСТ 2.104 Форма 1 + редактирование всех полей + авто-нумерация листов — [S32](sprints/S32-title-block-gost.md).
 
 ### S2 · Символы и расстановка
 **Цель:** библиотека УГО и вставка. **Scope:** формат `*.symbol.json` + JSON Schema; панель библиотеки
@@ -132,6 +134,13 @@
 ### S13 · Community-реестр (статический)
 **Scope:** публикация/поиск/установка паков с GitHub/CDN (без сервера). **DoD:** пак публикуется и ставится
 из реестра внутри приложения.
+
+### S31 · Расширение базы УГО + справочник кодов
+**Цель:** полный набор УГО по ГОСТ (на каждый буквенный код) + 1/2/3/4-полюсные варианты + точные
+размеры из методичек; справочник буквенных кодов (Табл. А1, Мошкин 2013) как данные `core` + модалка
++ страница docs. **Источники:** `docs/manual/UGO.pdf`, `docs/manual/14_Мошкин-ВИ_2013_МУ_3.pdf`.
+**DoD:** библиотека покрывает коды Табл. А1, размеры сверены с документами, клик по коду фильтрует
+библиотеку. (Штампы по ГОСТ 2.104 — отдельный спринт S32.)
 
 ---
 

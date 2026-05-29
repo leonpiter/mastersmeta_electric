@@ -1382,3 +1382,62 @@ body.editing-symbol #canvas {
   width: 110px;
   font-weight: 600;
 }
+
+/* ---- справочник буквенных кодов (S31) ---- */
+.codes-form {
+  width: 740px;
+  max-width: 92vw;
+}
+
+.codes-body {
+  max-height: 62vh;
+  overflow: auto;
+  column-count: 3;
+  column-gap: 18px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  padding: 6px 10px;
+}
+
+.codes-group {
+  break-inside: avoid;
+  margin-bottom: 8px;
+}
+
+.codes-group-letter {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border-2);
+  margin-bottom: 2px;
+}
+
+.codes-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 11px;
+}
+
+.codes-row:hover {
+  background: var(--accent-soft);
+}
+
+.codes-code {
+  font-weight: 600;
+  min-width: 36px;
+  color: var(--text);
+}
+
+.codes-name {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -100,6 +100,7 @@ function blockIcon(): SVGSVGElement {
 export class LibraryPanel {
   private active: string | null = null;
   private filter = "";
+  private filterInput?: HTMLInputElement;
   private readonly favorites: Set<string>;
   private readonly listEl: HTMLElement;
 
@@ -146,6 +147,7 @@ export class LibraryPanel {
     const input = document.createElement("input");
     input.type = "text";
     input.placeholder = "имя или код…";
+    this.filterInput = input;
     input.addEventListener("input", () => {
       this.filter = input.value.trim().toLowerCase();
       this.renderList();
@@ -168,6 +170,13 @@ export class LibraryPanel {
     this.listEl.className = "lib-scroll";
     container.append(this.listEl);
 
+    this.renderList();
+  }
+
+  /** Установить фильтр извне (напр. клик по коду в справочнике) и перерисовать список. */
+  setFilter(value: string): void {
+    this.filter = value.trim().toLowerCase();
+    if (this.filterInput) this.filterInput.value = value;
     this.renderList();
   }
 

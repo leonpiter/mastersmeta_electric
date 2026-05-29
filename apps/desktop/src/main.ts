@@ -32,6 +32,7 @@ import {
   captureBlock,
   buildPack,
   parsePack,
+  groupByFirstLetter,
   type AttrDef,
   type EquipmentCategory,
   type SymbolDef,
@@ -1092,6 +1093,47 @@ const persist = (key: string, value: string): void => {
   setGridStep.value = String(view.gridStepMm);
   setGridShow.checked = view.gridShown;
   settingsDialog.showModal();
+});
+
+// справочник буквенных кодов ГОСТ 2.710 (S31): таблица по группам, клик по коду → фильтр библиотеки
+const codesDialog = document.getElementById("codes-dialog") as HTMLDialogElement;
+const codesBody = document.getElementById("codes-body")!;
+let codesBuilt = false;
+function buildCodesTable(): void {
+  for (const [letter, codes] of groupByFirstLetter()) {
+    const group = document.createElement("div");
+    group.className = "codes-group";
+    const head = document.createElement("div");
+    head.className = "codes-group-letter";
+    head.textContent = letter;
+    group.append(head);
+    for (const c of codes) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "codes-row";
+      const code = document.createElement("span");
+      code.className = "codes-code";
+      code.textContent = c.code;
+      const name = document.createElement("span");
+      name.className = "codes-name";
+      name.textContent = c.name;
+      row.append(code, name);
+      row.addEventListener("click", () => {
+        panel?.setFilter(c.code);
+        codesDialog.close();
+      });
+      group.append(row);
+    }
+    codesBody.append(group);
+  }
+}
+(document.getElementById("menu-codes") as HTMLButtonElement).addEventListener("click", () => {
+  closeFileMenu();
+  if (!codesBuilt) {
+    buildCodesTable();
+    codesBuilt = true;
+  }
+  codesDialog.showModal();
 });
 setGridStep.addEventListener("change", () => {
   view.setGridStep(Number(setGridStep.value));
