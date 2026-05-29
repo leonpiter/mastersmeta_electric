@@ -249,7 +249,7 @@ const KM_NC: SymbolDef = {
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
     { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
-    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 },
+    { type: "line", x1: 0, y1: 5, x2: 5, y2: 5 },
   ],
 };
 
@@ -302,7 +302,7 @@ const K_NC: SymbolDef = {
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
     { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
-    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 },
+    { type: "line", x1: 0, y1: 5, x2: 5, y2: 5 },
   ],
 };
 
@@ -627,7 +627,7 @@ const SB_NC: SymbolDef = {
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
     { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
-    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 }, // перемычка НЗ
+    { type: "line", x1: 0, y1: 5, x2: 5, y2: 5 }, // перемычка НЗ
     ...pusher,
   ],
 };
@@ -702,7 +702,7 @@ const SQ_NC: SymbolDef = {
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
     { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
-    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 }, // перемычка НЗ
+    { type: "line", x1: 0, y1: 5, x2: 5, y2: 5 }, // перемычка НЗ
     { type: "rect", x: 4.5, y: 6.4, w: 2, h: 2 }, // ролик/упор
   ],
 };
@@ -723,7 +723,7 @@ const SK: SymbolDef = {
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
     { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
-    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 }, // перемычка НЗ
+    { type: "line", x1: 0, y1: 5, x2: 5, y2: 5 }, // перемычка НЗ
     { type: "text", x: 5.5, y: 4.5, text: "t°", size: 3, anchor: "start" }, // признак температуры
   ],
 };
@@ -764,7 +764,7 @@ const S_NC_DELAY: SymbolDef = {
     lead(11, BOT),
     { type: "circle", cx: 0, cy: 11, r: 0.6 },
     { type: "line", x1: 0, y1: 5, x2: 4, y2: 10.5 },
-    { type: "line", x1: 3.2, y1: 8, x2: 5.4, y2: 6.4 }, // перемычка НЗ
+    { type: "line", x1: 0, y1: 5, x2: 5, y2: 5 }, // перемычка НЗ
     { type: "arc", cx: 2, cy: 7.75, r: 2, a0: 180, a1: 360 }, // замедление (парашют сверху)
   ],
 };
