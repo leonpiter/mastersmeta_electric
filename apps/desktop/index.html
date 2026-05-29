@@ -606,6 +606,7 @@
       <div class="dd-sep"></div>
       <button class="dd-item" id="lib-export" type="button">Экспорт библиотеки УГО…</button>
       <button class="dd-item" id="lib-import" type="button">Импорт библиотеки УГО…</button>
+      <button class="dd-item" id="lib-folder" type="button">Папка библиотеки УГО…</button>
     </div>
 
     <div id="grid-menu" class="dropdown" hidden>
@@ -878,6 +879,28 @@
         <div class="prop-actions">
           <button value="cancel" type="submit" class="btn-secondary">Отмена</button>
           <button value="ok" type="submit">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="library-dir-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>Папка библиотеки УГО</h3>
+        <div class="prop-row">
+          <label for="libdir-path">Папка</label>
+          <input id="libdir-path" type="text" readonly />
+        </div>
+        <p id="libdir-hint" class="dialog-hint">
+          Здесь хранятся ваши символы и правки системных УГО (файлами на диске).
+        </p>
+        <div class="prop-actions">
+          <button value="cancel" type="button" id="libdir-reveal" class="btn-secondary">
+            Открыть папку
+          </button>
+          <button value="cancel" type="button" id="libdir-change" class="btn-secondary">
+            Изменить…
+          </button>
+          <button value="ok" type="submit">Закрыть</button>
         </div>
       </form>
     </dialog>

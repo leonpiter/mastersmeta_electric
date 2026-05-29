@@ -50,6 +50,7 @@ import { loadUserCategories, upsertUserCategory, removeUserCategory } from "./us
 import { loadUserBlocks, upsertUserBlock, removeUserBlock } from "./user-blocks";
 import { renderTerminalStrips } from "./terminal-strip";
 import { initDesktopShell, desktop } from "./electron-bridge";
+import { initLibrary, getLibraryDir, changeLibraryDir, revealLibraryDir } from "./library-store";
 
 initDesktopShell(); // нативная оболочка: свои кнопки окна (frame:false), если Electron
 
@@ -74,7 +75,7 @@ const catalog = new Catalog(BUILTIN_PARTS);
 
 // пользовательские УГО (S9): перекрывают системные по id
 const GOST_IDS = new Set(GOST_SYMBOLS.map((s) => s.id));
-for (const s of loadUserSymbols()) library.add(s);
+// пользовательские символы грузятся асинхронно (S30: из папки/localStorage) — см. initLibrary внизу
 let userIds = userSymbolIds();
 
 let panel: LibraryPanel | undefined;
@@ -120,6 +121,21 @@ function applyUserSymbol(sym: SymbolDef): void {
   upsertUserSymbol(sym);
   library.add(sym);
   userIds = userSymbolIds();
+  panel?.refresh();
+  view.rerender();
+}
+// применить кэш библиотеки к рантайму (S30): снять прошлые override (вернуть системные),
+// наложить текущие пользовательские, пересобрать реестр и обновить UI. Вызывается после
+// async-гидрации и при смене папки библиотеки.
+function applyLibrary(): void {
+  for (const id of userIds) {
+    const orig = GOST_SYMBOLS.find((s) => s.id === id);
+    if (orig) library.add(orig);
+    else library.remove(id);
+  }
+  for (const s of loadUserSymbols()) library.add(s);
+  userIds = userSymbolIds();
+  rebuildRegistry();
   panel?.refresh();
   view.rerender();
 }
@@ -1003,6 +1019,33 @@ libInput.addEventListener("change", () => {
   closeFileMenu();
 });
 
+// папка библиотеки УГО (S30): показать путь, сменить нативным пикером, открыть в проводнике
+const libDirDialog = document.getElementById("library-dir-dialog") as HTMLDialogElement;
+const libDirPath = document.getElementById("libdir-path") as HTMLInputElement;
+const libDirHint = document.getElementById("libdir-hint")!;
+const libDirChange = document.getElementById("libdir-change") as HTMLButtonElement;
+const libDirReveal = document.getElementById("libdir-reveal") as HTMLButtonElement;
+function openLibraryDir(): void {
+  const dir = getLibraryDir();
+  libDirPath.value = dir ?? "веб-версия: localStorage";
+  libDirHint.textContent = dir
+    ? "Здесь хранятся ваши символы и правки системных УГО (файлами). Можно подключить любую папку — например общую или в облаке."
+    : "Веб-версия хранит библиотеку в браузере (localStorage). Папка на диске доступна в десктоп-приложении.";
+  libDirChange.disabled = !dir;
+  libDirReveal.disabled = !dir;
+  libDirDialog.showModal();
+}
+(document.getElementById("lib-folder") as HTMLButtonElement).addEventListener("click", () => {
+  openLibraryDir();
+  closeFileMenu();
+});
+libDirChange.addEventListener("click", () => {
+  void changeLibraryDir().then((ok) => {
+    if (ok) libDirPath.value = getLibraryDir() ?? "";
+  });
+});
+libDirReveal.addEventListener("click", () => revealLibraryDir());
+
 // верхняя полоса заголовка (S21): быстрый доступ к файловым действиям
 (document.getElementById("tb-new") as HTMLButtonElement).addEventListener("click", () =>
   addProject(createProject()),
@@ -1014,6 +1057,9 @@ libInput.addEventListener("change", () => {
   saveProject(),
 );
 renderWorkspace(); // первичная отрисовка дерева + ленты страниц + заголовка
+
+// S30: загрузить пользовательскую библиотеку (Electron — из папки + миграция; web — localStorage)
+void initLibrary(applyLibrary);
 
 undoBtn.addEventListener("click", () => stack.undo());
 redoBtn.addEventListener("click", () => stack.redo());
