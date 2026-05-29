@@ -7,6 +7,9 @@ interface DesktopBridge {
   isElectron: boolean;
   version: () => Promise<string>;
   win: { minimize: () => void; toggleMaximize: () => void; close: () => void };
+  /** Гард несохранённых при выходе: запрос закрытия от ОС + подтверждение выхода. */
+  onQueryClose: (cb: () => void) => void;
+  confirmClose: () => void;
   /** Нативные файловые диалоги (вместо браузерных download / input[type=file]). */
   fs: {
     save: (defaultName: string, content: string) => Promise<boolean>;

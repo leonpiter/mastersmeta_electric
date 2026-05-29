@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld("desktop", {
     toggleMaximize: () => ipcRenderer.send("win:toggle-maximize"),
     close: () => ipcRenderer.send("win:close"),
   },
+  // гард несохранённых при выходе: подписка на запрос закрытия + подтверждение выхода
+  onQueryClose: (cb) => ipcRenderer.on("app:query-close", () => cb()),
+  confirmClose: () => ipcRenderer.send("app:close"),
   // нативные файловые диалоги
   fs: {
     save: (defaultName, content) => ipcRenderer.invoke("file:save", { defaultName, content }),

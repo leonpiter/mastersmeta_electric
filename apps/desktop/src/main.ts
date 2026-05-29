@@ -70,6 +70,8 @@ blank.name = "";
 const projects: Project[] = [];
 let project: Project = blank; // активный проект (blank, пока workspace пуст)
 const stack = new CommandStack();
+/** Есть несохранённые изменения (для гарда выхода). Сбрасывается при сохранении. */
+let dirty = false;
 const library = new SymbolLibrary(GOST_SYMBOLS);
 const catalog = new Catalog(BUILTIN_PARTS);
 
@@ -474,6 +476,7 @@ function closeProject(p: Project): void {
 
 // синхронизация после команд (add/remove листа, undo/redo): починить вкладки и вид
 stack.subscribe(() => {
+  dirty = true; // любое действие (вкл. undo/redo) — есть что сохранять
   openPages = openPages.filter((pg) => projects.some((p) => p.pages.includes(pg)));
   if (projects.length === 0) {
     // workspace опустел (напр. undo создания проекта) — вернуться к blank-листу
@@ -879,14 +882,16 @@ function syncTitle(): void {
   tbName.textContent = projects.length === 0 ? "Нет проекта" : project.name || "Без имени";
 }
 
-function saveProject(): void {
-  if (projects.length === 0) return; // нечего сохранять — нет проекта
+/** Сохранить проект. Возвращает true, если сохранение состоялось (в Electron — не отменено). */
+async function saveProject(): Promise<boolean> {
+  if (projects.length === 0) return false; // нечего сохранять — нет проекта
   const content = serializeProject(project);
   const name = `${project.name || "project"}.esch`;
   const d = desktop();
   if (d) {
-    void d.fs.save(name, content); // нативный диалог «Сохранить» (Electron)
-    return;
+    const ok = await d.fs.save(name, content); // нативный диалог «Сохранить» (Electron)
+    if (ok) dirty = false;
+    return ok;
   }
   const blob = new Blob([content], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -895,6 +900,8 @@ function saveProject(): void {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  dirty = false;
+  return true;
 }
 
 /** Открыть проект: нативный диалог в Electron, иначе браузерный input[type=file]. */
@@ -933,7 +940,7 @@ fileInput.addEventListener("change", () => {
 });
 
 const saveHandler = (): void => {
-  saveProject();
+  void saveProject();
   closeFileMenu();
 };
 (document.getElementById("file-new") as HTMLButtonElement).addEventListener("click", () => {
@@ -1076,9 +1083,41 @@ libDirReveal.addEventListener("click", () => revealLibraryDir());
 (document.getElementById("tb-open") as HTMLButtonElement).addEventListener("click", () =>
   fileInput.click(),
 );
-(document.getElementById("tb-save") as HTMLButtonElement).addEventListener("click", () =>
-  saveProject(),
+(document.getElementById("tb-save") as HTMLButtonElement).addEventListener("click", () => {
+  void saveProject();
+});
+
+// гард несохранённых изменений при выходе (Electron): Отмена / Сохранить и выйти / Без сохранения
+const exitDialog = document.getElementById("exit-dialog") as HTMLDialogElement;
+(document.getElementById("exit-cancel") as HTMLButtonElement).addEventListener("click", () =>
+  exitDialog.close(),
 );
+(document.getElementById("exit-nosave") as HTMLButtonElement).addEventListener("click", () => {
+  exitDialog.close();
+  desktop()?.confirmClose();
+});
+(document.getElementById("exit-save") as HTMLButtonElement).addEventListener("click", () => {
+  exitDialog.close();
+  void saveProject().then((ok) => {
+    if (ok) desktop()?.confirmClose();
+  });
+});
+const deskBridge = desktop();
+if (deskBridge) {
+  deskBridge.onQueryClose(() => {
+    if (dirty) exitDialog.showModal();
+    else deskBridge.confirmClose();
+  });
+} else {
+  // веб: нативное предупреждение браузера при несохранённых изменениях
+  window.addEventListener("beforeunload", (e) => {
+    if (dirty) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+}
+
 renderWorkspace(); // первичная отрисовка дерева + ленты страниц + заголовка
 
 // S30: загрузить пользовательскую библиотеку (Electron — из папки + миграция; web — localStorage)

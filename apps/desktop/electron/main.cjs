@@ -8,6 +8,8 @@ const fs = require("node:fs");
 
 /** @type {BrowserWindow | null} */
 let win = null;
+/** Разрешён ли выход (после подтверждения несохранённых изменений в рендерере). */
+let allowClose = false;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -45,6 +47,12 @@ function createWindow() {
     void win.loadURL("http://localhost:5173");
   }
 
+  // гард несохранённых изменений: перехватываем закрытие, спрашиваем рендерер
+  win.on("close", (e) => {
+    if (allowClose) return;
+    e.preventDefault();
+    win?.webContents.send("app:query-close");
+  });
   win.on("closed", () => {
     win = null;
   });
@@ -86,6 +94,12 @@ app.on("window-all-closed", () => {
 
 // версия приложения для рендерера (окно «О программе» и т.п.)
 ipcMain.handle("app:version", () => app.getVersion());
+
+// рендерер подтвердил выход (несохранённые изменения обработаны) — закрыть окно
+ipcMain.on("app:close", () => {
+  allowClose = true;
+  win?.close();
+});
 
 // управление окном из своей шапки (frame: false)
 ipcMain.on("win:minimize", () => win?.minimize());
