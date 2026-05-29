@@ -977,11 +977,11 @@ const VD: SymbolDef = {
   pins: twoPin,
   graphics: [
     lead(TOP, 5),
-    lead(9, BOT),
-    { type: "line", x1: -2.5, y1: 5, x2: 2.5, y2: 5 },
-    { type: "line", x1: -2.5, y1: 5, x2: 0, y2: 9 },
-    { type: "line", x1: 2.5, y1: 5, x2: 0, y2: 9 },
-    { type: "line", x1: -2.5, y1: 9, x2: 2.5, y2: 9 }, // катод
+    lead(10, BOT),
+    { type: "line", x1: -2.5, y1: 5, x2: 2.5, y2: 5 }, // анод
+    { type: "line", x1: -2.5, y1: 5, x2: 0, y2: 10 },
+    { type: "line", x1: 2.5, y1: 5, x2: 0, y2: 10 },
+    { type: "line", x1: -2.5, y1: 10, x2: 2.5, y2: 10 }, // катод (5×5)
   ],
 };
 
@@ -999,16 +999,16 @@ const VS: SymbolDef = {
   ],
   graphics: [
     lead(TOP, 5),
-    lead(9, BOT),
+    lead(10, BOT),
     { type: "line", x1: -2.5, y1: 5, x2: 2.5, y2: 5 },
-    { type: "line", x1: -2.5, y1: 5, x2: 0, y2: 9 },
-    { type: "line", x1: 2.5, y1: 5, x2: 0, y2: 9 },
-    { type: "line", x1: -2.5, y1: 9, x2: 2.5, y2: 9 },
-    { type: "line", x1: 2, y1: 9, x2: 5, y2: 10 }, // управляющий электрод
+    { type: "line", x1: -2.5, y1: 5, x2: 0, y2: 10 },
+    { type: "line", x1: 2.5, y1: 5, x2: 0, y2: 10 },
+    { type: "line", x1: -2.5, y1: 10, x2: 2.5, y2: 10 },
+    { type: "line", x1: 2, y1: 10, x2: 5, y2: 10 }, // управляющий электрод
   ],
 };
 
-/** Транзистор (VT): круг с базой, коллектором и эмиттером. */
+/** Транзистор (VT, ГОСТ 2.730): круг Ø10, база + коллектор/эмиттер. */
 const VT: SymbolDef = {
   id: "gost.vt",
   name: "Транзистор",
@@ -1021,10 +1021,13 @@ const VT: SymbolDef = {
     { name: "E", x: 5, y: BOT },
   ],
   graphics: [
+    { type: "circle", cx: 1, cy: 7.5, r: 5 }, // корпус Ø10
     { type: "line", x1: -5, y1: 5, x2: -1, y2: 5 }, // вывод базы
-    { type: "line", x1: -1, y1: 3, x2: -1, y2: 12 }, // пластина базы
+    { type: "line", x1: -1, y1: 3.5, x2: -1, y2: 11.5 }, // пластина базы
     { type: "line", x1: -1, y1: 5, x2: 5, y2: 0 }, // коллектор
     { type: "line", x1: -1, y1: 10, x2: 5, y2: 15 }, // эмиттер
+    { type: "line", x1: 2.6, y1: 12, x2: 4, y2: 12.4 }, // стрелка эмиттера
+    { type: "line", x1: 3.6, y1: 11, x2: 4, y2: 12.4 },
   ],
 };
 
