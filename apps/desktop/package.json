@@ -1,6 +1,6 @@
 {
   "name": "@see/desktop",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Мастермета Электро — офлайн ГОСТ-редактор электрических схем",
