@@ -1076,12 +1076,36 @@ libDirChange.addEventListener("click", () => {
 });
 libDirReveal.addEventListener("click", () => revealLibraryDir());
 
-// меню Файл → «Настройки» (заглушка) и «О программе» (версия/разраб/обновления)
+// меню Файл → «Настройки» и «О программе» (версия/разраб/обновления)
 const settingsDialog = document.getElementById("settings-dialog") as HTMLDialogElement;
+const setGridStep = document.getElementById("set-grid-step") as HTMLSelectElement;
+const setGridShow = document.getElementById("set-grid-show") as HTMLInputElement;
+const persist = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* недоступно — игнор */
+  }
+};
 (document.getElementById("menu-settings") as HTMLButtonElement).addEventListener("click", () => {
   closeFileMenu();
+  setGridStep.value = String(view.gridStepMm);
+  setGridShow.checked = view.gridShown;
   settingsDialog.showModal();
 });
+setGridStep.addEventListener("change", () => {
+  view.setGridStep(Number(setGridStep.value));
+  persist("see.gridStep", setGridStep.value);
+  syncGridUi();
+});
+setGridShow.addEventListener("change", () => {
+  view.setGridVisible(setGridShow.checked);
+  persist("see.gridShow", setGridShow.checked ? "1" : "0");
+  syncGridUi();
+});
+(document.getElementById("set-lib-folder") as HTMLButtonElement).addEventListener("click", () =>
+  openLibraryDir(),
+);
 
 const aboutDialog = document.getElementById("about-dialog") as HTMLDialogElement;
 const aboutVersion = document.getElementById("about-version")!;

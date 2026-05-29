@@ -911,10 +911,23 @@
     <dialog id="settings-dialog">
       <form method="dialog" class="modal-form">
         <h3>Настройки</h3>
-        <p class="dialog-hint">
-          Раздел в разработке. Здесь появятся: тема оформления, вид курсора, шаг сетки по умолчанию
-          и прочие параметры.
-        </p>
+        <div class="prop-row">
+          <label for="set-grid-step">Шаг сетки по умолчанию</label>
+          <select id="set-grid-step">
+            <option value="1">1 мм</option>
+            <option value="2.5">2.5 мм</option>
+            <option value="5">5 мм</option>
+            <option value="10">10 мм</option>
+          </select>
+        </div>
+        <label class="prop-check">
+          <input id="set-grid-show" type="checkbox" /> Показывать сетку при запуске
+        </label>
+        <div class="prop-row">
+          <label>Библиотека УГО</label>
+          <button type="button" id="set-lib-folder" class="btn-secondary">Папка библиотеки…</button>
+        </div>
+        <p class="dialog-hint">Тема оформления и вид курсора появятся в следующих версиях.</p>
         <div class="prop-actions">
           <button value="ok" type="submit">Закрыть</button>
         </div>
