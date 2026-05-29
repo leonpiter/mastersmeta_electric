@@ -6,6 +6,7 @@ import {
   type EquipmentCategory,
 } from "./categories";
 import { GOST_SYMBOLS } from "./symbols-gost";
+import { GOST_CODE_SET } from "./gost-codes";
 
 describe("категории оборудования", () => {
   const reg = new CategoryRegistry(GOST_CATEGORIES);
@@ -38,12 +39,15 @@ describe("категории оборудования", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it("каждый встроенный символ соответствует своей категории (код + поведение)", () => {
+  it("каждый встроенный символ: код ∈ Табл. А1, поведение ∈ kinds категории", () => {
     for (const sym of GOST_SYMBOLS) {
       const cat = reg.byName(sym.category);
       expect(cat, `категория символа ${sym.id}: «${sym.category}»`).toBeDefined();
       if (!cat) continue;
-      expect(sym.componentCode, `код ${sym.id}`).toBe(cat.componentCode);
+      // подтипы (KA/KT/QW…) живут в общей категории, но сигла — свой код Табл. А1
+      expect(GOST_CODE_SET.has(sym.componentCode), `код ${sym.id} (${sym.componentCode})`).toBe(
+        true,
+      );
       expect(cat.kinds, `kind ${sym.id}`).toContain(sym.kind);
     }
   });

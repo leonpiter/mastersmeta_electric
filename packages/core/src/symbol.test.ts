@@ -132,7 +132,8 @@ describe("SymbolLibrary", () => {
     const cats = lib.byCategory();
     // контакторы: катушка KM + контакты НО + НЗ + силовой (S: contact-main)
     expect(cats.get("Контакторы")?.length).toBe(4);
-    expect(cats.get("Автоматические выключатели")?.length).toBe(1); // QF
+    // QF + полюсные 2P/3P/4P (S31 Ф3)
+    expect(cats.get("Автоматические выключатели")?.length).toBe(4);
   });
 });
 

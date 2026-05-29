@@ -7,13 +7,60 @@
  * Соглашение: вертикальный 2-выводной элемент, выводы (0,0) сверху и (0,15) снизу,
  * тело между y=4..11, начало координат — в верхнем выводе.
  */
-import type { SymbolDef } from "./symbol";
+import type { GraphicPrimitive, Pin, SymbolDef } from "./symbol";
 
 const TOP = 0;
 const BOT = 15;
 /** Верхний/нижний выводы для типового вертикального элемента. */
 const lead = (fromY: number, toY: number) =>
   ({ type: "line", x1: 0, y1: fromY, x2: 0, y2: toY }) as const;
+
+/** Графика одного полюса коммутационного аппарата (рубильник/автомат) при x. */
+function switchPole(x: number, auto: boolean): GraphicPrimitive[] {
+  const g: GraphicPrimitive[] = [
+    { type: "line", x1: x, y1: 0, x2: x, y2: 5 }, // верхний вывод
+    { type: "line", x1: x, y1: 11, x2: x, y2: 15 }, // нижний вывод
+    { type: "circle", cx: x, cy: 11, r: 0.6 }, // неподвижный контакт
+    { type: "line", x1: x, y1: 5, x2: x + 3, y2: 10.2 }, // подвижный контакт 30°, длина 6
+  ];
+  if (auto) g.push({ type: "rect", x: x + 2.4, y: 3.6, w: 2, h: 2 }); // метка автомата
+  return g;
+}
+
+/**
+ * Многополюсный коммутационный аппарат (ГОСТ 2.755): N полюсов с шагом 5 мм,
+ * выводы 1/2, 3/4 … + штрих механической связи между подвижными контактами.
+ */
+function poleSwitch(opts: {
+  id: string;
+  name: string;
+  category: string;
+  code: string;
+  poles: number;
+  auto?: boolean;
+}): SymbolDef {
+  const g: GraphicPrimitive[] = [];
+  const pins: Pin[] = [];
+  for (let i = 0; i < opts.poles; i++) {
+    const x = i * 5;
+    g.push(...switchPole(x, !!opts.auto));
+    pins.push({ name: String(2 * i + 1), x, y: TOP });
+    pins.push({ name: String(2 * i + 2), x, y: BOT });
+  }
+  if (opts.poles > 1) {
+    // механическая связь — линия по серединам подвижных контактов
+    g.push({ type: "line", x1: 1.5, y1: 7.6, x2: (opts.poles - 1) * 5 + 1.5, y2: 7.6 });
+  }
+  return {
+    id: opts.id,
+    name: opts.name,
+    category: opts.category,
+    componentCode: opts.code,
+    kind: "component-aux",
+    pins,
+    graphics: g,
+  };
+}
 
 /** Предохранитель (ГОСТ 2.727): прямоугольник с осевой линией. */
 const FU: SymbolDef = {
@@ -406,8 +453,172 @@ const KM_MAIN: SymbolDef = {
   ],
 };
 
+// ===== Ф3 · Силовая коммутация (Q, ГОСТ 2.755) + полюсные варианты =====
+const SWG = "Силовая коммутация";
+
+/** Выключатель силовой (Q) — однополюсный коммутационный контакт. */
+const Q1 = poleSwitch({
+  id: "gost.q",
+  name: "Выключатель силовой",
+  category: SWG,
+  code: "Q",
+  poles: 1,
+});
+/** Выключатель нагрузки (QW). */
+const QW1 = poleSwitch({
+  id: "gost.qw",
+  name: "Выключатель нагрузки",
+  category: SWG,
+  code: "QW",
+  poles: 1,
+});
+
+/** Короткозамыкатель (QK): контакт, замыкающий цепь на землю (нож с заземлением). */
+const QK: SymbolDef = {
+  id: "gost.qk",
+  name: "Короткозамыкатель",
+  category: SWG,
+  componentCode: "QK",
+  kind: "component-aux",
+  pins: [{ name: "1", x: 0, y: TOP }],
+  graphics: [
+    lead(TOP, 5),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 3, y2: 10.2 }, // подвижный контакт 30°
+    { type: "line", x1: 0, y1: 11, x2: 0, y2: 13 }, // к земле
+    { type: "line", x1: -2.5, y1: 13, x2: 2.5, y2: 13 }, // заземление
+    { type: "line", x1: -1.6, y1: 14, x2: 1.6, y2: 14 },
+    { type: "line", x1: -0.8, y1: 15, x2: 0.8, y2: 15 },
+  ],
+};
+
+/** Отделитель (QR): разъединитель с автоматическим отключением (метка). */
+const QR: SymbolDef = {
+  id: "gost.qr",
+  name: "Отделитель",
+  category: SWG,
+  componentCode: "QR",
+  kind: "component-aux",
+  pins: [
+    { name: "1", x: 0, y: TOP },
+    { name: "2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 3, y2: 10.2 },
+    { type: "rect", x: -1, y: 6.5, w: 2, h: 2 }, // метка отделителя
+  ],
+};
+
+/** Разъединитель-заземлитель (QSG): рубильник с заземляющим ножом. */
+const QSG: SymbolDef = {
+  id: "gost.qsg",
+  name: "Разъединитель-заземлитель",
+  category: SWG,
+  componentCode: "QSG",
+  kind: "component-aux",
+  pins: [
+    { name: "1", x: 0, y: TOP },
+    { name: "2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "circle", cx: 0, cy: 11, r: 0.6 },
+    { type: "line", x1: 0, y1: 5, x2: 3, y2: 10.2 },
+    { type: "line", x1: 3, y1: 10.2, x2: 6, y2: 10.2 }, // отвод к земле
+    { type: "line", x1: 4.5, y1: 11.4, x2: 7.5, y2: 11.4 },
+    { type: "line", x1: 5.4, y1: 12.4, x2: 7, y2: 12.4 },
+  ],
+};
+
+const QF2 = poleSwitch({
+  id: "gost.qf.2p",
+  name: "Автомат 2-полюсный",
+  category: "Автоматические выключатели",
+  code: "QF",
+  poles: 2,
+  auto: true,
+});
+const QF3 = poleSwitch({
+  id: "gost.qf.3p",
+  name: "Автомат 3-полюсный",
+  category: "Автоматические выключатели",
+  code: "QF",
+  poles: 3,
+  auto: true,
+});
+const QF4 = poleSwitch({
+  id: "gost.qf.4p",
+  name: "Автомат 4-полюсный",
+  category: "Автоматические выключатели",
+  code: "QF",
+  poles: 4,
+  auto: true,
+});
+
+const QS2 = poleSwitch({
+  id: "gost.qs.2p",
+  name: "Разъединитель 2-полюсный",
+  category: "Выключатели-разъединители",
+  code: "QS",
+  poles: 2,
+});
+const QS3 = poleSwitch({
+  id: "gost.qs.3p",
+  name: "Разъединитель 3-полюсный",
+  category: "Выключатели-разъединители",
+  code: "QS",
+  poles: 3,
+});
+const QS4 = poleSwitch({
+  id: "gost.qs.4p",
+  name: "Разъединитель 4-полюсный",
+  category: "Выключатели-разъединители",
+  code: "QS",
+  poles: 4,
+});
+
+const QW2 = poleSwitch({
+  id: "gost.qw.2p",
+  name: "Выключатель нагрузки 2-полюсный",
+  category: SWG,
+  code: "QW",
+  poles: 2,
+});
+const QW3 = poleSwitch({
+  id: "gost.qw.3p",
+  name: "Выключатель нагрузки 3-полюсный",
+  category: SWG,
+  code: "QW",
+  poles: 3,
+});
+const QW4 = poleSwitch({
+  id: "gost.qw.4p",
+  name: "Выключатель нагрузки 4-полюсный",
+  category: SWG,
+  code: "QW",
+  poles: 4,
+});
+
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
 export const GOST_SYMBOLS: SymbolDef[] = [
+  Q1,
+  QW1,
+  QK,
+  QR,
+  QSG,
+  QF2,
+  QF3,
+  QF4,
+  QS2,
+  QS3,
+  QS4,
+  QW2,
+  QW3,
+  QW4,
   QF,
   QFD,
   QS,

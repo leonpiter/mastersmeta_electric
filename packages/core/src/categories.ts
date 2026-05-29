@@ -77,6 +77,13 @@ export const GOST_CATEGORIES: EquipmentCategory[] = [
     attributes: [txt("current", "Номинал, А")],
   },
   {
+    id: "switchgear",
+    name: "Силовая коммутация",
+    componentCode: "Q",
+    kinds: ["component-aux"],
+    attributes: [txt("current", "Номинал, А"), sel("poles", "Полюса", ["1P", "2P", "3P", "4P"])],
+  },
+  {
     id: "fuse",
     name: "Предохранители",
     componentCode: "FU",
