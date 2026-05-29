@@ -43,7 +43,8 @@ export interface DeviceInfo {
 }
 
 const isMasterKind = (k: SymbolKind): boolean => k === "coil" || k === "component-aux";
-const isContactKind = (k: SymbolKind): boolean => k === "contact-no" || k === "contact-nc";
+const isContactKind = (k: SymbolKind): boolean =>
+  k === "contact-no" || k === "contact-nc" || k === "contact-co" || k === "contact-main";
 
 /**
  * Сгруппировать все инстансы проекта по сигле в устройства.
@@ -97,8 +98,8 @@ export function findDevice(devices: DeviceInfo[], designation: string): DeviceIn
   return devices.find((d) => d.designation === designation);
 }
 
-/** Колонка зеркала контактов: M — главные/силовые, НО — норм. открытый, НЗ — норм. закрытый. */
-export type ContactColumn = "M" | "NO" | "NC";
+/** Колонка зеркала: M — главные/силовые, НО, НЗ, CO — перекидной (переключающий). */
+export type ContactColumn = "M" | "NO" | "NC" | "CO";
 
 /** Строка зеркала контактов под катушкой (тип, выводы, адрес, цель перехода). */
 export interface ContactRow {
@@ -120,7 +121,14 @@ export interface ContactRow {
  */
 export function coilContactRows(device: DeviceInfo): ContactRow[] {
   return device.contacts.map((c) => ({
-    column: c.kind === "contact-nc" ? "NC" : "NO",
+    column:
+      c.kind === "contact-main"
+        ? "M"
+        : c.kind === "contact-co"
+          ? "CO"
+          : c.kind === "contact-nc"
+            ? "NC"
+            : "NO",
     pins: c.pins,
     address: c.address,
     pageIndex: c.pageIndex,

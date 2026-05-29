@@ -130,8 +130,8 @@ describe("SymbolLibrary", () => {
     expect(lib.all().length).toBe(GOST_SYMBOLS.length);
     expect(lib.get("gost.qf")?.componentCode).toBe("QF");
     const cats = lib.byCategory();
-    // типизированные категории (S27): контакторы = катушка KM + контакты НО + НЗ
-    expect(cats.get("Контакторы")?.length).toBe(3);
+    // контакторы: катушка KM + контакты НО + НЗ + силовой (S: contact-main)
+    expect(cats.get("Контакторы")?.length).toBe(4);
     expect(cats.get("Автоматические выключатели")?.length).toBe(1); // QF
   });
 });

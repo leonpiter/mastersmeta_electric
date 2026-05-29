@@ -365,6 +365,47 @@ const PAGE_CONN_IN: SymbolDef = {
   ],
 };
 
+/** Перекидной (переключающий) контакт реле (ГОСТ 2.755): общий + НО + НЗ, нож на НЗ. */
+const K_CO: SymbolDef = {
+  id: "gost.k.co",
+  name: "Контакт перекидной",
+  category: "Реле",
+  componentCode: "K",
+  kind: "contact-co",
+  pins: [
+    { name: "11", x: 0, y: 15 }, // общий
+    { name: "12", x: -5, y: 0 }, // НЗ
+    { name: "14", x: 5, y: 0 }, // НО
+  ],
+  graphics: [
+    { type: "line", x1: 0, y1: 15, x2: 0, y2: 10 }, // общий вывод
+    { type: "line", x1: -5, y1: 0, x2: -5, y2: 6 }, // вывод НЗ
+    { type: "line", x1: 5, y1: 0, x2: 5, y2: 6 }, // вывод НО
+    { type: "line", x1: 0, y1: 10, x2: -5, y2: 6 }, // подвижный нож (замкнут на НЗ)
+    { type: "circle", cx: 0, cy: 10, r: 0.6 }, // ось
+    { type: "circle", cx: 5, cy: 6, r: 0.6 }, // контакт НО (разомкнут)
+  ],
+};
+
+/** Главный (силовой) контакт контактора: НО-полюс; в зеркале — колонка «Гл.». */
+const KM_MAIN: SymbolDef = {
+  id: "gost.km.main",
+  name: "Силовой контакт (KM)",
+  category: "Контакторы",
+  componentCode: "KM",
+  kind: "contact-main",
+  pins: [
+    { name: "1", x: 0, y: TOP },
+    { name: "2", x: 0, y: BOT },
+  ],
+  graphics: [
+    lead(TOP, 5),
+    lead(11, BOT),
+    { type: "line", x1: 0, y1: 5, x2: 4, y2: 9.5 }, // подвижный контакт (НО)
+    { type: "line", x1: -1.5, y1: 6.5, x2: 1.5, y2: 9.5 }, // штрих силового полюса
+  ],
+};
+
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
 export const GOST_SYMBOLS: SymbolDef[] = [
   QF,
@@ -385,4 +426,6 @@ export const GOST_SYMBOLS: SymbolDef[] = [
   XS,
   PAGE_CONN,
   PAGE_CONN_IN,
+  K_CO,
+  KM_MAIN,
 ];

@@ -1253,9 +1253,9 @@ export class CanvasView {
     const colW = 7;
     const headerH = 3;
     const rowH = 3.4;
-    const colLabel: Record<ContactColumn, string> = { M: "Гл.", NO: "НО", NC: "НЗ" };
-    // показываем только непустые колонки: у обычного реле — НО/НЗ; «Гл.» — лишь у контактора
-    const cols: ContactColumn[] = (["M", "NO", "NC"] as ContactColumn[]).filter((c) =>
+    const colLabel: Record<ContactColumn, string> = { M: "Гл.", NO: "НО", NC: "НЗ", CO: "⇄" };
+    // показываем только непустые колонки: реле — НО/НЗ; «Гл.» — у контактора; «⇄» — перекидной
+    const cols: ContactColumn[] = (["M", "NO", "NC", "CO"] as ContactColumn[]).filter((c) =>
       rows.some((r) => r.column === c),
     );
     const x0 = wb.x + (coil.mirrorDx ?? 0);

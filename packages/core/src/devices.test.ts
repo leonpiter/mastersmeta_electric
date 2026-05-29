@@ -52,7 +52,32 @@ const button: SymbolDef = {
   ],
   graphics: [],
 };
-const lib = new SymbolLibrary([coil, noContact, ncContact, button]);
+const coContact: SymbolDef = {
+  id: "t.co",
+  name: "Контакт перекидной",
+  category: "c",
+  componentCode: "KM",
+  kind: "contact-co",
+  pins: [
+    { name: "11", x: 0, y: 0 },
+    { name: "12", x: 0, y: 15 },
+    { name: "14", x: 10, y: 15 },
+  ],
+  graphics: [],
+};
+const mainContact: SymbolDef = {
+  id: "t.main",
+  name: "Силовой контакт",
+  category: "c",
+  componentCode: "KM",
+  kind: "contact-main",
+  pins: [
+    { name: "1", x: 0, y: 0 },
+    { name: "2", x: 0, y: 15 },
+  ],
+  graphics: [],
+};
+const lib = new SymbolLibrary([coil, noContact, ncContact, button, coContact, mainContact]);
 
 function inst(sym: SymbolDef, designation: string, x = 100, y = 100): SymbolInstance {
   return {
@@ -155,5 +180,18 @@ describe("устройства (master/slave, кросс-референсы)", (
       instanceId: nc.id,
     });
     expect(rows[0].address).toMatch(/^2\./);
+  });
+
+  it("coilContactRows: перекидной → колонка CO, силовой → колонка M", () => {
+    const p = project2();
+    p.pages[0].instances.push(inst(coil, "KM1"));
+    const co = inst(coContact, "KM1");
+    const main = inst(mainContact, "KM1");
+    p.pages[1].instances.push(main, co);
+
+    const km1 = computeDevices(p, lib)[0];
+    const cols = coilContactRows(km1).map((r) => r.column);
+    expect(cols).toContain("CO");
+    expect(cols).toContain("M");
   });
 });

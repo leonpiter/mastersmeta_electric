@@ -28,6 +28,8 @@ const KIND_LABELS: Record<SymbolKind, string> = {
   "component-aux": "Компонент + контакты",
   "contact-no": "Контакт НО",
   "contact-nc": "Контакт НЗ",
+  "contact-co": "Контакт перекидной",
+  "contact-main": "Силовой контакт",
   terminal: "Клемма",
   connector: "Разъём",
   "page-connector": "Соединитель страниц",

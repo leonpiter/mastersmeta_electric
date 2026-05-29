@@ -87,14 +87,14 @@ export const GOST_CATEGORIES: EquipmentCategory[] = [
     id: "contactor",
     name: "Контакторы",
     componentCode: "KM",
-    kinds: ["coil", "contact-no", "contact-nc"],
+    kinds: ["coil", "contact-no", "contact-nc", "contact-co", "contact-main"],
     attributes: [txt("coilU", "Напряжение катушки"), txt("current", "Ток гл. контактов, А")],
   },
   {
     id: "relay",
     name: "Реле",
     componentCode: "K",
-    kinds: ["coil", "contact-no", "contact-nc"],
+    kinds: ["coil", "contact-no", "contact-nc", "contact-co"],
     attributes: [txt("coilU", "Напряжение катушки")],
   },
   {

@@ -22,6 +22,8 @@ export type SymbolKind =
   | "component-aux" // уникальная + доп. контакты (автомат, разъединитель)
   | "contact-no" // нормально разомкнутый контакт
   | "contact-nc" // нормально замкнутый контакт
+  | "contact-co" // перекидной (переключающий): общий + НО + НЗ
+  | "contact-main" // главный (силовой) контакт контактора
   | "terminal" // клемма
   | "connector" // разъём
   | "page-connector" // соединитель страниц (адресная стрелка переноса провода, S29)
@@ -33,6 +35,8 @@ export const SYMBOL_KINDS: readonly SymbolKind[] = [
   "component-aux",
   "contact-no",
   "contact-nc",
+  "contact-co",
+  "contact-main",
   "terminal",
   "connector",
   "page-connector",
