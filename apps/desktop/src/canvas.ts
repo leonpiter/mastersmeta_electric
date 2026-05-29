@@ -186,6 +186,8 @@ export class CanvasView {
   private selectedWire: Wire | null = null;
   /** Выбранная аннотация (оформление). */
   private selectedAnno: Annotation | null = null;
+  /** Буфер обмена (копирование/вставка инстансов, Ctrl+C/V). */
+  private clip: SymbolInstance[] = [];
   /** Активный инструмент рисования аннотаций (или null). */
   private drawTool: DrawTool | null = null;
   /** Текущий стиль аннотаций (для новых; применяется и к выбранной). */
@@ -1583,6 +1585,49 @@ export class CanvasView {
       this.selected = null;
       this.stack.execute(new RemoveInstanceCommand(this.page, inst));
     }
+  }
+
+  /** Ctrl+C — скопировать выделенные инстансы (один или мультивыбор) в буфер. */
+  copySelection(): void {
+    const ids = this.selectedIds;
+    const copied = this.page.instances.filter((i) => ids.includes(i.id)).map((i) => ({ ...i }));
+    if (copied.length > 0) this.clip = copied;
+  }
+
+  /** Ctrl+V — вставить из буфера со сдвигом, новыми id и сиглами; выделить вставленное. */
+  pasteClipboard(): void {
+    if (this.clip.length === 0) return;
+    const off = this.page.gridStep * 2;
+    const adds: AddSymbolInstanceCommand[] = [];
+    for (const o of this.clip) {
+      const sym = this.library.get(o.symbolId);
+      if (!sym) continue;
+      adds.push(
+        new AddSymbolInstanceCommand(this.page, sym, o.x + off, o.y + off, {
+          rotation: o.rotation,
+          mirror: o.mirror,
+          showLabels: o.showLabels,
+          attributes: o.attributes,
+          labelFields: o.labelFields,
+          catalogCode: o.catalogCode,
+          signal: o.signal,
+        }),
+      );
+    }
+    if (adds.length === 0) return;
+    this.stack.execute(adds.length > 1 ? new MacroCommand(adds) : adds[0]);
+    const created = adds.map((a) => a.instance);
+    this.multi.clear();
+    if (created.length === 1) {
+      this.select(created[0]);
+    } else {
+      for (const i of created) this.multi.add(i.id);
+      this.selected = null;
+      this.selectedWire = null;
+      this.clearAnnoSelection();
+      this.renderInstances();
+    }
+    this.hooks.onSelectionCountChange?.(this.multi.size);
   }
 
   /** Esc — завершить/прервать провод, выйти из вставки/рисования, иначе снять выделение. */

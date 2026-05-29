@@ -1560,6 +1560,12 @@ window.addEventListener("keydown", (e) => {
   } else if (mod && (k === "y" || (k === "z" && e.shiftKey))) {
     e.preventDefault();
     stack.redo();
+  } else if (mod && k === "c") {
+    e.preventDefault();
+    view.copySelection();
+  } else if (mod && k === "v") {
+    e.preventDefault();
+    view.pasteClipboard();
   } else if (!mod && !e.altKey && k === "r") {
     e.preventDefault();
     view.rotateSelectedOrPending();

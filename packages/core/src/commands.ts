@@ -44,6 +44,12 @@ export interface PlaceOptions {
   rotation?: Rotation;
   mirror?: boolean;
   id?: Id;
+  // перенос свойств при копировании/вставке (S: copy-paste)
+  attributes?: Record<string, string>;
+  labelFields?: string[];
+  catalogCode?: string;
+  signal?: string;
+  showLabels?: boolean;
 }
 
 /** Поставить символ на лист с авто-позобозначением (ГОСТ 2.710). */
@@ -71,7 +77,11 @@ export class AddSymbolInstanceCommand implements Command {
       y,
       rotation: opts.rotation ?? 0,
       mirror: opts.mirror ?? false,
-      showLabels: true,
+      showLabels: opts.showLabels ?? true,
+      ...(opts.attributes ? { attributes: opts.attributes } : {}),
+      ...(opts.labelFields ? { labelFields: opts.labelFields } : {}),
+      ...(opts.catalogCode ? { catalogCode: opts.catalogCode } : {}),
+      ...(opts.signal ? { signal: opts.signal } : {}),
     };
   }
 
