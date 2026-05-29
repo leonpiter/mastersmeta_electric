@@ -163,6 +163,45 @@ function rotateGraphic90(g: GraphicPrimitive, cx: number, cy: number): GraphicPr
   return { ...g, x: t.x, y: t.y };
 }
 
+/**
+ * Повернуть примитив на произвольный угол `deg` вокруг (cx, cy). Линии/дуги/окружности
+ * поворачиваются точно; прямоугольник/эллипс — поворотом центра (оси остаются по осям —
+ * наклонные тела рисуются линиями). Текст — поворотом позиции.
+ */
+function rotateGraphicByDeg(
+  g: GraphicPrimitive,
+  deg: number,
+  cx: number,
+  cy: number,
+): GraphicPrimitive {
+  const a = (deg * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const rot = (x: number, y: number): Pt => ({
+    x: cx + (x - cx) * cos - (y - cy) * sin,
+    y: cy + (x - cx) * sin + (y - cy) * cos,
+  });
+  if (g.type === "line") {
+    const p = rot(g.x1, g.y1);
+    const q = rot(g.x2, g.y2);
+    return { type: "line", x1: p.x, y1: p.y, x2: q.x, y2: q.y };
+  }
+  if (g.type === "circle" || g.type === "ellipse") {
+    const c = rot(g.cx, g.cy);
+    return { ...g, cx: c.x, cy: c.y };
+  }
+  if (g.type === "arc") {
+    const c = rot(g.cx, g.cy);
+    return { ...g, cx: c.x, cy: c.y, a0: g.a0 + deg, a1: g.a1 + deg };
+  }
+  if (g.type === "rect") {
+    const c = rot(g.x + g.w / 2, g.y + g.h / 2);
+    return { ...g, x: c.x - g.w / 2, y: c.y - g.h / 2 };
+  }
+  const t = rot(g.x, g.y);
+  return { ...g, x: t.x, y: t.y };
+}
+
 /** Отразить примитив по горизонтали (зеркало X) относительно прямой x = cx. */
 function mirrorGraphicX(g: GraphicPrimitive, cx: number): GraphicPrimitive {
   const mx = (x: number): number => 2 * cx - x;
@@ -289,6 +328,12 @@ export class SymbolEditor {
   private clipboard: { graphics: GraphicPrimitive[]; pins: Pin[] } | null = null;
   // трансформация ручкой (инструмент «Размер»): id ручки + исходная графика
   private resizing: { handle: string; orig: GraphicPrimitive } | null = null;
+  // вращение ручкой (произвольный угол, снап к 1°): опорная точка, стартовый угол, снимок выделения
+  private rotating: {
+    pivot: Pt;
+    startDeg: number;
+    items: { kind: "g" | "p"; index: number; g?: GraphicPrimitive; p?: Pin }[];
+  } | null = null;
   // направляющие (Visio): вертикальные (по X, мм) и горизонтальные (по Y, мм), только в редакторе
   private guidesX: number[] = [];
   private guidesY: number[] = [];
@@ -888,6 +933,28 @@ export class SymbolEditor {
       if (e.button === 1 || this.space) return; // пан
       if (e.button !== 0) return;
       if (this.tool === "select" || this.tool === "resize") {
+        // ручка вращения (приоритетнее направляющих/фигур)
+        if (this.selection.length > 0) {
+          const rh = this.rotateHandleWorld();
+          const pivot = this.selPivot();
+          if (
+            rh &&
+            pivot &&
+            Math.hypot(this.last.x - rh.x, this.last.y - rh.y) <= 7 / this.scalePx
+          ) {
+            this.rotating = {
+              pivot,
+              startDeg: (Math.atan2(this.last.y - pivot.y, this.last.x - pivot.x) * 180) / Math.PI,
+              items: this.selection.map((sl) =>
+                sl.kind === "g"
+                  ? { kind: "g", index: sl.index, g: { ...this.graphics[sl.index] } }
+                  : { kind: "p", index: sl.index, p: { ...this.pins[sl.index] } },
+              ),
+            };
+            this.beginGesture();
+            return;
+          }
+        }
         // схватить направляющую (приоритетнее фигур)
         const gh = this.hitGuide(this.last);
         if (gh) {
@@ -978,6 +1045,8 @@ export class SymbolEditor {
         this.panX += e.movementX;
         this.panY += e.movementY;
         this.updateView();
+      } else if (this.rotating) {
+        this.rotateDrag();
       } else if (this.resizing) {
         this.resizeSelected();
       } else if (this.dragOrig) {
@@ -1018,8 +1087,8 @@ export class SymbolEditor {
           this.commitGesture();
         } else this.cancelGesture();
         this.render();
-      } else if (this.resizing || this.dragOrig) {
-        // фиксируем отмену только если элемент реально сдвинули/изменили
+      } else if (this.resizing || this.dragOrig || this.rotating) {
+        // фиксируем отмену только если элемент реально сдвинули/изменили/повернули
         if (this.down?.moved) this.commitGesture();
         else this.cancelGesture();
         if (this.down?.moved) this.render();
@@ -1036,6 +1105,7 @@ export class SymbolEditor {
       }
       this.dragOrig = null;
       this.resizing = null;
+      this.rotating = null;
       this.down = null;
     });
 
@@ -1300,6 +1370,38 @@ export class SymbolEditor {
   private selPivot(): Pt | null {
     const b = this.selBBox();
     return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : null;
+  }
+
+  /** Мировая точка ручки вращения (над центром габарита выделения, ~26 px). */
+  private rotateHandleWorld(): Pt | null {
+    const b = this.selBBox();
+    if (!b) return null;
+    return { x: b.x + b.w / 2, y: b.y - 26 / this.scalePx };
+  }
+
+  /** Вращение выделения ручкой на произвольный угол (снап к 1°) вокруг центра. */
+  private rotateDrag(): void {
+    const rt = this.rotating;
+    if (!rt) return;
+    const cur = (Math.atan2(this.last.y - rt.pivot.y, this.last.x - rt.pivot.x) * 180) / Math.PI;
+    const delta = Math.round(cur - rt.startDeg);
+    const a = (delta * Math.PI) / 180;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    for (const it of rt.items) {
+      if (it.kind === "g" && it.g) {
+        this.graphics[it.index] = rotateGraphicByDeg(it.g, delta, rt.pivot.x, rt.pivot.y);
+      } else if (it.kind === "p" && it.p) {
+        const dx = it.p.x - rt.pivot.x;
+        const dy = it.p.y - rt.pivot.y;
+        this.pins[it.index] = {
+          ...it.p,
+          x: rt.pivot.x + dx * cos - dy * sin,
+          y: rt.pivot.y + dx * sin + dy * cos,
+        };
+      }
+    }
+    this.render();
   }
 
   private rotateSelected(): void {
@@ -1673,6 +1775,29 @@ export class SymbolEditor {
           "stroke-dasharray": "4 3",
         }),
       );
+    }
+    // ручка вращения (любой угол, снап к 1°) — при непустом выделении
+    if (this.selection.length > 0 && (this.tool === "select" || this.tool === "resize")) {
+      const b = this.selBBox();
+      if (b) {
+        const s2 = this.scalePx;
+        const hx = this.panX + (b.x + b.w / 2) * s2;
+        const topY = this.panY + b.y * s2;
+        const hy = topY - 26;
+        this.handlesG.append(
+          el("line", { x1: hx, y1: topY, x2: hx, y2: hy, stroke: "#1b6fc4", "stroke-width": 1 }),
+        );
+        this.handlesG.append(
+          el("circle", {
+            cx: hx,
+            cy: hy,
+            r: 5,
+            fill: "#fff",
+            stroke: "#1b6fc4",
+            "stroke-width": 1.4,
+          }),
+        );
+      }
     }
     // ручки трансформации — только в режиме «Размер» при одиночном выделении графики
     if (this.tool !== "resize" || this.selected?.kind !== "g") return;
