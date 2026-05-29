@@ -160,6 +160,18 @@ export type Annotation =
       text: string;
       size: number;
       style: AnnotationStyle;
+    }
+  | {
+      id: Id;
+      kind: "image";
+      x: number;
+      y: number;
+      /** Габарит на листе, мм. */
+      w: number;
+      h: number;
+      /** Растровые данные как data-URI (PNG/JPEG) — самодостаточно в `.esch`. */
+      href: string;
+      style: AnnotationStyle;
     };
 
 /** Сдвинуть аннотацию на (dx, dy) — единообразно по всем видам геометрии. */
@@ -173,6 +185,7 @@ export function translateAnnotation(a: Annotation, dx: number, dy: number): void
       break;
     case "rect":
     case "text":
+    case "image":
       a.x += dx;
       a.y += dy;
       break;

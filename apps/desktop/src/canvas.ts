@@ -811,6 +811,8 @@ export class CanvasView {
         return { x: a.cx - a.rx, y: a.cy - a.ry, w: a.rx * 2, h: a.ry * 2 };
       case "text":
         return { x: a.x, y: a.y - a.size, w: Math.max(a.text.length * a.size * 0.6, 2), h: a.size };
+      case "image":
+        return { x: a.x, y: a.y, w: a.w, h: a.h };
     }
   }
 
@@ -873,6 +875,17 @@ export class CanvasView {
         const dash = this.dashArray(s.dash, s.width);
         if (dash) e.setAttribute("stroke-dasharray", dash);
         this.annotationsG.append(e);
+      } else if (a.kind === "image") {
+        this.annotationsG.append(
+          el("image", {
+            href: a.href,
+            x: a.x,
+            y: a.y,
+            width: Math.max(a.w, 0.01),
+            height: Math.max(a.h, 0.01),
+            preserveAspectRatio: "none",
+          }),
+        );
       } else {
         const t = this.text(a.text, a.x, a.y, a.size, "start");
         t.setAttribute("fill", s.color);
@@ -953,7 +966,7 @@ export class CanvasView {
       const a = this.page.annotations[i];
       if (a.kind === "line") {
         if (distToSegment(p, { x: a.x1, y: a.y1 }, { x: a.x2, y: a.y2 }) <= tol) return a;
-      } else if (a.kind === "text") {
+      } else if (a.kind === "text" || a.kind === "image") {
         const b = this.annoBounds(a);
         if (
           p.x >= b.x - tol &&
@@ -978,6 +991,32 @@ export class CanvasView {
     this.renderInstances();
     this.renderAnnotations();
     this.updateHud();
+  }
+
+  /**
+   * Вставить растровую картинку (PNG/JPEG) как аннотацию-изображение (S31).
+   * Габарит вписывается в ~60 мм по большей стороне (сохраняя пропорции),
+   * картинка кладётся по центру видимой области и сразу выделяется.
+   */
+  insertImage(href: string, naturalW: number, naturalH: number): void {
+    const r = this.svg.getBoundingClientRect();
+    const center = snapPoint(this.screenToWorld(r.width / 2, r.height / 2), this.page.gridStep);
+    const maxMm = 60;
+    const ratio = naturalW > 0 && naturalH > 0 ? naturalW / naturalH : 1;
+    const w = ratio >= 1 ? maxMm : maxMm * ratio;
+    const h = ratio >= 1 ? maxMm / ratio : maxMm;
+    const anno: Annotation = {
+      id: newId(),
+      kind: "image",
+      x: center.x - w / 2,
+      y: center.y - h / 2,
+      w,
+      h,
+      href,
+      style: { ...DEFAULT_ANNOTATION_STYLE },
+    };
+    this.stack.execute(new AddAnnotationCommand(this.page, anno));
+    this.selectAnno(anno);
   }
 
   private renderWires(): void {

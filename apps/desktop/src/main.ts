@@ -1245,6 +1245,30 @@ annoDash.addEventListener("change", () =>
 annoWidth.addEventListener("change", () => view.setAnnoStyle({ width: Number(annoWidth.value) }));
 annoColor.addEventListener("input", () => view.setAnnoStyle({ color: annoColor.value }));
 
+// вставка растровой картинки (PNG/JPG) на канвас (S31): файл → data-URI → аннотация-изображение
+const imgInput = document.createElement("input");
+imgInput.type = "file";
+imgInput.accept = "image/png,image/jpeg";
+imgInput.style.display = "none";
+document.body.append(imgInput);
+imgInput.addEventListener("change", () => {
+  const f = imgInput.files?.[0];
+  imgInput.value = "";
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const href = reader.result;
+    if (typeof href !== "string") return;
+    const probe = new Image();
+    probe.onload = () => view.insertImage(href, probe.naturalWidth, probe.naturalHeight);
+    probe.src = href;
+  };
+  reader.readAsDataURL(f);
+});
+(document.getElementById("draw-image") as HTMLButtonElement).addEventListener("click", () =>
+  imgInput.click(),
+);
+
 // модалка ввода текста аннотации (вместо браузерного prompt)
 const textDialog = document.getElementById("text-dialog") as HTMLDialogElement;
 const tdInput = document.getElementById("td-input") as HTMLInputElement;
