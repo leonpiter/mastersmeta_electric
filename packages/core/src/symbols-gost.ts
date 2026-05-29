@@ -1318,9 +1318,11 @@ const Z: SymbolDef = {
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
 // коды коммутационных аппаратов, у которых контакт «открывается вверх»
 const SWITCH_CODES = new Set(["Q", "QF", "QS", "QW", "QK", "QR", "QSG", "SF"]);
+// аппараты с заземлением — землю держим снизу, по вертикали не отражаем
+const GROUND_BEARING = new Set(["gost.qfd", "gost.qk", "gost.qsg"]);
 /** Нужно ли отражать символ по вертикали (контакты/рубильники/автоматы открыты вверх). */
 function opensUp(s: SymbolDef): boolean {
-  if (s.id === "gost.qfd") return false; // дифавтомат: тороид снизу, не отражаем целиком
+  if (GROUND_BEARING.has(s.id)) return false; // земля/тороид снизу — не отражаем
   if (s.kind === "contact-no" || s.kind === "contact-nc" || s.kind === "contact-main") return true;
   return s.kind === "component-aux" && SWITCH_CODES.has(s.componentCode);
 }
