@@ -15,7 +15,21 @@ const BOT = 15;
 const lead = (fromY: number, toY: number) =>
   ({ type: "line", x1: 0, y1: fromY, x2: 0, y2: toY }) as const;
 
-/** Графика полюса рубильника/разъединителя при x (без авторасцепителя). */
+/**
+ * Отразить графику по вертикали (y → h − y) — чтобы контакты «открывались вверх»
+ * (неподвижный контакт сверху). Выводы (pins) симметричны (0 и h), поэтому остаются.
+ */
+function flipY(prims: GraphicPrimitive[], h = 15): GraphicPrimitive[] {
+  return prims.map((g) => {
+    if (g.type === "line") return { ...g, y1: h - g.y1, y2: h - g.y2 };
+    if (g.type === "rect") return { ...g, y: h - g.y - g.h };
+    if (g.type === "circle" || g.type === "ellipse") return { ...g, cy: h - g.cy };
+    if (g.type === "arc") return { ...g, cy: h - g.cy, a0: -g.a1, a1: -g.a0 };
+    return { ...g, y: h - g.y }; // text
+  });
+}
+
+/** Графика полюса рубильника/разъединителя при x (база «открыт вниз»; flipY в агрегаторе). */
 function switchPole(x: number): GraphicPrimitive[] {
   return [
     { type: "line", x1: x, y1: 0, x2: x, y2: 5 }, // верхний вывод
@@ -31,8 +45,9 @@ function switchPole(x: number): GraphicPrimitive[] {
  * (≈1.5×2), знак «×» функции выключения сверху. По образцу UGO/методички.
  */
 function breakerPole(x: number): GraphicPrimitive[] {
+  // база «открыт вниз» (× сверху, Ø2 снизу); flipY в агрегаторе → Ø2 сверху, × снизу
   return [
-    { type: "line", x1: x, y1: 0, x2: x, y2: 4 }, // верхний вывод
+    { type: "line", x1: x, y1: 0, x2: x, y2: 4 }, // вывод
     { type: "line", x1: x - 1.2, y1: 1.8, x2: x + 1.2, y2: 4.2 }, // × функция выключения (≈2)
     { type: "line", x1: x - 1.2, y1: 4.2, x2: x + 1.2, y2: 1.8 },
     { type: "line", x1: x, y1: 4.5, x2: x + 3, y2: 9 }, // подвижный контакт (нож), наклон ~30°
@@ -42,7 +57,7 @@ function breakerPole(x: number): GraphicPrimitive[] {
     { type: "line", x1: x + 1.0, y1: 7.7, x2: x, y2: 6.2 },
     { type: "line", x1: x, y1: 6.2, x2: x + 1.1, y2: 5.4 },
     { type: "circle", cx: x, cy: 11, r: 1 }, // неподвижный контакт Ø2 (токовая перегрузка)
-    { type: "line", x1: x, y1: 12, x2: x, y2: 15 }, // нижний вывод
+    { type: "line", x1: x, y1: 12, x2: x, y2: 15 }, // вывод
   ];
 }
 
@@ -1301,7 +1316,16 @@ const Z: SymbolDef = {
 };
 
 /** Встроенная библиотека стартовых УГО (ГОСТ). */
-export const GOST_SYMBOLS: SymbolDef[] = [
+// коды коммутационных аппаратов, у которых контакт «открывается вверх»
+const SWITCH_CODES = new Set(["Q", "QF", "QS", "QW", "QK", "QR", "QSG", "SF"]);
+/** Нужно ли отражать символ по вертикали (контакты/рубильники/автоматы открыты вверх). */
+function opensUp(s: SymbolDef): boolean {
+  if (s.id === "gost.qfd") return false; // дифавтомат: тороид снизу, не отражаем целиком
+  if (s.kind === "contact-no" || s.kind === "contact-nc" || s.kind === "contact-main") return true;
+  return s.kind === "component-aux" && SWITCH_CODES.has(s.componentCode);
+}
+
+const RAW_SYMBOLS: SymbolDef[] = [
   ...RELAY_COILS,
   KK,
   ...METERS,
@@ -1372,3 +1396,11 @@ export const GOST_SYMBOLS: SymbolDef[] = [
   K_CO,
   KM_MAIN,
 ];
+
+/**
+ * Встроенная библиотека стартовых УГО (ГОСТ). Контакты/рубильники/автоматы
+ * отражаются по вертикали (открыты вверх — неподвижный контакт сверху).
+ */
+export const GOST_SYMBOLS: SymbolDef[] = RAW_SYMBOLS.map((s) =>
+  opensUp(s) ? { ...s, graphics: flipY(s.graphics) } : s,
+);
