@@ -156,7 +156,7 @@ const symbolEditor = new SymbolEditor(
     upsertUserCategory(cat);
     rebuildRegistry();
   },
-  (active) => setSymbolEditorRibbon(active),
+  () => closeMenus(),
 );
 
 panel = new LibraryPanel(libraryEl, library, (sym) => view.arm(sym), {
@@ -876,10 +876,10 @@ fileMenu.addEventListener("click", (e) => e.stopPropagation());
 // ----- сохранение/открытие проекта (.esch) -----
 // «Создать»/«Открыть» добавляют проект в рабочее пространство (S26), а не заменяют.
 
-/** Обновить название проекта в верхней полосе заголовка (S21). */
-const tbName = document.getElementById("tb-name")!;
+/** Обновить заголовок окна (имя проекта показывается во вкладке листа). */
 function syncTitle(): void {
-  tbName.textContent = projects.length === 0 ? "Нет проекта" : project.name || "Без имени";
+  const name = projects.length === 0 ? "Нет проекта" : project.name || "Без имени";
+  document.title = `${name} — Мастермета Электро`;
 }
 
 /** Сохранить проект. Возвращает true, если сохранение состоялось (в Electron — не отменено). */
@@ -1642,59 +1642,118 @@ stepItems.forEach((b) =>
 );
 document.addEventListener("click", () => {
   closeGridMenu();
-  closeFileMenu();
   closeNumberMenu();
+  closeMenus();
 });
 
-// лента: вкладки-страницы + вкладка-меню «Файл»
-const ribbonTabs = document.querySelectorAll<HTMLButtonElement>(".rtab");
-const ribbonPages = document.querySelectorAll<HTMLElement>(".rpage");
-ribbonTabs.forEach((tab) => {
-  tab.addEventListener("click", (e) => {
-    if (tab.dataset.menu === "file") {
-      e.stopPropagation();
-      closeGridMenu();
-      closeNumberMenu();
-      if (fileMenu.hidden) {
-        const r = tab.getBoundingClientRect();
-        fileMenu.style.left = `${r.left}px`;
-        fileMenu.style.top = `${r.bottom}px`;
-        fileMenu.hidden = false;
-      } else {
-        closeFileMenu();
-      }
-      return;
+// меню-бар (QET-стиль): пункт открывает выпадающее меню действий. «Файл»
+// переиспользует готовый #file-menu; остальные строятся из спецификации и
+// перенаправляют клик на реальную кнопку панели (хендлеры не дублируем).
+const mbItems = document.querySelectorAll<HTMLButtonElement>(".mb-item");
+
+type MenuEntry = { label: string; target: string } | "sep";
+const MENU_SPECS: Record<string, MenuEntry[]> = {
+  edit: [
+    { label: "Отменить", target: "undo" },
+    { label: "Вернуть", target: "redo" },
+    "sep",
+    { label: "Повернуть", target: "rotate" },
+    { label: "Отразить", target: "mirror" },
+    { label: "Удалить", target: "delete" },
+    "sep",
+    { label: "Объединить в блок", target: "save-block" },
+  ],
+  wire: [
+    { label: "Провод (1-полюсный)", target: "wire-1" },
+    { label: "Провод (3-полюсный)", target: "wire-3" },
+    "sep",
+    { label: "Нумерация…", target: "numbering" },
+  ],
+  schema: [
+    { label: "Устройства", target: "devices" },
+    "sep",
+    { label: "Перечень аппаратуры", target: "report-bom" },
+    { label: "Таблица соединений", target: "report-conn" },
+    { label: "Перечень клемм", target: "report-term" },
+    { label: "Клеммная сборка", target: "report-strip" },
+    { label: "Перечень разъёмов", target: "report-connector" },
+  ],
+  draw: [
+    { label: "Линия", target: "draw-line" },
+    { label: "Прямоугольник", target: "draw-rect" },
+    { label: "Окружность / эллипс", target: "draw-ellipse" },
+    { label: "Стрелка", target: "draw-arrow" },
+    { label: "Текст", target: "draw-text" },
+    { label: "Картинка (PNG/JPG)…", target: "draw-image" },
+  ],
+  view: [
+    { label: "Вписать лист", target: "reset" },
+    { label: "Клетка (показать/скрыть)", target: "grid" },
+    "sep",
+    { label: "Поменять боковые панели", target: "swap" },
+  ],
+};
+
+const builtMenus = new Map<string, HTMLDivElement>();
+for (const [name, spec] of Object.entries(MENU_SPECS)) {
+  const menu = document.createElement("div");
+  menu.className = "dropdown";
+  menu.hidden = true;
+  for (const entry of spec) {
+    if (entry === "sep") {
+      const sep = document.createElement("div");
+      sep.className = "dd-sep";
+      menu.append(sep);
+      continue;
     }
-    closeFileMenu();
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "dd-item";
+    item.textContent = entry.label;
+    item.addEventListener("click", () => {
+      closeMenus();
+      document.getElementById(entry.target)?.click();
+    });
+    menu.append(item);
+  }
+  document.body.append(menu);
+  builtMenus.set(name, menu);
+}
+
+const menuFor = (name: string): HTMLElement | undefined =>
+  name === "file" ? fileMenu : builtMenus.get(name);
+
+/** Закрыть все меню верхней панели и снять подсветку пунктов. */
+function closeMenus(): void {
+  closeFileMenu();
+  for (const m of builtMenus.values()) m.hidden = true;
+  mbItems.forEach((b) => b.classList.remove("open"));
+}
+
+mbItems.forEach((btn) => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const menu = menuFor(btn.dataset.menu ?? "");
+    if (!menu) return;
+    const wasOpen = !menu.hidden;
+    closeMenus();
+    closeGridMenu();
     closeNumberMenu();
-    selectRibbonTab(tab);
+    if (wasOpen) return; // повторный клик закрывает
+    const r = btn.getBoundingClientRect();
+    menu.style.left = `${r.left}px`;
+    menu.style.top = `${r.bottom}px`;
+    menu.hidden = false;
+    btn.classList.add("open");
+  });
+  // при уже открытом меню — переключение наведением (как в настоящем меню-баре)
+  btn.addEventListener("mouseenter", () => {
+    if ([...mbItems].some((b) => b.classList.contains("open"))) btn.click();
   });
 });
 
-/** Активировать вкладку ленты: подсветить и показать её страницу. */
-function selectRibbonTab(tab: HTMLButtonElement): void {
-  ribbonTabs.forEach((t) => t.classList.toggle("active", t === tab));
-  ribbonPages.forEach((p) => {
-    p.hidden = p.dataset.tab !== tab.dataset.tab;
-  });
-}
-
-// режим редактора УГО (S28): показать/скрыть вкладку «Редактор УГО» и переключить ленту
-const symbolTab = document.querySelector<HTMLButtonElement>('.rtab[data-tab="symbol"]');
-let prevRibbonTab: HTMLButtonElement | null = null;
-function setSymbolEditorRibbon(active: boolean): void {
-  if (!symbolTab) return;
-  if (active) {
-    prevRibbonTab = document.querySelector<HTMLButtonElement>(".rtab.active");
-    symbolTab.hidden = false;
-    selectRibbonTab(symbolTab);
-  } else {
-    symbolTab.hidden = true;
-    const back =
-      prevRibbonTab ?? document.querySelector<HTMLButtonElement>('.rtab[data-tab="edit"]');
-    if (back) selectRibbonTab(back);
-  }
-}
+// режим редактора УГО (S28): панель переключается через body.editing-symbol (CSS);
+// открытые меню закрываются колбэком onModeChange (см. инициализацию редактора).
 
 const refresh = (): void => {
   undoBtn.disabled = !stack.canUndo();

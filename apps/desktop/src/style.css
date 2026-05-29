@@ -4,8 +4,8 @@
  * меняются местами, ширина тянется сплиттерами), статус-бар снизу.
  */
 :root {
-  --title-h: 30px;
-  --toolbar-h: 96px;
+  --title-h: 25px;
+  --toolbar-h: 42px;
   --tabs-h: 28px;
   --status-h: 22px;
   --left-w: 200px;
@@ -113,75 +113,70 @@ body {
   color: #fff;
 }
 
-/* ---- верхняя полоса заголовка (S21) ---- */
-#titlebar {
+/* ---- меню-бар (QET-стиль: текстовое меню + кнопки окна справа) ---- */
+#menubar {
   grid-area: titlebar;
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 6px;
+  align-items: stretch;
   background: linear-gradient(var(--header-1), var(--header-2));
   border-bottom: 1px solid var(--border);
-  -webkit-app-region: drag; /* перетаскивание окна за шапку (frame:false в Electron) */
+  -webkit-app-region: drag; /* перетаскивание окна за меню-бар (frame:false) */
 }
 
-#titlebar .tb-left {
+.mb-menus {
   display: flex;
-  gap: 2px;
+  align-items: stretch;
 }
 
-#titlebar button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 22px;
-  border: 1px solid transparent;
+.mb-item {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 0 11px;
+  border: none;
   background: transparent;
   color: var(--header-text);
   cursor: pointer;
-  -webkit-app-region: no-drag; /* кнопки кликабельны, не перетаскивают окно */
+  -webkit-app-region: no-drag;
 }
 
-#titlebar button:hover {
+.mb-item:hover {
   background: var(--hover);
-  border-color: var(--border-2);
 }
 
-#titlebar .tb-title {
-  flex: 1 1 auto;
-  text-align: center;
-  font-size: 12px;
-  color: var(--header-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.mb-item.open {
+  background: var(--panel-2);
+  color: var(--accent);
 }
 
-#titlebar .tb-title .tb-name {
-  font-weight: 600;
-}
-
-#titlebar .tb-app {
-  color: var(--text-dim);
-}
-
-#titlebar .tb-win {
+.mb-win {
   display: flex;
-  gap: 2px;
+  margin-left: auto;
 }
 
-/* кнопки окна — в вебе только оформление (приглушены); в Electron активны */
-#titlebar .tb-win button {
-  opacity: 0.45;
+.mb-win button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--header-text);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  opacity: 0.45; /* в вебе кнопки окна — только оформление */
 }
-body.is-electron #titlebar .tb-win button {
+
+body.is-electron .mb-win button {
   opacity: 1;
 }
 
-#titlebar .tb-win button.tb-close:hover {
+.mb-win button:hover {
+  background: var(--hover);
+}
+
+.mb-win button.tb-close:hover {
   background: #d64b4b;
-  border-color: #d64b4b;
   color: #fff;
   opacity: 1;
 }
@@ -249,57 +244,36 @@ body.resizing #canvas {
   color: var(--header-text);
 }
 
-/* ---- лента (ribbon) ---- */
-#ribbon {
+/* ---- компактная панель инструментов (QET-стиль: иконки в один ряд) ---- */
+#toolbar {
   grid-area: toolbar;
   display: flex;
-  flex-direction: column;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-}
-
-#ribbon-tabs {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 1px;
-  padding: 0 4px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(var(--header-1), var(--header-2));
-}
-
-.rtab {
-  font: inherit;
-  font-size: 12px;
-  padding: 3px 14px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.rtab:hover {
-  background: var(--hover);
-}
-
-.rtab.active {
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: var(--panel-2);
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
 }
 
-.rtab-file {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-#ribbon-body {
-  flex: 1 1 auto;
+#toolbar-main {
   display: flex;
   align-items: stretch;
-  padding: 3px 4px;
-  background: var(--panel-2);
+}
+
+/* режим редактора УГО: обычную панель скрываем, показываем панель редактора */
+#se-ribbon {
+  display: none;
+}
+body.editing-symbol #toolbar-main {
+  display: none;
+}
+body.editing-symbol #se-ribbon {
+  display: flex;
+  align-items: stretch;
+}
+body.editing-symbol .mb-menus {
+  display: none;
 }
 
 .rpage {
@@ -307,51 +281,42 @@ body.resizing #canvas {
   align-items: stretch;
 }
 
-.rpage[hidden] {
-  display: none;
-}
-
 .rgroup {
   display: flex;
-  flex-direction: column;
-  padding: 2px 8px;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
   border-right: 1px solid var(--border-2);
 }
 
 .rgroup-tools {
-  flex: 1 1 auto;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
 }
 
+/* подписи групп не нужны в компактной панели */
 .rgroup-cap {
-  text-align: center;
-  font-size: 10px;
-  color: var(--text-dim);
-  padding-top: 3px;
+  display: none;
 }
 
 .rgroup button {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  min-width: 46px;
-  height: 44px;
-  padding: 3px 6px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 10px;
-  line-height: 1;
   cursor: pointer;
 }
 
+/* подписи кнопок скрыты — только иконка (название во всплывающей подсказке) */
 .rgroup button span {
-  white-space: nowrap;
+  display: none;
 }
 
 .ic {
@@ -394,24 +359,18 @@ body.resizing #canvas {
 /* поля стиля в ленте (вкладка «Оформление») — компактная сетка, чтобы все поля
    (тип линии / толщина / цвет) помещались в высоту ленты без обрезки «Цвета» */
 .rgroup-fields {
-  flex: 1 1 auto;
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(2, auto);
-  align-content: center;
-  gap: 3px 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px 10px;
 }
 
 .rfield {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   font-size: 11px;
   color: var(--text-dim);
-}
-
-.rfield > span {
-  min-width: 58px;
+  white-space: nowrap;
 }
 
 .rfield select {
