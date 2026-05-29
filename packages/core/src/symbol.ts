@@ -48,6 +48,7 @@ export type GraphicPrimitive =
   | { type: "line"; x1: number; y1: number; x2: number; y2: number }
   | { type: "rect"; x: number; y: number; w: number; h: number }
   | { type: "circle"; cx: number; cy: number; r: number }
+  | { type: "ellipse"; cx: number; cy: number; rx: number; ry: number }
   | { type: "arc"; cx: number; cy: number; r: number; a0: number; a1: number }
   | {
       type: "text";
@@ -173,6 +174,10 @@ export function symbolBounds(sym: SymbolDef): Rect {
         acc(g.cx - g.r, g.cy - g.r);
         acc(g.cx + g.r, g.cy + g.r);
         break;
+      case "ellipse":
+        acc(g.cx - g.rx, g.cy - g.ry);
+        acc(g.cx + g.rx, g.cy + g.ry);
+        break;
       case "text":
         acc(g.x, g.y);
         break;
@@ -257,6 +262,10 @@ function validateGraphic(g: unknown): string | null {
         : "rect requires x,y,w,h numbers";
     case "circle":
       return isNum(g.cx) && isNum(g.cy) && isNum(g.r) ? null : "circle requires cx,cy,r numbers";
+    case "ellipse":
+      return isNum(g.cx) && isNum(g.cy) && isNum(g.rx) && isNum(g.ry)
+        ? null
+        : "ellipse requires cx,cy,rx,ry numbers";
     case "arc":
       return isNum(g.cx) && isNum(g.cy) && isNum(g.r) && isNum(g.a0) && isNum(g.a1)
         ? null

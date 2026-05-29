@@ -1,23 +1,24 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://see-electrical-lite/schemas/symbol.schema.json",
-  "title": "SymbolDef (*.symbol.json)",
-  "description": "Открытый формат УГО. Канонический контракт; формальная валидация в CI подключается в S12 (ajv). В рантайме core валидирует через validateSymbol().",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mastermeta.electro/schemas/symbol.schema.json",
+  "title": "SymbolDef",
+  "description": "Открытый формат УГО *.symbol.json (Мастермета Электро). Геометрия в мм, локальная к символу; выводы на сетке 5 мм.",
   "type": "object",
-  "required": ["id", "name", "category", "componentCode", "kind", "graphics", "pins"],
+  "required": ["id", "name", "category", "componentCode", "kind", "pins", "graphics"],
   "additionalProperties": false,
   "properties": {
     "formatVersion": {
       "type": "integer",
-      "description": "Версия формата для миграций (текущая — 1)."
+      "minimum": 1,
+      "description": "Версия формата файла (в библиотеке в памяти может отсутствовать)."
     },
-    "id": { "type": "string", "minLength": 1, "description": "Стабильный id, напр. gost.qf" },
+    "id": { "type": "string", "minLength": 1 },
     "name": { "type": "string", "minLength": 1 },
     "category": { "type": "string", "minLength": 1 },
     "componentCode": {
       "type": "string",
       "minLength": 1,
-      "description": "Префикс позобозначения по ГОСТ 2.710 (QF/QS/KM/...)."
+      "description": "Префикс позобозначения по ГОСТ 2.710 (QF/KM/K/…)."
     },
     "kind": {
       "type": "string",
@@ -35,72 +36,101 @@
         "black-box"
       ]
     },
-    "pins": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["name", "x", "y"],
-        "additionalProperties": false,
-        "properties": {
-          "name": { "type": "string" },
-          "x": { "type": "number" },
-          "y": { "type": "number" }
-        }
+    "pins": { "type": "array", "items": { "$ref": "#/definitions/pin" } },
+    "graphics": { "type": "array", "items": { "$ref": "#/definitions/graphic" } }
+  },
+  "definitions": {
+    "pin": {
+      "type": "object",
+      "required": ["name", "x", "y"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "x": { "type": "number" },
+        "y": { "type": "number" }
       }
     },
-    "graphics": {
-      "type": "array",
-      "items": {
-        "oneOf": [
-          {
-            "type": "object",
-            "required": ["type", "x1", "y1", "x2", "y2"],
-            "additionalProperties": false,
-            "properties": {
-              "type": { "const": "line" },
-              "x1": { "type": "number" },
-              "y1": { "type": "number" },
-              "x2": { "type": "number" },
-              "y2": { "type": "number" }
-            }
-          },
-          {
-            "type": "object",
-            "required": ["type", "x", "y", "w", "h"],
-            "additionalProperties": false,
-            "properties": {
-              "type": { "const": "rect" },
-              "x": { "type": "number" },
-              "y": { "type": "number" },
-              "w": { "type": "number" },
-              "h": { "type": "number" }
-            }
-          },
-          {
-            "type": "object",
-            "required": ["type", "cx", "cy", "r"],
-            "additionalProperties": false,
-            "properties": {
-              "type": { "const": "circle" },
-              "cx": { "type": "number" },
-              "cy": { "type": "number" },
-              "r": { "type": "number" }
-            }
-          },
-          {
-            "type": "object",
-            "required": ["type", "x", "y", "text"],
-            "additionalProperties": false,
-            "properties": {
-              "type": { "const": "text" },
-              "x": { "type": "number" },
-              "y": { "type": "number" },
-              "text": { "type": "string" },
-              "size": { "type": "number" },
-              "anchor": { "type": "string", "enum": ["start", "middle", "end"] }
-            }
-          }
-        ]
+    "graphic": {
+      "oneOf": [
+        { "$ref": "#/definitions/line" },
+        { "$ref": "#/definitions/rect" },
+        { "$ref": "#/definitions/circle" },
+        { "$ref": "#/definitions/ellipse" },
+        { "$ref": "#/definitions/arc" },
+        { "$ref": "#/definitions/text" }
+      ]
+    },
+    "line": {
+      "type": "object",
+      "required": ["type", "x1", "y1", "x2", "y2"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "line" },
+        "x1": { "type": "number" },
+        "y1": { "type": "number" },
+        "x2": { "type": "number" },
+        "y2": { "type": "number" }
+      }
+    },
+    "rect": {
+      "type": "object",
+      "required": ["type", "x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "rect" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number" },
+        "h": { "type": "number" }
+      }
+    },
+    "circle": {
+      "type": "object",
+      "required": ["type", "cx", "cy", "r"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "circle" },
+        "cx": { "type": "number" },
+        "cy": { "type": "number" },
+        "r": { "type": "number" }
+      }
+    },
+    "ellipse": {
+      "type": "object",
+      "required": ["type", "cx", "cy", "rx", "ry"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "ellipse" },
+        "cx": { "type": "number" },
+        "cy": { "type": "number" },
+        "rx": { "type": "number" },
+        "ry": { "type": "number" }
+      }
+    },
+    "arc": {
+      "type": "object",
+      "required": ["type", "cx", "cy", "r", "a0", "a1"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "arc" },
+        "cx": { "type": "number" },
+        "cy": { "type": "number" },
+        "r": { "type": "number" },
+        "a0": { "type": "number", "description": "Начальный угол, градусы (y вниз)." },
+        "a1": { "type": "number", "description": "Конечный угол, градусы." }
+      }
+    },
+    "text": {
+      "type": "object",
+      "required": ["type", "x", "y", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "text" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "text": { "type": "string" },
+        "size": { "type": "number", "exclusiveMinimum": 0 },
+        "anchor": { "type": "string", "enum": ["start", "middle", "end"] }
       }
     }
   }

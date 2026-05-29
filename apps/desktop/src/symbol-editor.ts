@@ -87,7 +87,8 @@ function nearRectBorder(p: Pt, x: number, y: number, w: number, h: number, tol: 
 function movedGraphic(g: GraphicPrimitive, dx: number, dy: number): GraphicPrimitive {
   if (g.type === "line")
     return { ...g, x1: g.x1 + dx, y1: g.y1 + dy, x2: g.x2 + dx, y2: g.y2 + dy };
-  if (g.type === "circle" || g.type === "arc") return { ...g, cx: g.cx + dx, cy: g.cy + dy };
+  if (g.type === "circle" || g.type === "arc" || g.type === "ellipse")
+    return { ...g, cx: g.cx + dx, cy: g.cy + dy };
   return { ...g, x: g.x + dx, y: g.y + dy }; // rect | text
 }
 
@@ -154,6 +155,10 @@ function rotateGraphic90(g: GraphicPrimitive, cx: number, cy: number): GraphicPr
     const c = rot(g.x + g.w / 2, g.y + g.h / 2);
     return { type: "rect", x: c.x - g.h / 2, y: c.y - g.w / 2, w: g.h, h: g.w };
   }
+  if (g.type === "ellipse") {
+    const c = rot(g.cx, g.cy);
+    return { ...g, cx: c.x, cy: c.y, rx: g.ry, ry: g.rx };
+  }
   const t = rot(g.x, g.y); // текст: вращаем позицию (угол текста не поддержан)
   return { ...g, x: t.x, y: t.y };
 }
@@ -164,6 +169,7 @@ function mirrorGraphicX(g: GraphicPrimitive, cx: number): GraphicPrimitive {
   if (g.type === "line") return { ...g, x1: mx(g.x1), x2: mx(g.x2) };
   if (g.type === "circle") return { ...g, cx: mx(g.cx) };
   if (g.type === "arc") return { ...g, cx: mx(g.cx), a0: 180 - g.a1, a1: 180 - g.a0 };
+  if (g.type === "ellipse") return { ...g, cx: mx(g.cx) };
   if (g.type === "rect") return { ...g, x: mx(g.x + g.w) };
   const anchor = g.anchor === "start" ? "end" : g.anchor === "end" ? "start" : g.anchor;
   return { ...g, x: mx(g.x), anchor };
@@ -1116,6 +1122,11 @@ export class SymbolEditor {
     if (g.type === "rect") return nearRectBorder(p, g.x, g.y, g.w, g.h, tol);
     if (g.type === "circle" || g.type === "arc")
       return Math.abs(Math.hypot(p.x - g.cx, p.y - g.cy) - g.r) <= tol;
+    if (g.type === "ellipse") {
+      const nx = (p.x - g.cx) / (g.rx || 1);
+      const ny = (p.y - g.cy) / (g.ry || 1);
+      return Math.abs(Math.hypot(nx, ny) - 1) * Math.min(g.rx, g.ry) <= tol;
+    }
     const s = g.size ?? 4;
     const w = Math.max(g.text.length * s * 0.6, 2);
     const x0 = g.anchor === "middle" ? g.x - w / 2 : g.anchor === "end" ? g.x - w : g.x;
@@ -1249,6 +1260,7 @@ export class SymbolEditor {
       line: "линия",
       rect: "прямоугольник",
       circle: "окружность",
+      ellipse: "эллипс",
       arc: "дуга",
       text: "текст",
     };
@@ -1453,6 +1465,13 @@ export class SymbolEditor {
         { label: "cx", kind: "num", value: g.cx, apply: (v) => patchG({ cx: v }) },
         { label: "cy", kind: "num", value: g.cy, apply: (v) => patchG({ cy: v }) },
         { label: "r", kind: "num", value: g.r, min: 0.1, apply: (v) => patchG({ r: pos(v) }) },
+      ];
+    if (g.type === "ellipse")
+      return [
+        { label: "cx", kind: "num", value: g.cx, apply: (v) => patchG({ cx: v }) },
+        { label: "cy", kind: "num", value: g.cy, apply: (v) => patchG({ cy: v }) },
+        { label: "rx", kind: "num", value: g.rx, min: 0.1, apply: (v) => patchG({ rx: pos(v) }) },
+        { label: "ry", kind: "num", value: g.ry, min: 0.1, apply: (v) => patchG({ ry: pos(v) }) },
       ];
     if (g.type === "arc")
       return [
@@ -1742,6 +1761,18 @@ export class SymbolEditor {
           cx: g.cx,
           cy: g.cy,
           r: g.r,
+          fill: "none",
+          stroke: color,
+          "stroke-width": 0.4,
+        }),
+      );
+    else if (g.type === "ellipse")
+      this.content.append(
+        el("ellipse", {
+          cx: g.cx,
+          cy: g.cy,
+          rx: g.rx,
+          ry: g.ry,
           fill: "none",
           stroke: color,
           "stroke-width": 0.4,

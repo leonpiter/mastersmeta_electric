@@ -72,6 +72,19 @@ export function symbolToSvg(sym: SymbolDef, opts: SymbolRenderOpts = {}): SVGGEl
           }),
         );
         break;
+      case "ellipse":
+        g.append(
+          el("ellipse", {
+            cx: prim.cx,
+            cy: prim.cy,
+            rx: prim.rx,
+            ry: prim.ry,
+            fill: "none",
+            stroke,
+            "stroke-width": sw,
+          }),
+        );
+        break;
       case "arc":
         g.append(
           el("path", {

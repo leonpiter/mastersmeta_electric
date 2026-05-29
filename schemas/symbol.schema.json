@@ -55,6 +55,7 @@
         { "$ref": "#/definitions/line" },
         { "$ref": "#/definitions/rect" },
         { "$ref": "#/definitions/circle" },
+        { "$ref": "#/definitions/ellipse" },
         { "$ref": "#/definitions/arc" },
         { "$ref": "#/definitions/text" }
       ]
@@ -92,6 +93,18 @@
         "cx": { "type": "number" },
         "cy": { "type": "number" },
         "r": { "type": "number" }
+      }
+    },
+    "ellipse": {
+      "type": "object",
+      "required": ["type", "cx", "cy", "rx", "ry"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "ellipse" },
+        "cx": { "type": "number" },
+        "cy": { "type": "number" },
+        "rx": { "type": "number" },
+        "ry": { "type": "number" }
       }
     },
     "arc": {
