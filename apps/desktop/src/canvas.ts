@@ -233,6 +233,8 @@ export class CanvasView {
     grabDX: number;
     grabDY: number;
   } | null = null;
+  /** Вращение инстанса ручкой (снап к 90°). */
+  private rotating: { inst: SymbolInstance; originRot: Rotation } | null = null;
 
   constructor(
     private readonly svg: SVGSVGElement,
@@ -1116,6 +1118,12 @@ export class CanvasView {
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
   }
 
+  /** Центр ручки вращения (над верхней серединой габарита выделенного инстанса). */
+  private rotateHandle(inst: SymbolInstance, sym: SymbolDef): Point {
+    const wb = this.worldBounds(inst, sym);
+    return { x: wb.x + wb.w / 2, y: wb.y - 5 };
+  }
+
   private renderInstances(): void {
     this.instancesG.replaceChildren();
     this.overlayG.replaceChildren();
@@ -1146,6 +1154,28 @@ export class CanvasView {
             stroke: "#1b6fc4",
             "stroke-width": 0.3,
             "stroke-dasharray": "1.5 1",
+          }),
+        );
+        // ручка вращения: стебель + кружок над габаритом (тянуть — снап к 90°)
+        const hcx = wb.x + wb.w / 2;
+        this.overlayG.append(
+          el("line", {
+            x1: hcx,
+            y1: wb.y - 1.5,
+            x2: hcx,
+            y2: wb.y - 5,
+            stroke: "#1b6fc4",
+            "stroke-width": 0.3,
+          }),
+        );
+        this.overlayG.append(
+          el("circle", {
+            cx: hcx,
+            cy: wb.y - 5,
+            r: 1.4,
+            fill: "#fff",
+            stroke: "#1b6fc4",
+            "stroke-width": 0.35,
           }),
         );
       }
@@ -1898,6 +1928,17 @@ export class CanvasView {
 
       // ЛКМ по символу/аннотации (вне вставки/провода/рисования) — выбрать и готовить перетаскивание
       if (!this.armed && !this.armedBlock && !this.wireMode && !this.drawTool && e.button === 0) {
+        // ручка вращения выделенного инстанса — приоритетнее тела
+        if (this.selected) {
+          const ssym = this.library.get(this.selected.symbolId);
+          if (ssym) {
+            const h = this.rotateHandle(this.selected, ssym);
+            if (Math.hypot(this.last.x - h.x, this.last.y - h.y) <= 2.2) {
+              this.rotating = { inst: this.selected, originRot: this.selected.rotation };
+              return;
+            }
+          }
+        }
         const hit = this.hitTest(this.last);
         // Shift+клик — мультивыделение для сборки блока (S27 Ф4), без перетаскивания
         if (hit && e.shiftKey) {
@@ -1947,7 +1988,15 @@ export class CanvasView {
         if (!this.down.moved && Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > 3) {
           this.down.moved = true;
         }
-        if (this.down.moved && this.dragging) {
+        if (this.down.moved && this.rotating) {
+          // вращение ручкой: угол от «вверх» по часовой, снап к 90°
+          const inst = this.rotating.inst;
+          const deg = (Math.atan2(this.last.x - inst.x, -(this.last.y - inst.y)) * 180) / Math.PI;
+          let snapped = (Math.round(deg / 90) * 90) % 360;
+          if (snapped < 0) snapped += 360;
+          inst.rotation = snapped as Rotation;
+          this.renderInstances();
+        } else if (this.down.moved && this.dragging) {
           // перетаскивание выбранного символа (с привязкой к сетке)
           const target = snapPoint(
             {
@@ -1986,6 +2035,22 @@ export class CanvasView {
     });
 
     svg.addEventListener("pointerup", () => {
+      // завершить вращение ручкой → команды поворота (на каждый шаг 90°)
+      if (this.rotating) {
+        const rt = this.rotating;
+        this.rotating = null;
+        const target = rt.inst.rotation;
+        if (this.down?.moved && target !== rt.originRot) {
+          rt.inst.rotation = rt.originRot; // откат: do() команд — источник истины
+          const steps = ((((target - rt.originRot) / 90) % 4) + 4) % 4;
+          const cmds: Command[] = [];
+          for (let i = 0; i < steps; i++) cmds.push(new RotateInstanceCommand(rt.inst));
+          if (cmds.length) this.stack.execute(cmds.length > 1 ? new MacroCommand(cmds) : cmds[0]);
+        }
+        this.down = null;
+        return;
+      }
+
       // завершить перетаскивание → одна обратимая команда (от исходной точки к текущей)
       if (this.dragging) {
         const d = this.dragging;
