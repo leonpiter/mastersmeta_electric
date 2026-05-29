@@ -1480,9 +1480,10 @@ export class CanvasView {
   }
 
   /**
-   * Направляющие при установке УГО (S31): вертикальная ось симметрии/отражения по
-   * точке вставки + две линии по габариту символа (левая/правая границы с учётом
-   * поворота·зеркала). Тянутся на всю видимую высоту — для выравнивания с другими УГО.
+   * Направляющие при установке УГО (S31): сплошная ось симметрии/отражения по точке
+   * вставки + пунктирные линии габарита символа (левая/правая и верхняя/нижняя границы
+   * с учётом поворота·зеркала). Тянутся на всю видимую область — для выравнивания с
+   * другими УГО и по вертикали, и по горизонтали.
    */
   private appendPlacementGuides(p: Point, sym: SymbolDef): void {
     const b = symbolBounds(sym);
@@ -1494,19 +1495,29 @@ export class CanvasView {
     ];
     let left = Infinity;
     let right = -Infinity;
+    let top = Infinity;
+    let bot = -Infinity;
     for (const c of corners) {
       const t = transformLocalPoint(c, this.pendingRotation, this.pendingMirror);
       const wx = p.x + t.x;
+      const wy = p.y + t.y;
       if (wx < left) left = wx;
       if (wx > right) right = wx;
+      if (wy < top) top = wy;
+      if (wy > bot) bot = wy;
     }
     const r = this.svg.getBoundingClientRect();
     const yTop = this.screenToWorld(0, 0).y;
     const yBot = this.screenToWorld(0, r.height).y;
+    const xLeft = this.screenToWorld(0, 0).x;
+    const xRight = this.screenToWorld(r.width, 0).x;
     const vline = (x: number, attrs: Record<string, string | number>): void => {
       this.ghostG.append(el("line", { x1: x, y1: yTop, x2: x, y2: yBot, ...attrs }));
     };
-    // габарит — левая/правая границы (пунктир)
+    const hline = (y: number, attrs: Record<string, string | number>): void => {
+      this.ghostG.append(el("line", { x1: xLeft, y1: y, x2: xRight, y2: y, ...attrs }));
+    };
+    // габарит — пунктир по границам (лево/право и верх/низ)
     const edge = {
       stroke: "#e03131",
       "stroke-width": 0.25,
@@ -1516,6 +1527,10 @@ export class CanvasView {
     if (Number.isFinite(left) && right - left > 0.01) {
       vline(left, edge);
       vline(right, edge);
+    }
+    if (Number.isFinite(top) && bot - top > 0.01) {
+      hline(top, edge);
+      hline(bot, edge);
     }
     // ось симметрии/отражения по точке вставки (сплошная)
     vline(p.x, { stroke: "#e03131", "stroke-width": 0.3, opacity: 0.9 });
