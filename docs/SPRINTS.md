@@ -13,7 +13,7 @@
 | [S12 🚧](sprints/S12-open-formats-packs.md) | [S13](sprints/S13-community-registry.md) | [S14](sprints/S14-core-api.md) | [S15](sprints/S15-skills.md) |
 | [S16](sprints/S16-dsl-autolayout.md) | [S17](sprints/S17-web-pwa.md) | [S18](sprints/S18-backend-multitenant.md) | [S19](sprints/S19-realtime-collab.md) |
 | [S23](sprints/S23-ai-first-mode.md) | [S24](sprints/S24-element-editor-footprint.md) | [S25 ✅](sprints/archive/S25-graphics-annotations.md) | [S26 🚧](sprints/S26-workspace-multi-project.md) |
-| [S27 ✅](sprints/archive/S27-ugo-editor-complex.md) | [S28 ✅](sprints/archive/S28-ugo-editor-pro.md) | [S29 ✅](sprints/archive/S29-wire-crossref.md) | |
+| [S27 ✅](sprints/archive/S27-ugo-editor-complex.md) | [S28 ✅](sprints/archive/S28-ugo-editor-pro.md) | [S29 ✅](sprints/archive/S29-wire-crossref.md) | [S30 🚧](sprints/S30-library-folder.md) |
 
 **Сквозные (инфраструктура, вне вех A–G):**
 - [S20 — гейт качества](sprints/archive/S20-infra-quality-gate.md) ✅ — ESLint/Prettier, `pnpm verify`, pre-push git-хук, `.claude` allowlist, README/LICENSE (MIT).
