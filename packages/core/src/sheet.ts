@@ -83,6 +83,46 @@ export function zoneOf(format: SheetFormat, p: { x: number; y: number }): string
 export const TITLE_BLOCK_SIZE = { width: 185, height: 55 } as const;
 
 /**
+ * Размерная сетка Формы 1 как данные (мм) — рендер рисует из неё, не из хардкода.
+ * Слева блок ролей (65), центр (95: обозначение/наименование/организация), справа (25).
+ */
+export const TITLE_BLOCK_FORM1 = {
+  rowH: 11, // высота строки роли
+  roleRows: 5, // число строк ролей
+  leftLabelW: 25, // «Разраб.» …
+  leftNameW: 20, // ФИО
+  leftSignW: 10, // подпись
+  leftDateW: 10, // дата
+  leftW: 65,
+  centerX: 65,
+  centerW: 95,
+  designH: 16, // обозначение (верх центра)
+  titleH: 28, // наименование (середина)
+  companyH: 11, // организация (низ)
+  rightX: 160,
+  rightW: 25,
+  rightCellH: 8, // масштаб/масса/лит.
+  rightSheetH: 15.5, // лист/листов
+} as const;
+
+/** Роль в основной надписи (настраиваемый список «должность → ФИО»). */
+export interface TitleRole {
+  /** Подпись роли, напр. «Разраб.». */
+  role: string;
+  /** ФИО исполнителя. */
+  name: string;
+}
+
+/** Производственные роли ГОСТ 2.104 по умолчанию. */
+export const DEFAULT_TITLE_ROLES: readonly string[] = [
+  "Разраб.",
+  "Пров.",
+  "Т.контр.",
+  "Н.контр.",
+  "Утв.",
+];
+
+/**
  * Поля основной надписи (ГОСТ 2.104, Форма 1) — шаблонные, заполняются из проекта.
  * Номера граф указаны в комментариях.
  */
@@ -95,8 +135,19 @@ export interface TitleBlock {
   scale: string; // графа 6 — масштаб
   sheet: number; // графа 7 — лист
   sheetsTotal: number; // графа 8 — листов
-  developer: string; // «Разраб.»
-  checker: string; // «Пров.»
+  developer: string; // «Разраб.» (back-compat; см. roles)
+  checker: string; // «Пров.» (back-compat; см. roles)
+  /** Настраиваемые роли (должность → ФИО). Если пусто — берутся из developer/checker. */
+  roles?: TitleRole[];
+}
+
+/** Роли надписи для рендера: список из `roles`, иначе из дефолта + developer/checker. */
+export function titleRoles(tb: TitleBlock): TitleRole[] {
+  if (tb.roles && tb.roles.length > 0) return tb.roles;
+  return DEFAULT_TITLE_ROLES.map((role, i) => ({
+    role,
+    name: i === 0 ? tb.developer : i === 1 ? tb.checker : "",
+  }));
 }
 
 export function defaultTitleBlock(): TitleBlock {
@@ -111,5 +162,6 @@ export function defaultTitleBlock(): TitleBlock {
     sheetsTotal: 1,
     developer: "",
     checker: "",
+    roles: DEFAULT_TITLE_ROLES.map((role) => ({ role, name: "" })),
   };
 }

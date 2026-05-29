@@ -9,6 +9,8 @@ import {
   frameRect,
   zoneGrid,
   TITLE_BLOCK_SIZE,
+  TITLE_BLOCK_FORM1,
+  titleRoles,
   symbolBounds,
   transformLocalPoint,
   AddSymbolInstanceCommand,
@@ -743,40 +745,45 @@ export class CanvasView {
 
     box(0, 0, W, H, true);
 
-    const roles = ["Разраб.", "Пров.", "Т.контр.", "Н.контр.", "Утв."];
-    const names = [tb.developer, tb.checker, "", "", ""];
-    for (let r = 0; r < 5; r++) {
-      const y = r * 11;
-      box(0, y, 25, 11);
-      box(25, y, 20, 11);
-      box(45, y, 10, 11);
-      box(55, y, 10, 11);
-      lab(0, y, roles[r]);
-      val(25, y, 20, 11, names[r], 2.6);
+    const F = TITLE_BLOCK_FORM1;
+    const roles = titleRoles(tb);
+    for (let r = 0; r < F.roleRows; r++) {
+      const y = r * F.rowH;
+      box(0, y, F.leftLabelW, F.rowH);
+      box(F.leftLabelW, y, F.leftNameW, F.rowH);
+      box(F.leftLabelW + F.leftNameW, y, F.leftSignW, F.rowH);
+      box(F.leftLabelW + F.leftNameW + F.leftSignW, y, F.leftDateW, F.rowH);
+      lab(0, y, roles[r]?.role ?? "");
+      val(F.leftLabelW, y, F.leftNameW, F.rowH, roles[r]?.name ?? "", 2.6);
     }
 
-    box(65, 0, 95, 16);
-    val(65, 0, 95, 16, tb.designation, 3.6, true);
-    box(65, 16, 95, 28);
-    val(65, 16, 95, 28, tb.title, 4.2);
-    box(65, 44, 95, 11);
-    val(65, 44, 95, 11, tb.company, 3);
+    const cx = F.centerX;
+    const cw = F.centerW;
+    box(cx, 0, cw, F.designH);
+    val(cx, 0, cw, F.designH, tb.designation, 3.6, true);
+    box(cx, F.designH, cw, F.titleH);
+    val(cx, F.designH, cw, F.titleH, tb.title, 4.2);
+    box(cx, F.designH + F.titleH, cw, F.companyH);
+    val(cx, F.designH + F.titleH, cw, F.companyH, tb.company, 3);
 
-    box(160, 0, 25, 8);
-    lab(160, 0, "Масштаб");
-    val(160, 2.5, 25, 5.5, tb.scale, 3);
-    box(160, 8, 25, 8);
-    lab(160, 8, "Масса");
-    val(160, 10.5, 25, 5.5, tb.mass, 3);
-    box(160, 16, 25, 8);
-    lab(160, 16, "Лит.");
-    val(160, 18.5, 25, 5.5, tb.letter, 3);
-    box(160, 24, 25, 15.5);
-    lab(160, 24, "Лист");
-    val(160, 28, 25, 11, String(tb.sheet), 3.5);
-    box(160, 39.5, 25, 15.5);
-    lab(160, 39.5, "Листов");
-    val(160, 44, 25, 11, String(tb.sheetsTotal), 3.5);
+    const rx = F.rightX;
+    const rw = F.rightW;
+    const ch = F.rightCellH;
+    box(rx, 0, rw, ch);
+    lab(rx, 0, "Масштаб");
+    val(rx, 2.5, rw, 5.5, tb.scale, 3);
+    box(rx, ch, rw, ch);
+    lab(rx, ch, "Масса");
+    val(rx, ch + 2.5, rw, 5.5, tb.mass, 3);
+    box(rx, ch * 2, rw, ch);
+    lab(rx, ch * 2, "Лит.");
+    val(rx, ch * 2 + 2.5, rw, 5.5, tb.letter, 3);
+    box(rx, ch * 3, rw, F.rightSheetH);
+    lab(rx, ch * 3, "Лист");
+    val(rx, ch * 3 + 4, rw, 11, String(tb.sheet), 3.5);
+    box(rx, ch * 3 + F.rightSheetH, rw, F.rightSheetH);
+    lab(rx, ch * 3 + F.rightSheetH, "Листов");
+    val(rx, ch * 3 + F.rightSheetH + 4, rw, 11, String(tb.sheetsTotal), 3.5);
   }
 
   private renderNodes(): void {

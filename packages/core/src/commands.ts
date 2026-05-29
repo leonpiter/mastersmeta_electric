@@ -14,6 +14,7 @@ import {
   type Wire,
 } from "./model";
 import { type Rotation, type SymbolDef, type SymbolLibrary, nextDesignation } from "./symbol";
+import type { TitleBlock } from "./sheet";
 import { computeNets, computeProjectNets } from "./connectivity";
 
 /** Поставить узел на листе (координаты уже привязаны к сетке вызывающим кодом). */
@@ -330,6 +331,29 @@ export class SetPageTitleCommand implements Command {
 
   undo(): void {
     this.page.titleBlock.title = this.before;
+  }
+}
+
+/** Редактирование полей основной надписи (ГОСТ 2.104) — обратимо (S32). */
+export class SetTitleBlockCommand implements Command {
+  readonly type = "set-title-block";
+  private readonly before: Partial<TitleBlock> = {};
+
+  constructor(
+    private readonly page: Page,
+    private readonly patch: Partial<TitleBlock>,
+  ) {
+    for (const k of Object.keys(patch) as (keyof TitleBlock)[]) {
+      this.before[k] = page.titleBlock[k] as never;
+    }
+  }
+
+  do(): void {
+    Object.assign(this.page.titleBlock, this.patch);
+  }
+
+  undo(): void {
+    Object.assign(this.page.titleBlock, this.before);
   }
 }
 

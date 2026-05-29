@@ -10,6 +10,8 @@ import {
   AddPageCommand,
   RemovePageCommand,
   SetPageTitleCommand,
+  SetTitleBlockCommand,
+  titleRoles,
   serializeProject,
   deserializeProject,
   computeDevices,
@@ -430,6 +432,7 @@ function closePageTab(page: Page): void {
 
 /** Добавить проект в рабочее пространство и переключиться на него. */
 function addProject(p: Project): void {
+  syncSheetNumbers(p); // Лист/Листов по числу листов (S32 Ф3)
   projects.push(p);
   activatePage(activePage(p));
 }
@@ -475,9 +478,18 @@ function closeProject(p: Project): void {
   }
 }
 
+/** Авто-нумерация Лист/Листов по числу листов проекта (S32 Ф3). */
+function syncSheetNumbers(p: Project): void {
+  p.pages.forEach((pg, i) => {
+    pg.titleBlock.sheet = i + 1;
+    pg.titleBlock.sheetsTotal = p.pages.length;
+  });
+}
+
 // синхронизация после команд (add/remove листа, undo/redo): починить вкладки и вид
 stack.subscribe(() => {
   dirty = true; // любое действие (вкл. undo/redo) — есть что сохранять
+  projects.forEach(syncSheetNumbers); // Лист/Листов всегда актуальны
   openPages = openPages.filter((pg) => projects.some((p) => p.pages.includes(pg)));
   if (projects.length === 0) {
     // workspace опустел (напр. undo создания проекта) — вернуться к blank-листу
@@ -556,6 +568,75 @@ snDialog.addEventListener("close", () => {
     stack.execute(new SetPageTitleCommand(page, snInput.value.trim()));
     view.refreshSheet(); // обновить штамп активного листа
   }
+});
+
+// ----- основная надпись (ГОСТ 2.104) — редактирование всех полей (S32) -----
+const tbDialog = document.getElementById("title-block-dialog") as HTMLDialogElement;
+const tbf = {
+  designation: document.getElementById("tbf-designation") as HTMLInputElement,
+  title: document.getElementById("tbf-title") as HTMLInputElement,
+  company: document.getElementById("tbf-company") as HTMLInputElement,
+  letter: document.getElementById("tbf-letter") as HTMLInputElement,
+  mass: document.getElementById("tbf-mass") as HTMLInputElement,
+  scale: document.getElementById("tbf-scale") as HTMLInputElement,
+};
+const tbRolesBox = document.getElementById("tbf-roles")!;
+let tbTarget: Page | null = null;
+let tbRoleInputs: HTMLInputElement[] = [];
+
+function openTitleBlock(page: Page): void {
+  tbTarget = page;
+  const tb = page.titleBlock;
+  tbf.designation.value = tb.designation;
+  tbf.title.value = tb.title;
+  tbf.company.value = tb.company;
+  tbf.letter.value = tb.letter;
+  tbf.mass.value = tb.mass;
+  tbf.scale.value = tb.scale;
+  tbRolesBox.replaceChildren();
+  tbRoleInputs = titleRoles(tb).map((r) => {
+    const row = document.createElement("div");
+    row.className = "prop-row";
+    const label = document.createElement("label");
+    label.textContent = r.role;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.autocomplete = "off";
+    input.value = r.name;
+    row.append(label, input);
+    tbRolesBox.append(row);
+    return input;
+  });
+  tbDialog.showModal();
+}
+
+(document.getElementById("tbf-cancel") as HTMLButtonElement).addEventListener("click", () =>
+  tbDialog.close(),
+);
+tbDialog.addEventListener("close", () => {
+  const page = tbTarget;
+  tbTarget = null;
+  if (tbDialog.returnValue !== "ok" || !page) return;
+  const roles = titleRoles(page.titleBlock).map((r, i) => ({
+    role: r.role,
+    name: tbRoleInputs[i]?.value.trim() ?? "",
+  }));
+  stack.execute(
+    new SetTitleBlockCommand(page, {
+      designation: tbf.designation.value.trim(),
+      title: tbf.title.value.trim(),
+      company: tbf.company.value.trim(),
+      letter: tbf.letter.value.trim(),
+      mass: tbf.mass.value.trim(),
+      scale: tbf.scale.value.trim(),
+      roles,
+    }),
+  );
+  view.refreshSheet();
+});
+(document.getElementById("title-block") as HTMLButtonElement).addEventListener("click", () => {
+  closeMenus();
+  openTitleBlock(activePageObj);
 });
 
 // ----- свойства провода (двойной клик по проводу) -----
@@ -1713,6 +1794,7 @@ const MENU_SPECS: Record<string, MenuEntry[]> = {
   ],
   schema: [
     { label: "Устройства", target: "devices" },
+    { label: "Основная надпись…", target: "title-block" },
     "sep",
     { label: "Перечень аппаратуры", target: "report-bom" },
     { label: "Таблица соединений", target: "report-conn" },

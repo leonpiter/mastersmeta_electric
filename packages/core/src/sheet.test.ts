@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { FORMATS, frameRect, zoneGrid, zoneOf, TITLE_BLOCK_SIZE } from "./sheet";
+import {
+  FORMATS,
+  frameRect,
+  zoneGrid,
+  zoneOf,
+  TITLE_BLOCK_SIZE,
+  defaultTitleBlock,
+  titleRoles,
+} from "./sheet";
+import { createPage } from "./model";
+import { SetTitleBlockCommand } from "./commands";
 
 describe("рамка (ГОСТ 2.301)", () => {
   it("A3: поля 20/5/5/5", () => {
@@ -37,5 +47,31 @@ describe("зона точки (zoneOf)", () => {
 describe("основная надпись", () => {
   it("Форма 1 = 185×55", () => {
     expect(TITLE_BLOCK_SIZE).toEqual({ width: 185, height: 55 });
+  });
+
+  it("дефолтные роли — производственные ГОСТ 2.104", () => {
+    const roles = titleRoles(defaultTitleBlock());
+    expect(roles.map((r) => r.role)).toEqual(["Разраб.", "Пров.", "Т.контр.", "Н.контр.", "Утв."]);
+  });
+
+  it("titleRoles: фолбэк из developer/checker, если roles пуст", () => {
+    const tb = defaultTitleBlock();
+    tb.roles = undefined;
+    tb.developer = "Иванов";
+    tb.checker = "Петров";
+    const roles = titleRoles(tb);
+    expect(roles[0]).toEqual({ role: "Разраб.", name: "Иванов" });
+    expect(roles[1]).toEqual({ role: "Пров.", name: "Петров" });
+  });
+
+  it("SetTitleBlockCommand: применяет патч и откатывается", () => {
+    const page = createPage();
+    const cmd = new SetTitleBlockCommand(page, { title: "Щит ЩО-1", letter: "У" });
+    cmd.do();
+    expect(page.titleBlock.title).toBe("Щит ЩО-1");
+    expect(page.titleBlock.letter).toBe("У");
+    cmd.undo();
+    expect(page.titleBlock.title).toBe("");
+    expect(page.titleBlock.letter).toBe("");
   });
 });

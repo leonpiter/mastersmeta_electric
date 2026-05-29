@@ -196,6 +196,18 @@
           </div>
           <div class="rgroup">
             <div class="rgroup-tools">
+              <button id="title-block" type="button" title="Основная надпись (ГОСТ 2.104)">
+                <svg class="ic" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="9" width="12" height="5" />
+                  <path d="M2 11.5H14M6 9v5M10 9v5" />
+                </svg>
+                <span>Штамп</span>
+              </button>
+            </div>
+            <div class="rgroup-cap">Лист</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-tools">
               <button
                 id="report-bom"
                 type="button"
@@ -928,6 +940,38 @@
         <p class="dialog-hint">Тема оформления и вид курсора появятся в следующих версиях.</p>
         <div class="prop-actions">
           <button value="ok" type="submit">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="title-block-dialog">
+      <form method="dialog" class="modal-form">
+        <h3>Основная надпись (ГОСТ 2.104)</h3>
+        <div class="prop-row">
+          <label for="tbf-designation">Обозначение</label>
+          <input id="tbf-designation" type="text" autocomplete="off" />
+        </div>
+        <div class="prop-row">
+          <label for="tbf-title">Наименование</label>
+          <input id="tbf-title" type="text" autocomplete="off" />
+        </div>
+        <div class="prop-row">
+          <label for="tbf-company">Организация</label>
+          <input id="tbf-company" type="text" autocomplete="off" />
+        </div>
+        <div class="prop-row tb-three">
+          <label>Лит. / Масса / Масштаб</label>
+          <input id="tbf-letter" type="text" autocomplete="off" placeholder="Лит." />
+          <input id="tbf-mass" type="text" autocomplete="off" placeholder="Масса" />
+          <input id="tbf-scale" type="text" autocomplete="off" placeholder="Масштаб" />
+        </div>
+        <div id="tbf-roles"></div>
+        <p class="dialog-hint">
+          Лист / Листов проставляются автоматически по числу листов проекта.
+        </p>
+        <div class="prop-actions">
+          <button type="button" id="tbf-cancel" class="btn-secondary">Отмена</button>
+          <button value="ok" type="submit">OK</button>
         </div>
       </form>
     </dialog>

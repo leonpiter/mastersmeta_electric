@@ -1383,6 +1383,16 @@ body.editing-symbol #canvas {
   font-weight: 600;
 }
 
+/* ---- диалог основной надписи (S32) ---- */
+.tb-three {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tb-three input {
+  width: 5em;
+}
+
 /* ---- справочник буквенных кодов (S31) ---- */
 .codes-form {
   width: 740px;
